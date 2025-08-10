@@ -1,0 +1,25 @@
+import React from "react";
+import './Sidebar.css'
+
+const Sidebar = () => {
+  const groups = Array.from({ length: 20 }, (_, i) => `SY${String(i + 1).padStart(3, "0")}`);
+
+  return (
+    <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-r from-[#975BFF] to-[#7B74EF] p-4 rounded-lg shadow-lg flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden lg:mb-4 mb-4">
+      <h2 className="text-white text-lg font-semibold mb-4 border-b border-white/30 pb-2">Assigned Group</h2>
+
+      <div className="flex lg:flex-col gap-3 lg:gap-0 lg:space-y-3 pr-1 overflow-y-auto">
+        {groups.map((group, idx) => (
+          <button
+            key={idx}
+            className="w-full text-left bg-white/10 text-white py-3 px-4 rounded-lg font-medium text-base hover:bg-white/20 transition"
+          >
+            {group}
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+};
+
+export default Sidebar;
