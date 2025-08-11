@@ -1,92 +1,144 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import LoginHeader from "../../Components/Common/LoginHeader";
+import "../../Components/External/Sidebar.css";
 
 const Login = () => {
-    return (
-        <div className="font-[Poppins] bg-white min-h-screen">
-            {/* Fixed Header */}
-            <div className="fixed top-0 left-0 w-full z-10 bg-white shadow">
-                <LoginHeader />
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!role) {
+      alert("Please select a role to log in.");
+      return;
+    }
+
+    let apiUrl = "";
+    let payload = {};
+
+    if (role === "Admin") {
+      apiUrl = "http://localhost:5000/api/auth/login";
+      payload = { username, password, role }; // ✅ send role here
+    } else if (role === "External") {
+      apiUrl = "http://localhost:5000/api/external-auth/external/login";
+      payload = { external_id: username, password };
+    } else {
+      alert("Selected role is not supported for login.");
+      return;
+    }
+
+    try {
+      // 1️⃣ Login
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Login failed");
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", role);
+
+      // 2️⃣ If External, fetch groups
+      if (role === "External") {
+        const groupRes = await fetch("http://localhost:5000/api/external-auth/external/groups", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${data.token}` },
+        });
+
+        const groupData = await groupRes.json();
+        if (groupRes.ok) {
+          localStorage.setItem("groups", JSON.stringify(groupData.groups));
+        } else {
+          console.error("Failed to fetch groups", groupData);
+        }
+
+        navigate("/external-home");
+      }
+
+      if (role === "Admin") {
+        navigate("/admin-dashboard");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Server error");
+    }
+  };
+
+  return (
+    <div className="font-[Poppins] bg-white min-h-screen">
+      <div className="fixed top-0 left-0 w-full z-10 bg-white shadow">
+        <LoginHeader />
+      </div>
+
+      <main className="flex items-center justify-center min-h-screen bg-white pt-24">
+        <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md">
+          <div className="flex items-center justify-center mb-8 space-x-4">
+            <span className="material-icons text-gray-900" style={{ fontSize: 30 }}>
+              rate_review
+            </span>
+            <h1 style={{ fontSize: "32px" }} className="font-bold text-gray-900">
+              Review Panel
+            </h1>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-6">
+              <input
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200 text-gray-900 placeholder-gray-400"
+                placeholder={role === "External" ? "External ID" : "Email"}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
             </div>
 
-            {/* Main Content */}
-            <main className="flex items-center justify-center min-h-screen bg-white pt-24">
-                <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md">
-                    {/* Title */}
-                    <div className="flex items-center justify-center mb-8 space-x-4">
-                        <span
-                            className="material-icons text-gray-900"
-                            style={{ fontSize: 30 }}
-                        >
-                            rate_review
-                        </span>
-                        <h1
-                            style={{ fontSize: "32px" }}
-                            className="font-bold text-gray-900"
-                        >
-                            Review Panel
-                        </h1>
-                    </div>
+            <div className="mb-6">
+              <input
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200 text-gray-900 placeholder-gray-400"
+                placeholder="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
 
-                    {/* Form */}
-                    <form>
-                        {/* Username */}
-                        <div className="mb-6">
-                            <label className="sr-only" htmlFor="username">
-                                Username
-                            </label>
-                            <input
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200"
-                                id="username"
-                                name="username"
-                                placeholder="Username"
-                                type="text"
-                            />
-                        </div>
+            <div className="mb-8 relative">
+              <select
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200 text-gray-900"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                required
+              >
+                <option value="">Select Role</option>
+                <option value="Admin">Admin</option>
+                <option value="External">External</option>
+                <option value="Mentor" disabled>Mentor (Not available)</option>
+              </select>
+            </div>
 
-                        {/* Password */}
-                        <div className="mb-6">
-                            <label className="sr-only" htmlFor="password">
-                                Password
-                            </label>
-                            <input
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200"
-                                id="password"
-                                name="password"
-                                placeholder="Password"
-                                type="password"
-                            />
-                        </div>
-
-                        {/* Role Selection */}
-                        <div className="mb-8 relative">
-                            <label className="sr-only" htmlFor="select">
-                                Select
-                            </label>
-                            <select
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 transition duration-200"
-                                id="select"
-                                name="select"
-                            >
-                                <option>Select</option>
-                                <option>Mentor</option>
-                                <option>External</option>
-                                <option>Admin</option>
-                            </select>
-                        </div>
-
-                        {/* Submit Button */}
-                        <button
-                            className="w-full bg-gradient-to-r from-[#975BFF] to-[#7B74EF] text-white font-semibold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            type="submit"
-                        >
-                            Login
-                        </button>
-                    </form>
-                </div>
-            </main>
+            <button
+              className="w-full bg-gradient-to-r from-[#975BFF] to-[#7B74EF] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
+              type="submit"
+            >
+              Login
+            </button>
+          </form>
         </div>
-    );
+      </main>
+    </div>
+  );
 };
 
 export default Login;

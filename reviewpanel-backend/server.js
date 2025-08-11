@@ -1,62 +1,84 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-const supabase = require('./Model/supabase');
+// server.js
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import supabase from "./Model/supabase.js";
+
+// Route imports
+import apiRoutes from "./Route/connectioncheck.js";
+import evaluationRoutes from "./Route/evalution.js";
+import groupInfoRoutes from "./Route/groupinfo.js";
+import authRoutes from "./Route/authroutes.js";
+import assignExternalRoutes from './Route/assignExternalroute.js';
+import externalAuthRoute from './Route/externalAuthRoute.js';
+
+
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Import routes
-const apiRoutes = require('./Route/connectioncheck');
-const evaluationRoutes = require('./Route/evalution');  // Evaluation route
-const groupInfoRoutes = require('./Route/groupinfo');    // Group info route
+const TEST_TABLE = "pbl"; // Change this to an existing table
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api', apiRoutes);
-app.use('/api/evaluation', evaluationRoutes);
-app.use('/api/groupinfo', groupInfoRoutes);
+app.use("/api", apiRoutes);
+app.use("/api/evaluation", evaluationRoutes);
+app.use("/api/groupinfo", groupInfoRoutes);
+app.use("/api/auth", authRoutes);
+app.use('/api', assignExternalRoutes);
+app.use('/api/external-auth', externalAuthRoute);
 
 // Basic route
-app.get('/', (req, res) => {
-  res.json({ message: 'Review Panel Backend API is running!' });
+app.get("/", (req, res) => {
+  res.json({ message: "Review Panel Backend API is running!" });
 });
 
 // Health check route
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get("/health", (req, res) => {
+  res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
 // Database connection test route
-app.get('/db-test', async (req, res) => {
+app.get("/db-test", async (req, res) => {
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const { data, error } = await supabase
+      .from(TEST_TABLE)
+      .select("*")
+      .limit(1);
+
     if (error) throw error;
+
     res.json({
       success: true,
-      message: 'Database connected successfully!',
-      supabaseUrl: process.env.SUPABASE_URL
+      message: "Database connected successfully!",
+      sampleData: data,
+      supabaseUrl: process.env.SUPABASE_URL,
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// Test database connection at startup
+// Startup connection check
 const testConnection = async () => {
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const { error } = await supabase
+      .from(TEST_TABLE)
+      .select("*")
+      .limit(1);
     if (error) throw error;
-    console.log('✅ Database connected successfully!');
+    console.log("✅ Database connected successfully!");
   } catch (error) {
-    console.log('❌ Database connection failed:', error.message);
+    console.error("❌ Database connection failed:", error.message);
   }
 };
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server is running on port ${PORT}`);
   testConnection();
 });
