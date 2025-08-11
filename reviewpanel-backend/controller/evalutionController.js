@@ -1,11 +1,7 @@
-import express from "express";
-import supabase from '../Model/supabase.js';
-
-
-const router = express.Router();
+import supabase from "../Model/supabase.js";
 
 // Save or update evaluation
-router.post("/save-evaluation", async (req, res) => {
+export const saveEvaluation = async (req, res) => {
   try {
     const {
       group_id,
@@ -43,7 +39,7 @@ router.post("/save-evaluation", async (req, res) => {
             feedback
           }
         ],
-        { onConflict: "group_id,enrolment_no" } // composite key
+        { onConflict: "group_id,enrolment_no" }
       );
 
     if (error) throw error;
@@ -57,6 +53,22 @@ router.post("/save-evaluation", async (req, res) => {
     console.error("Error saving evaluation:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
-});
+};
 
-export default router;
+// Get students by group_id
+export const getStudentsByGroup = async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from("pbl")
+      .select("enrollement_no, name_of_student,guide_name")
+      .eq("group_id", groupId);
+
+    if (error) throw error;
+
+    res.json(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error("Error fetching students:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+};
