@@ -6,7 +6,7 @@ import supabase from "./Model/supabase.js";
 
 // Route imports
 import apiRoutes from "./Route/connectioncheck.js";
-import evaluationRoutes from "./Route/evalution.js";
+import evaluationRoutes from "./Route/evalutionRoute.js";
 import groupInfoRoutes from "./Route/groupinfo.js";
 import authRoutes from "./Route/authroutes.js";
 import assignExternalRoutes from './Route/assignExternalroute.js';

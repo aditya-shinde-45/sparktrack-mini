@@ -1,12 +1,12 @@
+// Sidebar.jsx
 import React, { useEffect, useState } from "react";
 import "./Sidebar.css";
 
-const Sidebar = () => {
+const Sidebar = ({ onGroupSelect }) => {
   const [groups, setGroups] = useState([]);
 
   useEffect(() => {
     const storedGroups = JSON.parse(localStorage.getItem("groups")) || [];
-    // ✅ Remove duplicates
     const uniqueGroups = [...new Set(storedGroups)];
     setGroups(uniqueGroups);
   }, []);
@@ -16,12 +16,12 @@ const Sidebar = () => {
       <h2 className="text-white text-lg font-semibold mb-4 border-b border-white/30 pb-2">
         Assigned Group
       </h2>
-
       <div className="flex lg:flex-col gap-3 lg:gap-0 lg:space-y-3 pr-1 overflow-y-auto">
         {groups.length > 0 ? (
           groups.map((group, idx) => (
             <button
               key={idx}
+              onClick={() => onGroupSelect(group)}
               className="w-full text-left bg-white/10 text-white py-3 px-4 rounded-lg font-medium text-base hover:bg-white/20 transition"
             >
               {group}
