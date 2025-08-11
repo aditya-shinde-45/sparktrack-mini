@@ -1,6 +1,8 @@
-const express = require("express");
+import express from "express";
+import supabase from '../Model/supabase.js';
+
+
 const router = express.Router();
-const supabase = require("../Model/supabase"); // Import your existing Supabase client
 
 // Save or update evaluation
 router.post("/save-evaluation", async (req, res) => {
@@ -46,11 +48,15 @@ router.post("/save-evaluation", async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true, message: "Evaluation saved successfully", data });
+    res.json({
+      success: true,
+      message: "Evaluation saved successfully",
+      data
+    });
   } catch (err) {
     console.error("Error saving evaluation:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-module.exports = router;
+export default router;
