@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE_URL = "https://sparktrack-mini.onrender.com/";
 
 const EvaluationForm = ({ groupId }) => {
   const [students, setStudents] = useState([]);
