@@ -1,13 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginHeader from "../../Components/Common/LoginHeader";
 import "../../Components/External/Sidebar.css";
+import { testAPI } from "../../utils/apiTest";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
+  const [apiStatus, setApiStatus] = useState("checking");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    testAPI()
+      .then(() => setApiStatus("connected"))
+      .catch(() => setApiStatus("failed"));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -89,6 +97,18 @@ const Login = () => {
             <h1 style={{ fontSize: "32px" }} className="font-bold text-gray-900">
               Review Panel
             </h1>
+          </div>
+          
+          {/* API Status Indicator */}
+          <div className="mb-4 text-center">
+            <span className={`text-sm px-3 py-1 rounded-full ${
+              apiStatus === 'connected' ? 'bg-green-100 text-green-800' :
+              apiStatus === 'failed' ? 'bg-red-100 text-red-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              API: {apiStatus === 'connected' ? '✅ Connected' : 
+                   apiStatus === 'failed' ? '❌ Failed' : '⏳ Checking...'}
+            </span>
           </div>
 
           <form onSubmit={handleSubmit}>
