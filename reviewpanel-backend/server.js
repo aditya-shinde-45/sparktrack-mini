@@ -22,10 +22,15 @@ const TEST_TABLE = "pbl"; // Change this to an existing table
 
 // Middleware
 app.use(cors({
-  origin: ['https://sparktrack-mini-lkij.vercel.app', 'http://localhost:3000'],
+  origin: ['https://sparktrack-mini-lkij.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 app.use(express.json());
+
+// Add preflight handling
+app.options('*', cors());
 
 // Routes
 app.use("/api", apiRoutes);
@@ -38,6 +43,11 @@ app.use('/api/external-auth', externalAuthRoute);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
+});
+
+// Simple test route
+app.get("/test", (req, res) => {
+  res.json({ success: true, message: "API is working!", timestamp: new Date().toISOString() });
 });
 
 // Health check route
