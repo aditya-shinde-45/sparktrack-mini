@@ -21,10 +21,10 @@ const Login = () => {
     let payload = {};
 
     if (role === "Admin") {
-      apiUrl = "http://localhost:5000/api/auth/login";
+      apiUrl = "https://sparktrack-mini.onrender.com/api/auth/login";
       payload = { username, password, role }; // ✅ send role here
     } else if (role === "External") {
-      apiUrl = "http://localhost:5000/api/external-auth/external/login";
+      apiUrl = "https://sparktrack-mini.onrender.com/api/external-auth/external/login";
       payload = { external_id: username, password };
     } else {
       alert("Selected role is not supported for login.");
@@ -50,7 +50,7 @@ const Login = () => {
 
       // 2️⃣ If External, fetch groups
       if (role === "External") {
-        const groupRes = await fetch("http://localhost:5000/api/external-auth/external/groups", {
+        const groupRes = await fetch("https://sparktrack-mini.onrender.com/api/external-auth/external/groups", {
           method: "GET",
           headers: { Authorization: `Bearer ${data.token}` },
         });

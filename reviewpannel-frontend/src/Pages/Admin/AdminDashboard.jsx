@@ -20,7 +20,7 @@ const AdminDashboard = () => {
     }
 
     // Validate token with backend
-    fetch("http://localhost:5000/api/auth/admin/dashboard", {
+    fetch("https://sparktrack-mini.onrender.com/api/auth/admin/dashboard", {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     })
