@@ -20,7 +20,7 @@ const TEST_TABLE = "pbl"; // Change this to an existing table
 
 // CORS configuration
 const allowedOrigins = [
-  "https://sparktrack-mini-lkij.vercel.app", // your frontend URL
+  "https://sparktrack-mini-3r93.vercel.app/", // your frontend URL
   "http://localhost:5173" // optional: for local dev
 ];
 
