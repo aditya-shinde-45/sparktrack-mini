@@ -3,9 +3,6 @@ import { saveEvaluation, getStudentsByGroup } from "../controller/evalutionContr
 
 const router = express.Router();
 
-// Save evaluation
-router.post("/save-evaluation", saveEvaluation);
-
 // Get students in a group
 router.get("/pbl/:groupId", getStudentsByGroup);
 
