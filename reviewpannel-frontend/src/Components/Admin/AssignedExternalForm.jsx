@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { apiRequest } from "../../api.js"; // central API request helper
 
 const AssignedExternalForm = () => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -95,7 +96,6 @@ const AssignedExternalForm = () => {
     setLoading(true);
     setError("");
 
-    // Prepare payload according to your backend schema
     const payload = {
       name: step1Data.name,
       contact: step1Data.contact,
@@ -110,22 +110,9 @@ const AssignedExternalForm = () => {
     };
 
     try {
-      const response = await fetch("https://sparktrack-mini.onrender.com/api/assign-external", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || "Failed to submit form");
-        setLoading(false);
-        return;
-      }
+      const data = await apiRequest("/api/assign-external", "POST", payload);
 
       alert("External assigned successfully!");
-      // Reset form and go to step 1
       setCurrentStep(1);
       setStep1Data({ name: "", contact: "", id: "", email: "" });
       setYear("");
@@ -136,7 +123,7 @@ const AssignedExternalForm = () => {
       setLyClassNo("");
       setReviewData({});
     } catch (err) {
-      setError("Server error, please try again later.");
+      setError(err.message || "Server error, please try again later.");
     }
     setLoading(false);
   };

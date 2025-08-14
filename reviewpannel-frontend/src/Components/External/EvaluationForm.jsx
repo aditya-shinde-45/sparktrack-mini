@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { apiRequest } from "../../api.js"; // Centralized API import
 
 const API_BASE_URL = "https://sparktrack-mini.onrender.com/";
 
@@ -19,12 +19,10 @@ const EvaluationForm = ({ groupId }) => {
   useEffect(() => {
     if (!groupId) return;
 
-    axios
-      .get(`${API_BASE_URL}/api/evaluation/pbl/${groupId}`)
-      .then((res) => {
-        const data = res.data || [];
-        const formatted = data.map((student) => ({
-          enrolment_no: student.enrollement_no,
+    apiRequest(`/api/evaluation/pbl/${groupId}`, "GET")
+      .then((data) => {
+        const formatted = (data || []).map((student) => ({
+          enrollement_no: student.enrollement_no, // <-- use double "l" here
           student_name: student.name_of_student,
           guide_name: student.guide_name,
           A: "",
@@ -45,32 +43,37 @@ const EvaluationForm = ({ groupId }) => {
       .catch((err) => console.error("Error fetching student data:", err));
   }, [groupId]);
 
+  // Ensure value is between 0 and 10, update total automatically
   const handleMarkChange = (index, field, value) => {
+    let val = value === "" ? "" : Math.max(0, Math.min(10, Number(value)));
     const updated = [...students];
-    updated[index][field] = value;
+    updated[index][field] = val;
     updated[index].total = ["A", "B", "C", "D", "E"]
-      .map((k) => Number(updated[index][k] || 0))
+      .map((k) => Number(updated[index][k]) || 0)
       .reduce((a, b) => a + b, 0);
     setStudents(updated);
   };
 
   const handleSubmit = async () => {
     try {
-      for (const student of students) {
-        await axios.post(`${API_BASE_URL}/api/save-evaluation`, {
-          group_id: groupId,
-          enrolment_no: student.enrolment_no,
+      const payload = {
+        group_id: groupId,
+        faculty_guide: facultyGuide,
+        feedback,
+        evaluations: students.map((student) => ({
+          enrollement_no: student.enrollement_no, // <-- must be present
           student_name: student.student_name,
           A: Number(student.A) || 0,
           B: Number(student.B) || 0,
           C: Number(student.C) || 0,
           D: Number(student.D) || 0,
           E: Number(student.E) || 0,
-          faculty_guide: facultyGuide,
-          feedback,
-          // Add signatures and recommendation if backend supports
-        });
-      }
+          total: Number(student.total) || 0,
+        })),
+      };
+
+      await apiRequest("/api/evaluation/save-evaluation", "POST", payload);
+
       alert("Evaluation submitted successfully!");
     } catch (err) {
       console.error("Error submitting evaluation:", err);
@@ -107,7 +110,7 @@ const EvaluationForm = ({ groupId }) => {
         <table className="w-full border border-gray-300 text-sm text-center min-w-[700px] rounded-lg overflow-hidden">
           <thead className="bg-gray-100 text-gray-900">
             <tr>
-              <th className="border border-gray-300 px-3 py-4">Enrolment No.</th>
+              <th className="border border-gray-300 px-3 py-4">Enrollment No.</th>
               <th className="border border-gray-300 px-3 py-4">Name of Students</th>
               {["A", "B", "C", "D", "E"].map((k) => (
                 <th key={k} className="border border-gray-300 px-2 py-4">
@@ -120,7 +123,7 @@ const EvaluationForm = ({ groupId }) => {
           <tbody>
             {students.map((student, i) => (
               <tr className="hover:bg-gray-50" key={i}>
-                <td className="border border-gray-300 px-3 py-4">{student.enrolment_no}</td>
+                <td className="border border-gray-300 px-3 py-4">{student.enrollement_no}</td>
                 <td className="border border-gray-300 px-3 py-4">{student.student_name}</td>
                 {["A", "B", "C", "D", "E"].map((key) => (
                   <td key={key} className="border border-gray-300 px-3 py-4">
@@ -128,7 +131,7 @@ const EvaluationForm = ({ groupId }) => {
                       type="number"
                       min="0"
                       max="10"
-                      value={student[key] || ""}
+                      value={student[key]}
                       onChange={(e) => handleMarkChange(i, key, e.target.value)}
                       className="w-14 border border-gray-300 rounded p-1 text-center text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />

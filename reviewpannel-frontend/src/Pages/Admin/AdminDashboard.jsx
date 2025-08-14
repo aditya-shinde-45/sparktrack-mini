@@ -6,38 +6,41 @@ import FilterSection from "../../Components/Admin/FilterSection";
 import StatsCards from "../../Components/Admin/StatsCards";
 import StudentTable from "../../Components/Admin/StudentTable";
 import Pagination from "../../Components/Admin/Pagination";
+import { apiRequest } from "../../api.js";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
 
-    // If no token, redirect to login
-    if (!token) {
-      navigate("/login");
+    if (!token || role !== "Admin") {
+      localStorage.clear();
+      navigate("/");
       return;
     }
 
-    // Validate token with backend
-    fetch("https://sparktrack-mini.onrender.com/api/auth/admin/dashboard", {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (res.status === 401 || res.status === 403) {
-          localStorage.removeItem("token");
-          navigate("/login");
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        navigate("/login");
-      });
+    const validateToken = async () => {
+      try {
+        await apiRequest(
+          "/api/auth/admin/dashboard", // relative path — handled by apiRequest
+          "GET",
+          null,
+          token
+        );
+      } catch (error) {
+        console.error("Token validation failed:", error);
+        localStorage.clear();
+        navigate("/");
+      }
+    };
+
+    validateToken();
   }, [navigate]);
 
   return (
-    <div className="font-sans bg-gray-50 flex flex-col min-h-screen">
+    <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <Header />
       <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
         <Sidebar />

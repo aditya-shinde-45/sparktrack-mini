@@ -10,6 +10,7 @@ import groupInfoRoutes from "./Route/groupinfo.js";
 import authRoutes from "./Route/authroutes.js";
 import assignExternalRoutes from './Route/assignExternalroute.js';
 import externalAuthRoute from './Route/externalAuthRoute.js';
+import sendevaluationRouter from './controller/sendevaluation.js';
 
 dotenv.config();
 
@@ -20,20 +21,20 @@ const TEST_TABLE = "pbl"; // Change this to an existing table
 // CORS configuration
 const allowedOrigins = [
   "https://sparktrack-mini-lkij.vercel.app", // your frontend URL
-  "http://localhost:3000" // optional: for local dev
+  "http://localhost:5173" // optional: for local dev
 ];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    // allow requests with no origin (like curl or Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+  origin: function(origin, callback){
+    // allow requests with no origin (like curl or postman)
+    if(!origin) return callback(null, true);
+    if(allowedOrigins.indexOf(origin) === -1){
+      const msg = The CORS policy for this site does not allow access from the specified Origin: ${origin};
       return callback(new Error(msg), false);
     }
     return callback(null, true);
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
 
@@ -44,9 +45,9 @@ app.use("/api", apiRoutes);
 app.use("/api/evaluation", evaluationRoutes);
 app.use("/api/groupinfo", groupInfoRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api", assignExternalRoutes);
-app.use("/api/external-auth", externalAuthRoute);
-
+app.use('/api', assignExternalRoutes);
+app.use('/api/external-auth', externalAuthRoute);
+app.use('/api/evaluation', sendevaluationRouter);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
@@ -94,6 +95,6 @@ const testConnection = async () => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(🚀 Server is running on port ${PORT});
   testConnection();
 });
