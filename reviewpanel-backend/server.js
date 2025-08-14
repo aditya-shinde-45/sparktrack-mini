@@ -10,7 +10,8 @@ import groupInfoRoutes from "./Route/groupinfo.js";
 import authRoutes from "./Route/authroutes.js";
 import assignExternalRoutes from './Route/assignExternalroute.js';
 import externalAuthRoute from './Route/externalAuthRoute.js';
-import sendevaluationRouter from './controller/sendevaluation.js';
+import mentor from './Route/mentorRoutes.js';
+import admin from './Route/adminRoute.js';
 
 dotenv.config();
 
@@ -20,17 +21,17 @@ const TEST_TABLE = "pbl"; // Change this to an existing table
 
 // CORS configuration
 const allowedOrigins = [
-  "https://sparktrack-mini-lkij.vercel.app", // your frontend URL
-  "http://localhost:5173" // optional: for local dev
+  "https://sparktrack-mini-lkij.vercel.app", // old frontend URL
+  "https://sparktrack-mini-3r93.vercel.app", // new frontend URL (add this!)
+  "http://localhost:5173" // local dev
 ];
 
 app.use(cors({
   origin: function(origin, callback){
-    // allow requests with no origin (like curl or postman)
     if(!origin) return callback(null, true);
     if(allowedOrigins.indexOf(origin) === -1){
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-      return callback(new Error(msg), false);
+      // Respond with CORS error, not server error
+      return callback(null, false);
     }
     return callback(null, true);
   },
@@ -47,7 +48,8 @@ app.use("/api/groupinfo", groupInfoRoutes);
 app.use("/api/auth", authRoutes);
 app.use('/api', assignExternalRoutes);
 app.use('/api/external-auth', externalAuthRoute);
-app.use('/api/evaluation', sendevaluationRouter);
+app.use('/api', mentor);
+app.use("/api/admin", admin);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });

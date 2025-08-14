@@ -1,8 +1,20 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import mitlogo from "../../assets/mitlogo.png"; // ✅ Import image
 
 
 const Header = ({ name, id }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("name");
+    localStorage.removeItem("groups");
+    // Add any other keys you store for user session
+    navigate("/");
+  };
+
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-gradient-to-r from-[#975BFF] to-[#7B74EF] p-4 rounded-b-lg text-white flex justify-between items-center shadow-lg">
       <div className="flex items-center gap-3">
@@ -16,12 +28,12 @@ const Header = ({ name, id }) => {
         </div>
         <div className="flex items-center">
           <span className="material-icons text-3xl mr-2">account_circle</span>
-          <a
+          <button
             className="bg-white text-purple-700 py-1.5 px-3 rounded-md font-semibold hover:bg-gray-100 text-sm transition"
-            href="#"
+            onClick={handleLogout}
           >
             Logout
-          </a>
+          </button>
         </div>
       </div>
     </header>

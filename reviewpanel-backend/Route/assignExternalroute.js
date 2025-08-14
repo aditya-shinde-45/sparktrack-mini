@@ -1,8 +1,10 @@
 import express from 'express';
 import { createAssignedExternal } from '../controller/assignexternalsContoller.js';
+import { verifyToken } from '../middleware/authmiddleware.js';
 
 const router = express.Router();
 
-router.post('/assign-external', createAssignedExternal);
+// Protect this route with JWT
+router.post('/assign-external', verifyToken, createAssignedExternal);
 
 export default router;
