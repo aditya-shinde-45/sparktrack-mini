@@ -46,5 +46,3 @@
 - **API Requests**: Axios
 
 ---
-
-## Project Structure
