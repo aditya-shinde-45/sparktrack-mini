@@ -1,4 +1,3 @@
-// controllers/adminController.js
 import supabase from '../Model/supabase.js';
 
 // ===== 1. Get all externals =====
@@ -6,7 +5,7 @@ export const getAllExternals = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('externals')
-      .select('external_id, password, name'); // include name if exists
+      .select('external_id, password, name');
 
     if (error) {
       console.error('Error fetching externals:', error);
@@ -30,7 +29,6 @@ export const updateExternal = async (req, res) => {
       return res.status(400).json({ message: 'External ID is required.' });
     }
 
-    // Build the update object dynamically
     const updateData = {};
     if (password) updateData.password = password;
     if (name) updateData.name = name;
@@ -43,7 +41,7 @@ export const updateExternal = async (req, res) => {
       .from('externals')
       .update(updateData)
       .eq('external_id', external_id)
-      .select(); // return updated row(s)
+      .select();
 
     if (error) {
       console.error('Error updating external:', error);
@@ -51,6 +49,36 @@ export const updateExternal = async (req, res) => {
     }
 
     res.json({ message: 'External updated successfully.', updated: data });
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ message: 'Server error occurred.' });
+  }
+};
+
+// ===== 3. Get PBL data (flattened) =====
+export const getPBLData = async (req, res) => {
+  try {
+    const classFilter = req.query.class?.toUpperCase(); // TY, SY, LY
+    console.log("Received class filter:", classFilter);
+
+    let query = supabase.from('pbl').select('*');
+
+    if (classFilter) {
+      console.log(`Filtering by class prefix: ${classFilter}`);
+      query = query.ilike('class', `${classFilter}-%`);
+    } else {
+      console.log("No class filter provided, fetching all data.");
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching PBL data:', error);
+      return res.status(500).json({ message: 'Error fetching PBL data.' });
+    }
+
+
+    res.json(data || []);
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ message: 'Server error occurred.' });
