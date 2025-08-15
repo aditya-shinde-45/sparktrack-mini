@@ -1,0 +1,30 @@
+:root {
+  --theme-color: #7A4FAD;
+}
+.bg-theme {
+  background-color: var(--theme-color);
+}
+.text-theme {
+  color: var(--theme-color);
+}
+.border-theme {
+  border-color: var(--theme-color);
+}
+.status-tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.status-on-track {
+  background-color: #E6F4EA;
+  color: #34A853;
+}
+.status-delayed {
+  background-color: #FCE8E6;
+  color: #EA4335;
+}
+.status-completed {
+  background-color: #E8F0FE;
+  color: #4285F4;
+}

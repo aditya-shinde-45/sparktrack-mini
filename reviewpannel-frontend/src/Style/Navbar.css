@@ -1,0 +1,15 @@
+.nav-item a{
+    color: #7A4FAD !important;
+    gap: 15px;
+}
+
+.loginbutton{
+    background-color: #7A4FAD !important;
+        color: white !important;
+
+    
+}
+
+.hemburger-button{
+    background-color: transparent !important;
+}

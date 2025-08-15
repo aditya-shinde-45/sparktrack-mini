@@ -1,0 +1,63 @@
+.custom-btn-primary {
+  background: #7A4FAD !important;
+  color: white !important;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  border: none;
+}
+
+.custom-btn-primary:hover {
+  background-color: #694499 !important;
+}
+
+.custom-toggle-container {
+  position: relative;
+  width: 200px;
+  height: 40px;
+  background-color: #e2e8f0;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.custom-toggle-slider {
+  position: absolute;
+  height: 100%;
+  width: 50%;
+  background-color: #7A4FAD;
+  border-radius: 20px;
+  transition: transform 0.3s ease;
+  transform: translateX(0);
+  z-index: 0;
+}
+
+.custom-toggle-container input:checked + .custom-toggle-slider {
+  transform: translateX(100%);
+}
+
+.custom-toggle-option {
+  flex: 1;
+  text-align: center;
+  z-index: 1;
+  color: #475569;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.custom-toggle-option.active {
+  color: white;
+}
+
+.custom-stat-card {
+  background-color: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  padding: 1rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
