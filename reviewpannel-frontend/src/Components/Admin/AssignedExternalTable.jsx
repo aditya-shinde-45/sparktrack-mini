@@ -6,6 +6,8 @@ const AssignedExternalTable = () => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({ password: "", name: "" });
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newExternal, setNewExternal] = useState({ external_id: "", password: "", name: "" });
 
   // Fetch all externals on component mount
   useEffect(() => {
@@ -41,6 +43,18 @@ const AssignedExternalTable = () => {
     }
   };
 
+  const handleAdd = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await apiRequest("/api/admin/externals", "POST", newExternal, token);
+      setExternals((prev) => [...prev, newExternal]);
+      setNewExternal({ external_id: "", password: "", name: "" });
+      setShowAddForm(false);
+    } catch (err) {
+      console.error("Error adding external:", err);
+    }
+  };
+
   const filteredExternals = externals.filter((ext) =>
     ext.external_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (ext.name && ext.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -62,7 +76,58 @@ const AssignedExternalTable = () => {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+        >
+          <span className="material-icons">add</span>
+          Add External
+        </button>
       </div>
+
+      {/* Add External Form */}
+      {showAddForm && (
+        <div className="mb-6 p-4 border border-gray-300 rounded-lg bg-gray-50">
+          <h3 className="text-lg font-semibold mb-4">Add New External</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <input
+              type="text"
+              placeholder="External ID"
+              value={newExternal.external_id}
+              onChange={(e) => setNewExternal(prev => ({ ...prev, external_id: e.target.value }))}
+              className="border px-3 py-2 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <input
+              type="text"
+              placeholder="Password"
+              value={newExternal.password}
+              onChange={(e) => setNewExternal(prev => ({ ...prev, password: e.target.value }))}
+              className="border px-3 py-2 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <input
+              type="text"
+              placeholder="Name"
+              value={newExternal.name}
+              onChange={(e) => setNewExternal(prev => ({ ...prev, name: e.target.value }))}
+              className="border px-3 py-2 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={handleAdd}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            >
+              Add
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto">

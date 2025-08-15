@@ -16,6 +16,8 @@ import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 
+// Test Pages
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -33,6 +35,8 @@ const AppRoutes = () => {
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/assign-external" element={<AssignExternal />} />
       <Route path="/view-marks" element={<ViewMarks />} />
+      
+      {/* Test Routes */}
     </Routes>
   );
 };

@@ -12,6 +12,7 @@ import assignExternalRoutes from './Route/assignExternalroute.js';
 import externalAuthRoute from './Route/externalAuthRoute.js';
 import mentor from './Route/mentorRoutes.js';
 import admin from './Route/adminRoute.js';
+import sihRoutes from './Route/sihRoutes.js';
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use('/api', assignExternalRoutes);
 app.use('/api/external-auth', externalAuthRoute);
 app.use('/api', mentor);
 app.use("/api/admin", admin);
+app.use('/api/sih', sihRoutes);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });

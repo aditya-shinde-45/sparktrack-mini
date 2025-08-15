@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import LoginHeader from "../../Components/Common/LoginHeader";
+import Navbar from "../../Components/Common/Navbar";
 import { apiRequest } from "../../api.js"; // Import helper
 import "../../Components/External/Sidebar.css";
 
@@ -77,7 +77,7 @@ const Login = () => {
   return (
     <div className="font-[Poppins] bg-white min-h-screen">
       <div className="fixed top-0 left-0 w-full z-10 bg-white shadow">
-        <LoginHeader />
+        <Navbar />
       </div>
       <main className="flex items-center justify-center min-h-screen bg-white pt-24">
         <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md">

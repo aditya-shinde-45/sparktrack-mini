@@ -125,7 +125,7 @@ const Download = () => {
           </section>
         </main>
       </div>
-      <Footbar />
+      <Footer />
     </>
   );
 };
