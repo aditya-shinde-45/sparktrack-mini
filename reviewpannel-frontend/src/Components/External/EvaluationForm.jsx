@@ -1,49 +1,51 @@
 import React, { useEffect, useState } from "react";
-import { apiRequest } from "../../api.js"; // Centralized API import
+import { apiRequest } from "../../api.js";
 
-const API_BASE_URL = "https://sparktrack-mini.onrender.com/";
-
-const EvaluationForm = ({ groupId }) => {
+const EvaluationForm = ({ groupId, role }) => {
   const [students, setStudents] = useState([]);
   const [facultyGuide, setFacultyGuide] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [signatures, setSignatures] = useState(["", ""]);
-  const [recommendation, setRecommendation] = useState({
-    CRIEYA: false,
-    COPYRIGHT: false,
-    PATENT: false,
-    AIC: false,
-    TECH_TRANSFER: false,
-  });
 
   useEffect(() => {
     if (!groupId) return;
+    const token = localStorage.getItem("token");
 
-    apiRequest(`/api/evaluation/pbl/${groupId}`, "GET")
+    let fetchUrl =
+      role === "Mentor"
+        ? `/api/mentor/students/${groupId}`
+        : `/api/evaluation/pbl/${groupId}`; // external fetch API
+
+    apiRequest(fetchUrl, "GET", null, token)
       .then((data) => {
         const formatted = (data || []).map((student) => ({
-          enrollement_no: student.enrollement_no, // <-- use double "l" here
+          enrollement_no: student.enrollement_no,
           student_name: student.name_of_student,
-          guide_name: student.guide_name,
-          A: "",
-          B: "",
-          C: "",
-          D: "",
-          E: "",
-          total: 0,
+          guide_name: student.guide_name || "",
+          A: role === "External" ? "" : student.A ?? "",
+          B: role === "External" ? "" : student.B ?? "",
+          C: role === "External" ? "" : student.C ?? "",
+          D: role === "External" ? "" : student.D ?? "",
+          E: role === "External" ? "" : student.E ?? "",
+          total:
+            role === "External"
+              ? 0
+              : student.total ??
+                ["A", "B", "C", "D", "E"]
+                  .map((k) => Number(student[k]) || 0)
+                  .reduce((a, b) => a + b, 0),
+          feedback: role === "External" ? "" : student.feedback ?? "",
         }));
 
         setStudents(formatted);
 
-        // Autofill faculty guide if available
         if (formatted.length > 0) {
           setFacultyGuide(formatted[0].guide_name || "");
+          setFeedback(role === "External" ? "" : formatted[0].feedback || "");
         }
       })
       .catch((err) => console.error("Error fetching student data:", err));
-  }, [groupId]);
+  }, [groupId, role]);
 
-  // Ensure value is between 0 and 10, update total automatically
   const handleMarkChange = (index, field, value) => {
     let val = value === "" ? "" : Math.max(0, Math.min(10, Number(value)));
     const updated = [...students];
@@ -56,12 +58,13 @@ const EvaluationForm = ({ groupId }) => {
 
   const handleSubmit = async () => {
     try {
+      const token = localStorage.getItem("token");
       const payload = {
         group_id: groupId,
         faculty_guide: facultyGuide,
         feedback,
         evaluations: students.map((student) => ({
-          enrollement_no: student.enrollement_no, // <-- must be present
+          enrolment_no: student.enrollement_no,
           student_name: student.student_name,
           A: Number(student.A) || 0,
           B: Number(student.B) || 0,
@@ -72,8 +75,12 @@ const EvaluationForm = ({ groupId }) => {
         })),
       };
 
-      await apiRequest("/api/evaluation/save-evaluation", "POST", payload);
+      let submitUrl =
+        role === "Mentor"
+          ? "/api/mentor/evaluation" // mentor update API
+          : "/api/evaluation/save-evaluation"; // external save API
 
+      await apiRequest(submitUrl, "POST", payload, token);
       alert("Evaluation submitted successfully!");
     } catch (err) {
       console.error("Error submitting evaluation:", err);
@@ -85,37 +92,25 @@ const EvaluationForm = ({ groupId }) => {
     <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-24 text-gray-900">
       {/* Rubrics */}
       <section>
-        <h2 className="font-bold text-lg mb-2 text-gray-900">Rubrics for Evaluation</h2>
-        <ul className="list-disc pl-5 text-sm leading-6 text-gray-800">
-          <li>
-            A. Problem Identification – Clarity in defining the design challenge <b>(10 Marks)</b>
-          </li>
-          <li>
-            B. Empathy Map – Understanding user needs, emotions, and perspectives <b>(10 Marks)</b>
-          </li>
-          <li>
-            C. Solution Creativity – Originality and innovation of design solution <b>(10 Marks)</b>
-          </li>
-          <li>
-            D. Solution Feasibility – Practicality and viability of proposed solutions <b>(10 Marks)</b>
-          </li>
-          <li>
-            E. Communication – Clarity in presenting the design concept <b>(10 Marks)</b>
-          </li>
+        <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>
+        <ul className="list-disc pl-5 text-sm leading-6">
+          <li>A. Problem Identification – Clarity in defining the design challenge <b>(10 Marks)</b></li>
+          <li>B. Empathy Map – Understanding user needs, emotions, and perspectives <b>(10 Marks)</b></li>
+          <li>C. Solution Creativity – Originality and innovation of design solution <b>(10 Marks)</b></li>
+          <li>D. Solution Feasibility – Practicality and viability of proposed solutions <b>(10 Marks)</b></li>
+          <li>E. Communication – Clarity in presenting the design concept <b>(10 Marks)</b></li>
         </ul>
       </section>
 
       {/* Marks Table */}
       <div className="overflow-x-auto">
-        <table className="w-full border border-gray-300 text-sm text-center min-w-[700px] rounded-lg overflow-hidden">
-          <thead className="bg-gray-100 text-gray-900">
+        <table className="w-full border border-gray-300 text-sm text-center min-w-[700px]">
+          <thead className="bg-gray-100">
             <tr>
               <th className="border border-gray-300 px-3 py-4">Enrollment No.</th>
               <th className="border border-gray-300 px-3 py-4">Name of Students</th>
               {["A", "B", "C", "D", "E"].map((k) => (
-                <th key={k} className="border border-gray-300 px-2 py-4">
-                  {k}
-                </th>
+                <th key={k} className="border border-gray-300 px-2 py-4">{k}</th>
               ))}
               <th className="border border-gray-300 px-3 py-4">Total Marks (50)</th>
             </tr>
@@ -133,7 +128,7 @@ const EvaluationForm = ({ groupId }) => {
                       max="10"
                       value={student[key]}
                       onChange={(e) => handleMarkChange(i, key, e.target.value)}
-                      className="w-14 border border-gray-300 rounded p-1 text-center text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="w-14 border border-gray-300 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </td>
                 ))}
@@ -145,26 +140,26 @@ const EvaluationForm = ({ groupId }) => {
       </div>
 
       {/* Faculty Guide */}
-      <div>
-        <label className="block font-semibold text-sm text-gray-900">Name of Faculty Guide:</label>
+     <div>
+        <label className="block font-semibold text-sm">Name of Faculty Guide:</label>
         <input
           type="text"
           value={facultyGuide}
-          onChange={(e) => setFacultyGuide(e.target.value)}
-          className="w-full border border-gray-300 p-2 mt-1 rounded text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          readOnly
+          className="w-full border border-gray-300 p-2 mt-1 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
         />
       </div>
 
+
       {/* Feedback */}
       <div>
-        <label className="block font-semibold text-sm text-gray-900">
-          Feedback by Evaluator{" "}
-          <span className="text-gray-500">(Feedback based Learning)</span>
+        <label className="block font-semibold text-sm">
+          Feedback by Evaluator <span className="text-gray-500">(Feedback based Learning)</span>
         </label>
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          className="w-full border border-gray-300 p-2 mt-1 rounded h-24 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          className="w-full border border-gray-300 p-2 mt-1 rounded h-24 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
       </div>
 
@@ -172,9 +167,9 @@ const EvaluationForm = ({ groupId }) => {
       <div className="text-center pt-4">
         <button
           onClick={handleSubmit}
-          className="bg-gradient-to-r from-purple-400 to-blue-400 text-white px-6 py-4 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
+          className="bg-gradient-to-r from-purple-400 to-blue-400 text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
         >
-          Submit
+          {role === "Mentor" ? "Update" : "Submit"}
         </button>
       </div>
     </main>

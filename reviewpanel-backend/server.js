@@ -10,7 +10,8 @@ import groupInfoRoutes from "./Route/groupinfo.js";
 import authRoutes from "./Route/authroutes.js";
 import assignExternalRoutes from './Route/assignExternalroute.js';
 import externalAuthRoute from './Route/externalAuthRoute.js';
-import sendevaluationRouter from './controller/sendevaluation.js';
+import mentor from './Route/mentorRoutes.js';
+import admin from './Route/adminRoute.js';
 
 dotenv.config();
 
@@ -19,29 +20,26 @@ const PORT = process.env.PORT || 5000;
 const TEST_TABLE = "pbl"; // Change this to an existing table
 
 // CORS configuration
+const allowedOrigins = [
+  "https://sparktrack-mini-lkij.vercel.app", // old frontend URL
+  "https://sparktrack-mini-3r93.vercel.app", // new frontend URL (add this!)
+  "http://localhost:5173" // local dev
+];
+
 app.use(cors({
-  origin: [
-    "https://sparktrack-mini-3r93.vercel.app",
-    "https://sparktrack-mini-lkij.vercel.app", 
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:5000"
-  ],
+  origin: function(origin, callback){
+    if(!origin) return callback(null, true);
+    if(allowedOrigins.indexOf(origin) === -1){
+      // Respond with CORS error, not server error
+      return callback(null, false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
 }));
 
-// Handle preflight requests
-app.options('*', cors());
-
 app.use(express.json());
-
-// Add request logging
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin')}`);
-  next();
-});
 
 // Routes
 app.use("/api", apiRoutes);
@@ -50,8 +48,8 @@ app.use("/api/groupinfo", groupInfoRoutes);
 app.use("/api/auth", authRoutes);
 app.use('/api', assignExternalRoutes);
 app.use('/api/external-auth', externalAuthRoute);
-app.use('/api/evaluation', sendevaluationRouter);
-
+app.use('/api', mentor);
+app.use("/api/admin", admin);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
@@ -97,20 +95,8 @@ const testConnection = async () => {
   }
 };
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('Global error:', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
-});
-
-// Catch-all for undefined routes
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found', path: req.originalUrl });
-});
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   testConnection();
 });

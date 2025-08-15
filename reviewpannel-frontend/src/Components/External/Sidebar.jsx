@@ -1,15 +1,27 @@
 // Sidebar.jsx
 import React, { useEffect, useState } from "react";
+import { apiRequest } from "../../api.js";
 import "./Sidebar.css";
 
-const Sidebar = ({ onGroupSelect }) => {
+const Sidebar = ({ onGroupSelect, role }) => {
   const [groups, setGroups] = useState([]);
 
   useEffect(() => {
-    const storedGroups = JSON.parse(localStorage.getItem("groups")) || [];
-    const uniqueGroups = [...new Set(storedGroups)];
-    setGroups(uniqueGroups);
-  }, []);
+    if (role === "Mentor") {
+      // Fetch mentor groups from API
+      const token = localStorage.getItem("token");
+      apiRequest("/api/mentor/groups", "GET", null, token)
+        .then((data) => {
+          setGroups(data.group_ids || []);
+        })
+        .catch(() => setGroups([]));
+    } else {
+      // External: use localStorage
+      const storedGroups = JSON.parse(localStorage.getItem("groups")) || [];
+      const uniqueGroups = [...new Set(storedGroups)];
+      setGroups(uniqueGroups);
+    }
+  }, [role]);
 
   return (
     <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-r from-[#975BFF] to-[#7B74EF] p-4 rounded-lg shadow-lg flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden lg:mb-4 mb-4">

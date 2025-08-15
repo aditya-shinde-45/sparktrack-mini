@@ -27,6 +27,9 @@ const Login = () => {
     } else if (role === "External") {
       endpoint = "/api/external-auth/external/login";
       payload = { external_id: username, password };
+    } else if (role === "Mentor") {
+      endpoint = "/api/mentor/login";
+      payload = { username, password };
     } else {
       alert("Selected role is not supported for login.");
       return;
@@ -37,7 +40,22 @@ const Login = () => {
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", role);
 
+      // For Mentor
+      if (role === "Mentor") {
+        localStorage.setItem("name", data.mentor_name);
+        const groupData = await apiRequest(
+          "/api/mentor/groups",
+          "GET",
+          null,
+          data.token
+        );
+        localStorage.setItem("groups", JSON.stringify(groupData.group_ids));
+        navigate("/external-home");
+      }
+
+      // For External
       if (role === "External") {
+        localStorage.setItem("name", data.user.name);
         const groupData = await apiRequest(
           "/api/external-auth/external/groups",
           "GET",
@@ -103,7 +121,7 @@ const Login = () => {
                 <option value="">Select Role</option>
                 <option value="Admin">Admin</option>
                 <option value="External">External</option>
-                <option value="Mentor" disabled>Mentor (Not available)</option>
+                <option value="Mentor">Mentor</option>
               </select>
             </div>
             <button

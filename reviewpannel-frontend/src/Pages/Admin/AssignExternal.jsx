@@ -17,7 +17,7 @@ const AssignExternal = () => {
 
         {/* Page Content */}
         <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6 mt-20">
-          <AssignedExternalForm />
+
           <AssignedExternalTable />
         </main>
       </div>
