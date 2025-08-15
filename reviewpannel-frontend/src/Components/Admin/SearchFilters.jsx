@@ -1,85 +1,45 @@
-import React, { useState } from "react";
+import React from "react";
+import { CSVLink } from "react-csv";
 
-const SearchFilters = () => {
-  const [year, setYear] = useState("");
-  const [search, setSearch] = useState("");
-  const [className, setClassName] = useState("");
+const SearchFilters = ({ filterClass, setFilterClass, searchQuery, setSearchQuery, setCurrentPage, students }) => {
 
-  // Example data for export — you can replace this with your actual filtered marks data
-  const exampleData = [
-    { name: "Aditya Shinde", year: "2024", class: "A", total: 48 },
-    { name: "Sneha Patil", year: "2024", class: "A", total: 47 },
-    { name: "Rohan Kulkarni", year: "2023", class: "B", total: 45 },
+  const headers = [
+    "group_id", "enrollement_no", "name_of_student", "class", "email_id", "contact",
+    "guide_name", "guide_contact", "A", "B", "C", "D", "E", "total", "feedback"
   ];
-
-  const handleExportCSV = () => {
-    if (!year) {
-      alert("Please select a year before exporting.");
-      return;
-    }
-
-    const filteredData = exampleData.filter((row) => row.year === year);
-
-    if (filteredData.length === 0) {
-      alert("No data found for selected year.");
-      return;
-    }
-
-    const csvRows = [];
-    const headers = Object.keys(filteredData[0]);
-    csvRows.push(headers.join(","));
-
-    filteredData.forEach((row) => {
-      csvRows.push(Object.values(row).join(","));
-    });
-
-    const csvString = csvRows.join("\n");
-    const blob = new Blob([csvString], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.setAttribute("hidden", "");
-    a.setAttribute("href", url);
-    a.setAttribute("download", `marks_${year}.csv`);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
 
   return (
     <div className="mb-6 flex flex-wrap gap-4">
       <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
-        placeholder="Search"
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          setCurrentPage(1);
+        }}
+        className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600 text-gray-900"
+        placeholder="Search by Group ID or Enrollment No"
         type="text"
       />
       <select
-        value={year}
-        onChange={(e) => setYear(e.target.value)}
-        className="w-full md:w-1/4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
+        value={filterClass}
+        onChange={(e) => setFilterClass(e.target.value)}
+        className="w-full md:w-1/4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600 text-gray-900"
       >
-        <option value="">Select Year</option>
-        <option value="2025">2025</option>
-        <option value="2024">2024</option>
-        <option value="2023">2023</option>
+        <option value="TY">Third Year (TY)</option>
+        <option value="SY">Second Year (SY)</option>
+        <option value="LY">Final Year (LY)</option>
       </select>
-      <select
-        value={className}
-        onChange={(e) => setClassName(e.target.value)}
-        className="w-full md:w-1/4 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
-      >
-        <option value="">Select Class</option>
-        <option value="A">A</option>
-        <option value="B">B</option>
-      </select>
-      <button
-        onClick={handleExportCSV}
+      <CSVLink
+        data={students}
+        headers={headers.map((h) => ({
+          label: h.replaceAll("_", " ").toUpperCase(),
+          key: h,
+        }))}
+        filename={`${filterClass}_Marks.csv`}
         className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
       >
         Export CSV
-      </button>
+      </CSVLink>
     </div>
   );
 };

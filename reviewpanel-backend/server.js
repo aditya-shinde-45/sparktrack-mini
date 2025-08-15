@@ -19,7 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const TEST_TABLE = "pbl"; // Change this to an existing table
 
-// CORS configuration
+// CORS configurationnn
 const allowedOrigins = [
   "https://sparktrack-mini-lkij.vercel.app", // old frontend URL
   "https://sparktrack-mini-3r93.vercel.app", // new frontend URL (add this!)
