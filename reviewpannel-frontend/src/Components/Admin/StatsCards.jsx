@@ -1,10 +1,10 @@
 import React from "react";
 
 const stats = [
-  { icon: "people", label: "Number of Students", value: 120 },
-  { icon: "groups", label: "Number Of Groups", value: 20 },
-  { icon: "support_agent", label: "Number Of Guides", value: 8 },
-  { icon: "assignment", label: "Number of Examiner Assigned", value: 5 },
+  { icon: "people", label: "Number of Students", value: 4185 },
+  { icon: "groups", label: "Number Of Groups", value: 1158 },
+  { icon: "support_agent", label: "Number Of Guides", value: 175 },
+  { icon: "assignment", label: "Number of Examiner Assigned", value: 66 },
 ];
 
 const StatsCards = () => {
