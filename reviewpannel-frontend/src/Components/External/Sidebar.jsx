@@ -1,10 +1,10 @@
 // Sidebar.jsx
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api.js";
-import "./Sidebar.css";
 
 const Sidebar = ({ onGroupSelect, role }) => {
   const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
 
   useEffect(() => {
     if (role === "Mentor") {
@@ -23,18 +23,29 @@ const Sidebar = ({ onGroupSelect, role }) => {
     }
   }, [role]);
 
+  // Handle button click
+  const handleSelectGroup = (group) => {
+    setSelectedGroup(group);
+    onGroupSelect(group);
+  };
+
   return (
-    <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-r from-[#975BFF] to-[#7B74EF] p-4 rounded-lg shadow-lg flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden lg:mb-4 mb-4">
+    <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
       <h2 className="text-white text-lg font-semibold mb-4 border-b border-white/30 pb-2">
         Assigned Group
       </h2>
-      <div className="flex lg:flex-col gap-3 lg:gap-0 lg:space-y-3 pr-1 overflow-y-auto">
+      <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
         {groups.length > 0 ? (
           groups.map((group, idx) => (
             <button
               key={idx}
-              onClick={() => onGroupSelect(group)}
-              className="w-full text-left bg-white/10 text-white py-3 px-4 rounded-lg font-medium text-base hover:bg-white/20 transition"
+              onClick={() => handleSelectGroup(group)}
+              className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out shadow-sm
+                ${
+                  group === selectedGroup
+                    ? "bg-white text-[#4C1D95] shadow-lg"
+                    : "bg-white/20 text-white hover:bg-white/30"
+                }`}
             >
               {group}
             </button>

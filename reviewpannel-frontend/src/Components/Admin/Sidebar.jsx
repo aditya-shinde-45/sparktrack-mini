@@ -5,8 +5,7 @@ import { LayoutDashboard, UserCheck, FileSpreadsheet, PlusSquare , Edit} from "l
 const routes = [
   { name: "Dashboard", path: "/admin-dashboard", icon: LayoutDashboard },
   { name: "Assigned External", path: "/assign-external", icon: UserCheck },
-  { name: "View Export Marks", path: "/view-marks", icon: FileSpreadsheet },
-  { name: "Add Group", path: "/add-group", icon: PlusSquare },
+  { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
   { name: "Edit Group", path: "/edit-group", icon: Edit },
 ];
 

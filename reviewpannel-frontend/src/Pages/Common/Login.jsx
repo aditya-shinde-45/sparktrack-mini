@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../Components/Common/Navbar";
 import { apiRequest } from "../../api.js"; // Import helper
-import "../../Components/External/Sidebar.css";
 
 const Login = () => {
   const [username, setUsername] = useState("");

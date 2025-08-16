@@ -3,7 +3,7 @@ import homebanner from '../../assets/homebanner.png';
 
 const HeroSection = () => {
   return (
-    <header className="hero-section bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-br-[80px] py-20 lg:py-24 px-6">
+    <header className="hero-section bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-br-[80px] py-20 lg:py-24 px-6" style={{fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between">
         <div className="lg:w-1/2 text-center lg:text-left">
           <p className="text-lg font-semibold uppercase tracking-wider mb-2">MIT ADT UNIVERSITY</p>
