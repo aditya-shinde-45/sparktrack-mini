@@ -15,6 +15,8 @@ import ExternalHome from '../Pages/External/ExternalHome';
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
+import AddGroup from '../Pages/Admin/addGroup';
+import EditGroup from '../Pages/Admin/editGroup'; // Assuming you have an EditGroup component
 
 // Test Pages
 
@@ -35,6 +37,8 @@ const AppRoutes = () => {
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/assign-external" element={<AssignExternal />} />
       <Route path="/view-marks" element={<ViewMarks />} />
+      <Route path="/add-group" element={<AddGroup />} />
+      <Route path="/edit-group" element={<EditGroup />} />
       
       {/* Test Routes */}
     </Routes>
