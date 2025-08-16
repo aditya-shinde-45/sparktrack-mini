@@ -4,6 +4,7 @@ import { apiRequest } from "../../api.js";
 const EvaluationForm = ({ groupId, role }) => {
   const [students, setStudents] = useState([]);
   const [facultyGuide, setFacultyGuide] = useState("");
+  const [externalName, setExternalName] = useState(""); // ✅ new state
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
@@ -21,6 +22,7 @@ const EvaluationForm = ({ groupId, role }) => {
           enrollement_no: student.enrollement_no,
           student_name: student.name_of_student,
           guide_name: student.guide_name || "",
+          external_name: student.external_name || "", // ✅ map external name
           A: role === "External" ? "" : student.A ?? "",
           B: role === "External" ? "" : student.B ?? "",
           C: role === "External" ? "" : student.C ?? "",
@@ -40,6 +42,7 @@ const EvaluationForm = ({ groupId, role }) => {
 
         if (formatted.length > 0) {
           setFacultyGuide(formatted[0].guide_name || "");
+          setExternalName(formatted[0].external_name || ""); // ✅ set external name
           setFeedback(role === "External" ? "" : formatted[0].feedback || "");
         }
       })
@@ -62,6 +65,7 @@ const EvaluationForm = ({ groupId, role }) => {
       const payload = {
         group_id: groupId,
         faculty_guide: facultyGuide,
+        external_name: externalName, // ✅ include in payload
         feedback,
         evaluations: students.map((student) => ({
           enrolment_no: student.enrollement_no,
@@ -89,7 +93,7 @@ const EvaluationForm = ({ groupId, role }) => {
   };
 
   return (
-   <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
+    <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
 
       {/* Rubrics */}
       <section>
@@ -140,8 +144,19 @@ const EvaluationForm = ({ groupId, role }) => {
         </table>
       </div>
 
+      {/* External Name */}
+      <div>
+        <label className="block font-semibold text-sm">Name of External:</label>
+        <input
+          type="text"
+          value={externalName}
+          readOnly
+          className="w-full border border-gray-300 p-2 mt-1 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
+        />
+      </div>
+
       {/* Faculty Guide */}
-     <div>
+      <div>
         <label className="block font-semibold text-sm">Name of Faculty Guide:</label>
         <input
           type="text"
@@ -150,7 +165,6 @@ const EvaluationForm = ({ groupId, role }) => {
           className="w-full border border-gray-300 p-2 mt-1 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
         />
       </div>
-
 
       {/* Feedback */}
       <div>
@@ -168,7 +182,7 @@ const EvaluationForm = ({ groupId, role }) => {
       <div className="text-center pt-4">
         <button
           onClick={handleSubmit}
-          className="bg-gradient-to-r from-purple-400 to-blue-400 text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
+          className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
         >
           {role === "Mentor" ? "Update" : "Submit"}
         </button>

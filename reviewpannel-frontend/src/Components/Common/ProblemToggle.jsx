@@ -18,7 +18,7 @@ const ProblemToggle = ({ isSIH, onToggle, onDownload }) => {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full md:w-auto">
         <button
           onClick={onDownload}
-          className="custom-btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
+          className="loginbutton flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           <span className="material-icons">download</span>
           <span className="text-sm font-medium">Download Problem Statements</span>
