@@ -1,11 +1,11 @@
 import React from "react";
-import mitLogo from "../../assets/mitlogo2.png";
+import mitLogo from "../../assets/mitlogo.png";
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
 
 const Footer = () => {
   return (
     <>
-    <footer className="bg-purple-600 text-white px-6 pt-10 mt-10">
+    <footer className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white px-6 pt-10 mt-10">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 text-sm">
         {/* Logo Section */}
        
@@ -15,7 +15,7 @@ const Footer = () => {
   <p className="text-xs mb-4 opacity-80">
     Ideas. Action. Impact. Together
   </p>
-  <div className="flex gap-3">
+  <div className="flex gap-1">
     <a
       href="https://www.facebook.com/mitadtuniversity"
       target="_blank"

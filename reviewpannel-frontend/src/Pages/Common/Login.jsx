@@ -124,7 +124,7 @@ const Login = () => {
               </select>
             </div>
             <button
-              className="w-full bg-gradient-to-r from-[#975BFF] to-[#7B74EF] text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="w-full loginbutton text-white font-bold py-3 px-4 rounded-lg focus:outline-none "
               type="submit"
             >
               Login

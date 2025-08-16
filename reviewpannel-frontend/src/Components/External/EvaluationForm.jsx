@@ -89,7 +89,8 @@ const EvaluationForm = ({ groupId, role }) => {
   };
 
   return (
-    <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-24 text-gray-900">
+   <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
+
       {/* Rubrics */}
       <section>
         <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>

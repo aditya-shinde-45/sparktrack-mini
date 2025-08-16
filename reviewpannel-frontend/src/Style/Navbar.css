@@ -3,12 +3,11 @@
     gap: 15px;
 }
 
-.loginbutton{
-    background-color: #7A4FAD !important;
-        color: white !important;
-
-    
+.loginbutton {
+  background: linear-gradient(to bottom, #7B74EF, #5D3FD3) !important;
+  color: white !important;
 }
+
 
 .hemburger-button{
     background-color: transparent !important;

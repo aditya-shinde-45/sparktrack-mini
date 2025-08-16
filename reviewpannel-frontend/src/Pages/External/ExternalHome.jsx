@@ -10,7 +10,7 @@ const ExternalHome = () => {
   const name = localStorage.getItem("name") || ""; // Get name from localStorage
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#f3e5f5]">
+    <div className="flex flex-col min-h-screen bg-[#f0edf1]">
       <Header name={name} id="" />
       <div className="flex flex-1 flex-col lg:flex-row">
         <Sidebar onGroupSelect={setSelectedGroupId} role={role} />

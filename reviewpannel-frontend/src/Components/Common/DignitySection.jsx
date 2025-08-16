@@ -59,7 +59,7 @@ const DignitySection = () => {
       </div>
 
       {/* Faculty Carousel */}
-      <div className="mt-12">
+      <div className="mt-12 relative">
         <Swiper
           modules={[Navigation]}
           spaceBetween={5}
@@ -98,36 +98,20 @@ const DignitySection = () => {
           ))}
         </Swiper>
 
-        {/* Navigation Dots + Arrows */}
-        <div className="flex items-center justify-center mt-8">
-          {/* Dynamic Dots */}
-          <div className="flex items-center space-x-2 mr-auto">
-            {facultyImages.map((_, index) => (
-              <div
-                key={index}
-                onClick={() => swiperRef.current?.slideToLoop(index)}
-                className={`cursor-pointer rounded-full transition ${
-                  index === activeIndex ? "w-3 h-3 bg-purple-600" : "w-2 h-2 bg-gray-300"
-                }`}
-              ></div>
-            ))}
-          </div>
-          {/* Arrows */}
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => swiperRef.current?.slidePrev()}
-              className="bg-gray-200 p-2 rounded-full hover:bg-gray-300 transition"
-            >
-              <span className="material-icons text-gray-600">arrow_back</span>
-            </button>
-            <button
-              onClick={() => swiperRef.current?.slideNext()}
-              className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 transition"
-            >
-              <span className="material-icons">arrow_forward</span>
-            </button>
-          </div>
-        </div>
+        {/* Arrows pushed OUTSIDE */}
+        <button
+          onClick={() => swiperRef.current?.slidePrev()}
+          className="absolute top-1/2 -translate-y-1/2 -left-12 bg-gray-200 p-3 rounded-full hover:bg-gray-300 transition shadow-md"
+        >
+          <span className="material-icons text-gray-600">arrow_back</span>
+        </button>
+
+        <button
+          onClick={() => swiperRef.current?.slideNext()}
+          className="absolute top-1/2 -translate-y-1/2 -right-12 bg-purple-600 text-white p-3 rounded-full hover:bg-purple-700 transition shadow-md"
+        >
+          <span className="material-icons">arrow_forward</span>
+        </button>
       </div>
     </section>
   );
