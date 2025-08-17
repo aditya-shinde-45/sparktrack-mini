@@ -50,7 +50,7 @@ const AssignedExternalTable = () => {
   const handleAdd = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await apiRequest("/api/admin/add-externals", "POST", newExternal, token);
+      const response = await apiRequest("/api/admin/externals", "POST", newExternal, token);
 
       if (response?.added?.length) {
         setExternals((prev) => [...prev, response.added[0]]);
@@ -73,7 +73,7 @@ const AssignedExternalTable = () => {
     if (!window.confirm("Are you sure you want to delete this external?")) return;
     try {
       const token = localStorage.getItem("token");
-      await apiRequest(`/api/admin/del-externals/${external_id}`, "DELETE", null, token);
+      await apiRequest(`/api/admin/externals/${external_id}`, "DELETE", null, token);
       setExternals((prev) => prev.filter((ext) => ext.external_id !== external_id));
     } catch (err) {
       console.error("Error deleting external:", err);
