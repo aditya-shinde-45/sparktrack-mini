@@ -28,6 +28,9 @@ const SearchFilters = ({ filterClass, setFilterClass, searchQuery, setSearchQuer
         <option value="TY">Third Year (TY)</option>
         <option value="SY">Second Year (SY)</option>
         <option value="LY">Final Year (LY)</option>
+        <option value="TYIT">Third Year (TYIT)</option>
+        <option value="SYIT">Second Year (SYIT)</option>
+        <option value="LYIT">Final Year (LYIT)</option>
       </select>
       <CSVLink
         data={students}

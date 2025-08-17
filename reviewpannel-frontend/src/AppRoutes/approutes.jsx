@@ -17,6 +17,7 @@ import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
 import EditGroup from '../Pages/Admin/editGroup'; // Assuming you have an EditGroup component
+import Mentor from '../Pages/Admin/mentors'; // Assuming you have a Mentor component
 
 // Test Pages
 
@@ -39,6 +40,7 @@ const AppRoutes = () => {
       <Route path="/view-marks" element={<ViewMarks />} />
       <Route path="/add-group" element={<AddGroup />} />
       <Route path="/edit-group" element={<EditGroup />} />
+      <Route path="/mentor" element={<Mentor />} />
       
       {/* Test Routes */}
     </Routes>

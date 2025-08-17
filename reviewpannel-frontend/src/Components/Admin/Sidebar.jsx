@@ -1,9 +1,17 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, UserCheck, FileSpreadsheet, PlusSquare , Edit} from "lucide-react";
+import { 
+  LayoutDashboard, 
+  UserCheck, 
+  FileSpreadsheet, 
+  PlusSquare, 
+  Edit, 
+  GraduationCap  // ✅ import Mentor icon
+} from "lucide-react";
 
 const routes = [
   { name: "Dashboard", path: "/admin-dashboard", icon: LayoutDashboard },
+  { name: "Mentors", path: "/mentor", icon: GraduationCap }, 
   { name: "Assigned External", path: "/assign-external", icon: UserCheck },
   { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
   { name: "Edit Group", path: "/edit-group", icon: Edit },
@@ -21,7 +29,7 @@ const Sidebar = () => {
               `w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out shadow-sm
               ${
                 isActive
-                  ? "bg-white text-[#4C1D95] shadow-lg" // purple text when active
+                  ? "bg-white text-[#4C1D95] shadow-lg"
                   : "bg-white/20 text-white hover:bg-white/30"
               }`
             }

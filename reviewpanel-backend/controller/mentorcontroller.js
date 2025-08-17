@@ -1,39 +1,50 @@
 import supabase from '../Model/supabase.js';
 import jwt from 'jsonwebtoken';
-
-const MENTOR_USERNAME = 'MITADT25';
+import bcrypt from 'bcrypt';
 
 export const mentorLogin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = req.body; // username = contact_number, password = plain password entered
 
-    if (username !== MENTOR_USERNAME) {
-      return res.status(401).json({ message: 'Invalid username' });
-    }
-
-    // Find all mentors with matching contact_number
+    // Find mentor by contact_number (username)
     const { data, error } = await supabase
-      .from('mentors')
-      .select('mentor_name, contact_number')
-      .eq('contact_number', String(password));
+      .from("mentors")
+      .select("mentor_id, mentor_name, contact_number, password")
+      .eq("contact_number", username) // login using contact_number
+      .limit(1);
 
     if (error || !data || data.length === 0) {
-      return res.status(401).json({ message: 'Invalid password/contact number' });
+      return res.status(401).json({ message: "Invalid username" });
     }
 
-    // Use the first matching mentor
     const mentor = data[0];
 
+    // Verify password
+    const isValid = await bcrypt.compare(password, mentor.password);
+    if (!isValid) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    // Create token with immutable mentor_id
     const token = jwt.sign(
-      { username, contact_number: mentor.contact_number },
+      {
+        mentor_id: mentor.mentor_id,
+        mentor_name: mentor.mentor_name,
+        contact_number: mentor.contact_number,
+      },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: "1d" }
     );
 
-    res.json({ token, mentor_name: mentor.mentor_name, contact_number: mentor.contact_number });
+    res.json({
+      token,
+      mentor_id: mentor.mentor_id,
+      mentor_name: mentor.mentor_name,
+      contact_number: mentor.contact_number,
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Login failed' });
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Login failed" });
   }
 };
 
@@ -137,5 +148,51 @@ export const getStudentsByMentorGroup = async (req, res) => {
   } catch (err) {
     console.error("Error fetching students:", err.message);
     res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const updateMentorPassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const { mentor_id } = req.user; // comes from JWT
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Both old and new passwords are required" });
+    }
+
+    // Fetch mentor (to get contact_number + current password)
+    const { data, error } = await supabase
+      .from("mentors")
+      .select("password, contact_number")
+      .eq("mentor_id", mentor_id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ message: "Mentor not found" });
+    }
+
+    // Check old password
+    const isValid = await bcrypt.compare(oldPassword, data.password);
+    if (!isValid) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    // Hash new password
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    // ✅ Update ALL mentors with the same contact_number
+    const { error: updateError } = await supabase
+      .from("mentors")
+      .update({ password: hashed })
+      .eq("contact_number", data.contact_number);
+
+    if (updateError) {
+      return res.status(500).json({ message: "Failed to update password for all mentors" });
+    }
+
+    res.json({ message: "✅ Password updated successfully for all mentors with this contact number" });
+  } catch (err) {
+    console.error("Update password error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
