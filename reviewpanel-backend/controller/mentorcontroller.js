@@ -4,13 +4,13 @@ import bcrypt from 'bcrypt';
 
 export const mentorLogin = async (req, res) => {
   try {
-    const { username, password } = req.body; // username = contact_number, password = plain password entered
+    const { username, password } = req.body; // username = contact_number
 
-    // Find mentor by contact_number (username)
+    // Find mentor
     const { data, error } = await supabase
       .from("mentors")
       .select("mentor_id, mentor_name, contact_number, password")
-      .eq("contact_number", username) // login using contact_number
+      .eq("contact_number", username)
       .limit(1);
 
     if (error || !data || data.length === 0) {
@@ -25,7 +25,7 @@ export const mentorLogin = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    // Create token with immutable mentor_id
+    // Token
     const token = jwt.sign(
       {
         mentor_id: mentor.mentor_id,
@@ -52,43 +52,56 @@ export const getMentorGroups = async (req, res) => {
   try {
     const { contact_number } = req.user;
 
-    // Fetch group_ids assigned to mentor
     const { data, error } = await supabase
-      .from('mentors')
-      .select('group_id')
-      .eq('contact_number', contact_number);
+      .from("mentors")
+      .select("group_id")
+      .eq("contact_number", contact_number);
 
     if (error) {
-      return res.status(500).json({ message: 'Failed to fetch groups' });
+      return res.status(500).json({ message: "Failed to fetch groups" });
     }
 
-    const group_ids = data.map(row => row.group_id);
+    const group_ids = data.map((row) => row.group_id);
 
     res.json({ group_ids });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Failed to fetch groups' });
+    res.status(500).json({ message: "Failed to fetch groups" });
   }
 };
 
 export const saveMentorEvaluation = async (req, res) => {
   try {
-    const { group_id, faculty_guide, feedback, evaluations } = req.body;
+    const {
+      group_id,
+      faculty_guide,
+      feedback,
+      evaluations,
+      crieya,
+      patent,
+      copyright,
+      aic,
+      tech_transfer,
+      externalname,
+    } = req.body;
 
-
-    // Validate payload
     if (!group_id || !faculty_guide || !Array.isArray(evaluations) || evaluations.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid data format"
+        message: "Invalid data format",
       });
     }
 
     const updates = [];
 
     for (const evalData of evaluations) {
-      const { enrolment_no, student_name, A, B, C, D, E } = evalData;
-      const total = Number(A) + Number(B) + Number(C) + Number(D) + Number(E);
+      const { enrolment_no, A, B, C, D, E } = evalData;
+      const total =
+        Number(A || 0) +
+        Number(B || 0) +
+        Number(C || 0) +
+        Number(D || 0) +
+        Number(E || 0);
 
       const { data, error } = await supabase
         .from("pbl")
@@ -100,12 +113,19 @@ export const saveMentorEvaluation = async (req, res) => {
           E,
           total,
           feedback,
-          guide_name: faculty_guide
+          guide_name: faculty_guide,
+          crieya: crieya || null,
+          patent: patent || null,
+          copyright: copyright || null,
+          aic: aic || null,
+          tech_transfer: tech_transfer || null,
+          externalname: externalname || null,
         })
         .eq("group_id", group_id)
-        .eq("enrollement_no", enrolment_no); // Match DB column spelling exactly
+        .eq("enrollement_no", enrolment_no);
 
       if (error) throw error;
+
       updates.push({ enrolment_no, result: data });
     }
 
@@ -113,10 +133,9 @@ export const saveMentorEvaluation = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Mentor marks and feedback saved successfully",
-      data: updates
+      message: "Mentor marks, feedback and extra fields saved successfully",
+      data: updates,
     });
-
   } catch (err) {
     console.error("❌ Error saving mentor evaluation:", err.message);
     res.status(500).json({ success: false, message: err.message });
@@ -132,13 +151,15 @@ export const getStudentsByMentorGroup = async (req, res) => {
         enrollement_no,
         name_of_student,
         guide_name,
-        A,
-        B,
-        C,
-        D,
-        E,
+        A, B, C, D, E,
         total,
-        feedback
+        feedback,
+        crieya,
+        patent,
+        copyright,
+        aic,
+        tech_transfer,
+        externalname
       `)
       .eq("group_id", groupId);
 
@@ -154,13 +175,12 @@ export const getStudentsByMentorGroup = async (req, res) => {
 export const updateMentorPassword = async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    const { mentor_id } = req.user; // comes from JWT
+    const { mentor_id } = req.user;
 
     if (!oldPassword || !newPassword) {
       return res.status(400).json({ message: "Both old and new passwords are required" });
     }
 
-    // Fetch mentor (to get contact_number + current password)
     const { data, error } = await supabase
       .from("mentors")
       .select("password, contact_number")
@@ -171,16 +191,13 @@ export const updateMentorPassword = async (req, res) => {
       return res.status(404).json({ message: "Mentor not found" });
     }
 
-    // Check old password
     const isValid = await bcrypt.compare(oldPassword, data.password);
     if (!isValid) {
       return res.status(401).json({ message: "Old password is incorrect" });
     }
 
-    // Hash new password
     const hashed = await bcrypt.hash(newPassword, 10);
 
-    // ✅ Update ALL mentors with the same contact_number
     const { error: updateError } = await supabase
       .from("mentors")
       .update({ password: hashed })
