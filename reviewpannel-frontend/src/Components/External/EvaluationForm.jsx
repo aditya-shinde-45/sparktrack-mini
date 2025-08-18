@@ -4,17 +4,28 @@ import { apiRequest } from "../../api.js";
 const EvaluationForm = ({ groupId, role }) => {
   const [students, setStudents] = useState([]);
   const [facultyGuide, setFacultyGuide] = useState("");
-  const [externalName, setExternalName] = useState(""); // ✅ new state
+  const [externalName, setExternalName] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  // ✅ New state for additional evaluations
+  const [extraEval, setExtraEval] = useState({
+    crieya: "No",
+    patent: "No",
+    copyright: "No",
+    aic: "No",
+    tech_transfer: "No",
+  });
 
   useEffect(() => {
     if (!groupId) return;
     const token = localStorage.getItem("token");
+    const external = localStorage.getItem("name"); // ✅ from localStorage
+    if (external) setExternalName(external);
 
     let fetchUrl =
       role === "Mentor"
         ? `/api/mentor/students/${groupId}`
-        : `/api/evaluation/pbl/${groupId}`; // external fetch API
+        : `/api/evaluation/pbl/${groupId}`;
 
     apiRequest(fetchUrl, "GET", null, token)
       .then((data) => {
@@ -22,7 +33,7 @@ const EvaluationForm = ({ groupId, role }) => {
           enrollement_no: student.enrollement_no,
           student_name: student.name_of_student,
           guide_name: student.guide_name || "",
-          external_name: student.external_name || "", // ✅ map external name
+          external_name: student.external_name || external || "",
           A: role === "External" ? "" : student.A ?? "",
           B: role === "External" ? "" : student.B ?? "",
           C: role === "External" ? "" : student.C ?? "",
@@ -42,7 +53,6 @@ const EvaluationForm = ({ groupId, role }) => {
 
         if (formatted.length > 0) {
           setFacultyGuide(formatted[0].guide_name || "");
-          setExternalName(formatted[0].external_name || ""); // ✅ set external name
           setFeedback(role === "External" ? "" : formatted[0].feedback || "");
         }
       })
@@ -59,14 +69,24 @@ const EvaluationForm = ({ groupId, role }) => {
     setStudents(updated);
   };
 
+  // ✅ Handle yes/no radio change
+  const handleExtraEvalChange = (field, value) => {
+    setExtraEval((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem("token");
       const payload = {
         group_id: groupId,
         faculty_guide: facultyGuide,
-        external_name: externalName, // ✅ include in payload
+        external_name: externalName,
         feedback,
+        crieya: extraEval.crieya,
+        patent: extraEval.patent,
+        copyright: extraEval.copyright,
+        aic: extraEval.aic,
+        tech_transfer: extraEval.tech_transfer,
         evaluations: students.map((student) => ({
           enrolment_no: student.enrollement_no,
           student_name: student.student_name,
@@ -81,8 +101,8 @@ const EvaluationForm = ({ groupId, role }) => {
 
       let submitUrl =
         role === "Mentor"
-          ? "/api/mentor/evaluation" // mentor update API
-          : "/api/evaluation/save-evaluation"; // external save API
+          ? "/api/mentor/evaluation"
+          : "/api/evaluation/save-evaluation";
 
       await apiRequest(submitUrl, "POST", payload, token);
       alert("Evaluation submitted successfully!");
@@ -176,6 +196,50 @@ const EvaluationForm = ({ groupId, role }) => {
           onChange={(e) => setFeedback(e.target.value)}
           className="w-full border border-gray-300 p-2 mt-1 rounded h-24 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
+      </div>
+
+      {/* Yes/No Options */}
+      <div className="mt-4">
+        <label className="block font-semibold text-sm mb-2">
+          Additional Evaluations
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 text-sm">
+          {[
+            { key: "crieya", label: "Creiya" },
+            { key: "patent", label: "Patent" },
+            { key: "copyright", label: "Copyright" },
+            { key: "aic", label: "AIC" },
+            { key: "tech_transfer", label: "Tech Transfer" },
+          ].map(({ key, label }) => (
+            <div key={key} className="flex flex-col items-center border p-2 rounded-md shadow-sm">
+              <span className="font-medium mb-1">{label}</span>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name={key}
+                    value="Yes"
+                    checked={extraEval[key] === "Yes"}
+                    onChange={() => handleExtraEvalChange(key, "Yes")}
+                    className="accent-purple-600"
+                  />
+                  Yes
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name={key}
+                    value="No"
+                    checked={extraEval[key] === "No"}
+                    onChange={() => handleExtraEvalChange(key, "No")}
+                    className="accent-purple-600"
+                  />
+                  No
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Submit Button */}
