@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './ProtectedRoute';
 
 // Common Pages
 import Home from '../Pages/Common/Home';
@@ -16,10 +17,8 @@ import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
-import EditGroup from '../Pages/Admin/editGroup'; // Assuming you have an EditGroup component
-import Mentor from '../Pages/Admin/mentors'; // Assuming you have a Mentor component
-
-// Test Pages
+import EditGroup from '../Pages/Admin/editGroup';
+import Mentor from '../Pages/Admin/mentors';
 
 const AppRoutes = () => {
   return (
@@ -31,16 +30,44 @@ const AppRoutes = () => {
       <Route path="/aboutpbl" element={<AboutPBL />} />
       <Route path="/download" element={<Download />} />
       
-      {/* External Routes */}
-      <Route path="/external-home" element={<ExternalHome />} />
+      {/* External/Mentor Routes */}
+      <Route path="/external-home" element={
+        <ProtectedRoute allowedRoles={['External', 'Mentor']}>
+          <ExternalHome />
+        </ProtectedRoute>
+      } />
       
       {/* Admin Routes */}
-      <Route path="/admin-dashboard" element={<AdminDashboard />} />
-      <Route path="/assign-external" element={<AssignExternal />} />
-      <Route path="/view-marks" element={<ViewMarks />} />
-      <Route path="/add-group" element={<AddGroup />} />
-      <Route path="/edit-group" element={<EditGroup />} />
-      <Route path="/mentor" element={<Mentor />} />
+      <Route path="/admin-dashboard" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/assign-external" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <AssignExternal />
+        </ProtectedRoute>
+      } />
+      <Route path="/view-marks" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <ViewMarks />
+        </ProtectedRoute>
+      } />
+      <Route path="/add-group" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <AddGroup />
+        </ProtectedRoute>
+      } />
+      <Route path="/edit-group" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <EditGroup />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <Mentor />
+        </ProtectedRoute>
+      } />
       
       {/* Test Routes */}
     </Routes>

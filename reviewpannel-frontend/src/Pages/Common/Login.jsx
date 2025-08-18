@@ -105,7 +105,7 @@ const Login = () => {
             <div className="mb-6">
               <input
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-gray-900"
-                placeholder={role === "External" ? "External ID" : "Email"}
+                placeholder={role === "External" ? "External ID" : "Username"}
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
