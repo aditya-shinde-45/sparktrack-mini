@@ -15,6 +15,10 @@ const EvaluationForm = ({ groupId, role }) => {
   });
   const [isReadOnly, setIsReadOnly] = useState(false);
 
+  // ✅ new states for button behavior
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
   useEffect(() => {
     if (!groupId) return;
     const token = localStorage.getItem("token");
@@ -52,13 +56,11 @@ const EvaluationForm = ({ groupId, role }) => {
 
         setStudents(formatted);
 
-        // Check if any marks are filled for any student
         const anyMarksFilled = formatted.some((student) =>
           ["A", "B", "C", "D", "E"].some(
             (k) => student[k] !== "" && student[k] !== null
           )
         );
-        // Only set readOnly for non-Mentor roles
         setIsReadOnly(role !== "Mentor" && anyMarksFilled);
 
         if (formatted.length > 0) {
@@ -100,6 +102,9 @@ const EvaluationForm = ({ groupId, role }) => {
   const handleSubmit = async () => {
     if (isReadOnly && role !== "Mentor") return;
 
+    setIsSubmitting(true); // start loading
+    setIsSubmitted(false); // reset success state
+
     const token = localStorage.getItem("token");
 
     const payload = {
@@ -134,20 +139,23 @@ const EvaluationForm = ({ groupId, role }) => {
 
       if (!response.success) {
         alert(response.message || "Evaluation failed.");
+        setIsSubmitting(false);
         return;
       }
 
-      alert("✅ Evaluation submitted successfully!");
+      setIsSubmitted(true); // ✅ show success
     } catch (error) {
       console.error("🚨 Error submitting evaluation:", error);
       alert(error.message || "Error submitting evaluation");
+    } finally {
+      setIsSubmitting(false); // stop loading
     }
   };
 
   return (
     <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
-      {/* Rubrics */}
-      <section>
+      {/* ... existing form content ... */}
+<section>
         <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>
         <ul className="list-disc pl-5 text-sm leading-6">
           <li>A. Problem Identification – Clarity in defining the design challenge <b>(10 Marks)</b></li>
@@ -274,19 +282,55 @@ const EvaluationForm = ({ groupId, role }) => {
           ))}
         </div>
       </div>
+      {/* Submit Button / Success State */}
+      <div className="pt-4 flex justify-center">
+  {isSubmitted ? (
+    <p className="text-green-600 font-semibold">
+      Evaluation Sheet has been submitted successfully !
+    </p>
+  ) : (
+    <button
+      onClick={handleSubmit}
+      disabled={(isReadOnly && role !== "Mentor") || isSubmitting}
+      className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto"
+    >
+      {isSubmitting ? (
+        <>
+          <svg
+            className="animate-spin h-5 w-5 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            ></path>
+          </svg>
+          Submitting...
+        </>
+      ) : role === "Mentor" ? (
+        "Update"
+      ) : (
+        "Submit"
+      )}
+    </button>
+  )}
+</div>
 
-      {/* Submit Button */}
-      <div className="text-center pt-4">
-        <button
-          onClick={handleSubmit}
-          disabled={isReadOnly && role !== "Mentor"}
-          className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
-        >
-          {role === "Mentor" ? "Update" : "Submit"}
-        </button>
-      </div>
     </main>
   );
 };
 
 export default EvaluationForm;
+
+     

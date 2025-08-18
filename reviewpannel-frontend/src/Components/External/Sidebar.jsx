@@ -35,6 +35,7 @@ const Sidebar = ({ onGroupSelect, role }) => {
   const handleSelectGroup = (group) => {
     setSelectedGroup(group);
     onGroupSelect(group);
+    window.location.reload();
   };
 
   return (
