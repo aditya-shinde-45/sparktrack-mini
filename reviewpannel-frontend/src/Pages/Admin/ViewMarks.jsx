@@ -15,6 +15,7 @@ const ViewMarks = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
+  // Fetch students API
   const fetchStudents = async (classFilter) => {
     setLoading(true);
     setError("");
@@ -39,6 +40,7 @@ const ViewMarks = () => {
     setCurrentPage(1);
   }, [filterClass]);
 
+  // Filtering students by search
   const filteredStudents = students.filter((s) =>
     searchQuery
       ? s.group_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -46,6 +48,7 @@ const ViewMarks = () => {
       : true
   );
 
+  // Pagination logic
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
   const currentStudents = filteredStudents.slice(indexOfFirst, indexOfLast);
@@ -58,7 +61,8 @@ const ViewMarks = () => {
         <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
           <Sidebar />
           <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6 mt-16">
-            <SearchFilters 
+            {/* Filters */}
+            <SearchFilters
               filterClass={filterClass}
               setFilterClass={setFilterClass}
               searchQuery={searchQuery}
@@ -66,12 +70,18 @@ const ViewMarks = () => {
               setCurrentPage={setCurrentPage}
               students={filteredStudents}
             />
-            <MarksTable 
-              students={currentStudents}
-              loading={loading}
-              error={error}
-            />
-            <Pagination 
+
+            {/* Table inside scrollable wrapper */}
+            <div className="overflow-x-auto">
+              <MarksTable
+                students={currentStudents}
+                loading={loading}
+                error={error}
+              />
+            </div>
+
+            {/* Pagination */}
+            <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
               setCurrentPage={setCurrentPage}

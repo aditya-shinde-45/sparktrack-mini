@@ -6,8 +6,6 @@ const EvaluationForm = ({ groupId, role }) => {
   const [facultyGuide, setFacultyGuide] = useState("");
   const [externalName, setExternalName] = useState("");
   const [feedback, setFeedback] = useState("");
-
-  // ✅ New state for additional evaluations
   const [extraEval, setExtraEval] = useState({
     crieya: "No",
     patent: "No",
@@ -15,14 +13,14 @@ const EvaluationForm = ({ groupId, role }) => {
     aic: "No",
     tech_transfer: "No",
   });
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   useEffect(() => {
     if (!groupId) return;
     const token = localStorage.getItem("token");
-    const external = localStorage.getItem("name"); // ✅ from localStorage
-    if (external) setExternalName(external);
+    const external = localStorage.getItem("name"); // for external only
 
-    let fetchUrl =
+    const fetchUrl =
       role === "Mentor"
         ? `/api/mentor/students/${groupId}`
         : `/api/evaluation/pbl/${groupId}`;
@@ -33,34 +31,59 @@ const EvaluationForm = ({ groupId, role }) => {
           enrollement_no: student.enrollement_no,
           student_name: student.name_of_student,
           guide_name: student.guide_name || "",
-          external_name: student.external_name || external || "",
-          A: role === "External" ? "" : student.A ?? "",
-          B: role === "External" ? "" : student.B ?? "",
-          C: role === "External" ? "" : student.C ?? "",
-          D: role === "External" ? "" : student.D ?? "",
-          E: role === "External" ? "" : student.E ?? "",
+          external_name: student.externalname || "",
+          A: student.A ?? "",
+          B: student.B ?? "",
+          C: student.C ?? "",
+          D: student.D ?? "",
+          E: student.E ?? "",
           total:
-            role === "External"
-              ? 0
-              : student.total ??
-                ["A", "B", "C", "D", "E"]
-                  .map((k) => Number(student[k]) || 0)
-                  .reduce((a, b) => a + b, 0),
-          feedback: role === "External" ? "" : student.feedback ?? "",
+            student.total ??
+            ["A", "B", "C", "D", "E"]
+              .map((k) => Number(student[k]) || 0)
+              .reduce((a, b) => a + b, 0),
+          feedback: student.feedback ?? "",
+          crieya: student.crieya ?? "No",
+          patent: student.patent ?? "No",
+          copyright: student.copyright ?? "No",
+          aic: student.aic ?? "No",
+          tech_transfer: student.tech_transfer ?? "No",
         }));
 
         setStudents(formatted);
 
+        // Check if any marks are filled for any student
+        const anyMarksFilled = formatted.some((student) =>
+          ["A", "B", "C", "D", "E"].some(
+            (k) => student[k] !== "" && student[k] !== null
+          )
+        );
+        // Only set readOnly for non-Mentor roles
+        setIsReadOnly(role !== "Mentor" && anyMarksFilled);
+
         if (formatted.length > 0) {
-          setFacultyGuide(formatted[0].guide_name || "");
-          setFeedback(role === "External" ? "" : formatted[0].feedback || "");
+          const first = formatted[0];
+          setFacultyGuide(first?.guide_name || "");
+          setFeedback(first?.feedback || "");
+
+          if (role === "External") setExternalName(external || "");
+          else setExternalName(first?.external_name || "");
+
+          setExtraEval({
+            crieya: first?.crieya ?? "No",
+            patent: first?.patent ?? "No",
+            copyright: first?.copyright ?? "No",
+            aic: first?.aic ?? "No",
+            tech_transfer: first?.tech_transfer ?? "No",
+          });
         }
       })
       .catch((err) => console.error("Error fetching student data:", err));
   }, [groupId, role]);
 
   const handleMarkChange = (index, field, value) => {
-    let val = value === "" ? "" : Math.max(0, Math.min(10, Number(value)));
+    if (isReadOnly && role !== "Mentor") return;
+    const val = value === "" ? "" : Math.max(0, Math.min(10, Number(value)));
     const updated = [...students];
     updated[index][field] = val;
     updated[index].total = ["A", "B", "C", "D", "E"]
@@ -69,52 +92,60 @@ const EvaluationForm = ({ groupId, role }) => {
     setStudents(updated);
   };
 
-  // ✅ Handle yes/no radio change
   const handleExtraEvalChange = (field, value) => {
+    if (isReadOnly && role !== "Mentor") return;
     setExtraEval((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
+    if (isReadOnly && role !== "Mentor") return;
+
+    const token = localStorage.getItem("token");
+
+    const payload = {
+      group_id: groupId,
+      faculty_guide: facultyGuide,
+      external_name: externalName,
+      feedback,
+      crieya: extraEval.crieya,
+      patent: extraEval.patent,
+      copyright: extraEval.copyright,
+      aic: extraEval.aic,
+      tech_transfer: extraEval.tech_transfer,
+      evaluations: students.map((student) => ({
+        enrollement_no: student.enrollement_no,
+        student_name: student.student_name,
+        A: Number(student.A) || 0,
+        B: Number(student.B) || 0,
+        C: Number(student.C) || 0,
+        D: Number(student.D) || 0,
+        E: Number(student.E) || 0,
+        total: Number(student.total) || 0,
+      })),
+    };
+
+    const submitUrl =
+      role === "Mentor"
+        ? "/api/mentor/evaluation"
+        : "/api/evaluation/save-evaluation";
+
     try {
-      const token = localStorage.getItem("token");
-      const payload = {
-        group_id: groupId,
-        faculty_guide: facultyGuide,
-        external_name: externalName,
-        feedback,
-        crieya: extraEval.crieya,
-        patent: extraEval.patent,
-        copyright: extraEval.copyright,
-        aic: extraEval.aic,
-        tech_transfer: extraEval.tech_transfer,
-        evaluations: students.map((student) => ({
-          enrolment_no: student.enrollement_no,
-          student_name: student.student_name,
-          A: Number(student.A) || 0,
-          B: Number(student.B) || 0,
-          C: Number(student.C) || 0,
-          D: Number(student.D) || 0,
-          E: Number(student.E) || 0,
-          total: Number(student.total) || 0,
-        })),
-      };
+      const response = await apiRequest(submitUrl, "POST", payload, token);
 
-      let submitUrl =
-        role === "Mentor"
-          ? "/api/mentor/evaluation"
-          : "/api/evaluation/save-evaluation";
+      if (!response.success) {
+        alert(response.message || "Evaluation failed.");
+        return;
+      }
 
-      await apiRequest(submitUrl, "POST", payload, token);
-      alert("Evaluation submitted successfully!");
-    } catch (err) {
-      console.error("Error submitting evaluation:", err);
-      alert("Error submitting evaluation");
+      alert("✅ Evaluation submitted successfully!");
+    } catch (error) {
+      console.error("🚨 Error submitting evaluation:", error);
+      alert(error.message || "Error submitting evaluation");
     }
   };
 
   return (
     <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
-
       {/* Rubrics */}
       <section>
         <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>
@@ -153,6 +184,7 @@ const EvaluationForm = ({ groupId, role }) => {
                       max="10"
                       value={student[key]}
                       onChange={(e) => handleMarkChange(i, key, e.target.value)}
+                      disabled={isReadOnly && role !== "Mentor"}
                       className="w-14 border border-gray-300 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </td>
@@ -194,15 +226,14 @@ const EvaluationForm = ({ groupId, role }) => {
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
+          disabled={isReadOnly && role !== "Mentor"}
           className="w-full border border-gray-300 p-2 mt-1 rounded h-24 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
       </div>
 
       {/* Yes/No Options */}
       <div className="mt-4">
-        <label className="block font-semibold text-sm mb-2">
-          Additional Evaluations
-        </label>
+        <label className="block font-semibold text-sm mb-2">Additional Evaluations</label>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 text-sm">
           {[
             { key: "crieya", label: "Creiya" },
@@ -221,6 +252,7 @@ const EvaluationForm = ({ groupId, role }) => {
                     value="Yes"
                     checked={extraEval[key] === "Yes"}
                     onChange={() => handleExtraEvalChange(key, "Yes")}
+                    disabled={isReadOnly && role !== "Mentor"}
                     className="accent-purple-600"
                   />
                   Yes
@@ -232,6 +264,7 @@ const EvaluationForm = ({ groupId, role }) => {
                     value="No"
                     checked={extraEval[key] === "No"}
                     onChange={() => handleExtraEvalChange(key, "No")}
+                    disabled={isReadOnly && role !== "Mentor"}
                     className="accent-purple-600"
                   />
                   No
@@ -246,6 +279,7 @@ const EvaluationForm = ({ groupId, role }) => {
       <div className="text-center pt-4">
         <button
           onClick={handleSubmit}
+          disabled={isReadOnly && role !== "Mentor"}
           className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105"
         >
           {role === "Mentor" ? "Update" : "Submit"}

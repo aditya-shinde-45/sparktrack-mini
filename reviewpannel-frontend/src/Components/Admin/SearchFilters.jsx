@@ -4,12 +4,32 @@ import { CSVLink } from "react-csv";
 const SearchFilters = ({ filterClass, setFilterClass, searchQuery, setSearchQuery, setCurrentPage, students }) => {
 
   const headers = [
-    "group_id", "enrollement_no", "name_of_student", "class", "email_id", "contact",
-    "guide_name", "guide_contact", "A", "B", "C", "D", "E", "total", "feedback"
+    "group_id",
+    "enrollement_no",
+    "name_of_student",
+    "class",
+    "email_id",
+    "contact",
+    "guide_name",
+    "guide_contact",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "total",
+     "externalname",
+    "feedback",
+    "crieya",
+    "patent",
+    "copyright",
+    "aic",
+    "tech_transfer"
   ];
 
   return (
     <div className="mb-6 flex flex-wrap gap-4">
+      {/* 🔍 Search */}
       <input
         value={searchQuery}
         onChange={(e) => {
@@ -20,6 +40,8 @@ const SearchFilters = ({ filterClass, setFilterClass, searchQuery, setSearchQuer
         placeholder="Search by Group ID or Enrollment No"
         type="text"
       />
+
+      {/* 📌 Class Filter */}
       <select
         value={filterClass}
         onChange={(e) => setFilterClass(e.target.value)}
@@ -32,6 +54,8 @@ const SearchFilters = ({ filterClass, setFilterClass, searchQuery, setSearchQuer
         <option value="SYIT">Second Year (SYIT)</option>
         <option value="LYIT">Final Year (LYIT)</option>
       </select>
+
+      {/* 📤 Export */}
       <CSVLink
         data={students}
         headers={headers.map((h) => ({

@@ -23,10 +23,28 @@ export const saveEvaluation = async (req, res) => {
       });
     }
 
+    // ✅ Check if external marks already exist for this group
+    const { data: existing, error: checkError } = await supabase
+      .from("pbl")
+      .select("externalname")
+      .eq("group_id", group_id)
+      .limit(1);
+
+    if (checkError) throw checkError;
+
+    if (existing && existing.length > 0 && existing[0].externalname) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This group has already been evaluated by an external examiner. Editing is only allowed by guide.",
+      });
+    }
+
     const updates = [];
 
     for (const evalData of evaluations) {
-      const { enrolment_no, A, B, C, D, E } = evalData;
+      // ✅ match frontend + DB spelling
+      const { enrollement_no, A, B, C, D, E } = evalData;
 
       // calculate total
       const total =
@@ -54,7 +72,8 @@ export const saveEvaluation = async (req, res) => {
           tech_transfer: tech_transfer || null,
         })
         .eq("group_id", group_id)
-        .eq("enrollement_no", enrolment_no); // ✅ exact DB spelling
+        .eq("enrollement_no", enrollement_no) // ✅ consistent spelling
+        .select(); // ✅ return updated row(s)
 
       if (error) throw error;
 
@@ -74,6 +93,7 @@ export const saveEvaluation = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
 /**
  * Get students by group_id with extra fields
  */
