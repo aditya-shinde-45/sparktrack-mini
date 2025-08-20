@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { uploadSIH, getSIHProblems } from '../controller/sihController.js';
+import { uploadSIH, getSIHProblems } from '../../controller/admin/sihController.js';
 
 const router = express.Router();
 

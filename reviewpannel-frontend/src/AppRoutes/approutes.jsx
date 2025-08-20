@@ -19,6 +19,7 @@ import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
 import EditGroup from '../Pages/Admin/editGroup';
 import Mentor from '../Pages/Admin/mentors';
+import StudentLogin from '../Pages/students/login';
 
 const AppRoutes = () => {
   return (
@@ -29,6 +30,9 @@ const AppRoutes = () => {
       <Route path="/problem-statementsih" element={<ProblemStatementSih />} />
       <Route path="/aboutpbl" element={<AboutPBL />} />
       <Route path="/download" element={<Download />} />
+      <Route path="/studentlogin" element={<StudentLogin />} />
+
+       {/* Student Routes */}
       
       {/* External/Mentor Routes */}
       <Route path="/external-home" element={

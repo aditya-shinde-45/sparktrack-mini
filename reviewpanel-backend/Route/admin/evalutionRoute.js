@@ -1,6 +1,6 @@
 import express from "express";
-import {  getStudentsByGroup, saveEvaluation } from "../controller/evalutionController.js";
-import { verifyToken } from '../middleware/authmiddleware.js';
+import {  getStudentsByGroup, saveEvaluation } from "../../controller/admin/evalutionController.js";
+import { verifyToken } from '../../middleware/authmiddleware.js';
 
 const router = express.Router();
 

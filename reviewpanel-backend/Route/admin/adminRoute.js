@@ -9,8 +9,8 @@ import {
   updatePBLGroup,
   getPBLGroupById,
   getAllMentors,
-} from "../controller/adminController.js";
-import { verifyToken } from "../middleware/authmiddleware.js";
+} from "../../controller/admin/adminController.js";
+import { verifyToken } from "../../middleware/authmiddleware.js";
 
 const router = express.Router();
 

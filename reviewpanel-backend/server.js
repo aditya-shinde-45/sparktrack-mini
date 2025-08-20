@@ -4,15 +4,16 @@ import dotenv from "dotenv";
 import supabase from "./Model/supabase.js";
 
 // Route imports
-import apiRoutes from "./Route/connectioncheck.js";
-import evaluationRoutes from "./Route/evalutionRoute.js";
-import groupInfoRoutes from "./Route/groupinfo.js";
-import authRoutes from "./Route/authroutes.js";
-import assignExternalRoutes from './Route/assignExternalroute.js';
-import externalAuthRoute from './Route/externalAuthRoute.js';
-import mentor from './Route/mentorRoutes.js';
-import admin from './Route/adminRoute.js';
-import sihRoutes from './Route/sihRoutes.js';
+import apiRoutes from "./Route/admin/connectioncheck.js";
+import evaluationRoutes from "./Route/admin/evalutionRoute.js";
+import groupInfoRoutes from "./Route/admin/groupinfo.js";
+import authRoutes from "./Route/admin/authroutes.js";
+import assignExternalRoutes from './Route/admin/assignExternalroute.js';
+import externalAuthRoute from './Route/admin/externalAuthRoute.js';
+import mentor from './Route/admin/mentorRoutes.js';
+import admin from './Route/admin/adminRoute.js';
+import sihRoutes from './Route/admin/sihRoutes.js';
+import studentLogin from './Route/students/studentloginRoute.js';
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use('/api/external-auth', externalAuthRoute);
 app.use('/api', mentor);
 app.use("/api/admin", admin);
 app.use('/api/sih', sihRoutes);
+app.use('/api/student', studentLogin);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
