@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../api"; // centralized API
 
 const StudentLogin = () => {
-  const [email, setEmail] = useState("");
+  const [enrollmentNo, setEnrollmentNo] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState("login"); // 'login', 'firstTime', 'forgot'
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const navigate = useNavigate();
 
   // Reset state when mode changes
   useEffect(() => {
@@ -19,18 +22,27 @@ const StudentLogin = () => {
     setNewPassword("");
     setPassword("");
     setEmail("");
+    setEnrollmentNo("");
   }, [mode]);
 
-  // Login handler
+  // Login handler (now with enrollment_no)
   const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/login", "POST", { email, password });
+    const data = await apiRequest("/api/student/login", "POST", { enrollment_no: enrollmentNo, password });
     if (data.success === false) {
       setMessage(data.message || "Login failed.");
     } else {
       setMessage(data.message || "Login successful.");
-      // TODO: Save token, redirect, etc.
+      // Save token and enrollment_no if present
+      if (data.token) {
+        localStorage.setItem("student_token", data.token);
+      }
+      if (data.enrollment_no || enrollmentNo) {
+        localStorage.setItem("enrollmentNumber", data.enrollment_no || enrollmentNo);
+      }
+      // Redirect to student dashboard
+      navigate("/studentdashboard");
     }
   };
 
@@ -131,15 +143,15 @@ const StudentLogin = () => {
         {mode === "login" && (
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-gray-700 mb-1">Email ID</label>
+              <label className="block text-gray-700 mb-1">Enrollment No</label>
               <input
-                type="email"
+                type="text"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400 bg-white text-gray-900 placeholder-gray-400"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={enrollmentNo}
+                onChange={(e) => setEnrollmentNo(e.target.value)}
                 required
                 autoComplete="username"
-                placeholder="Enter your email"
+                placeholder="Enter your enrollment number"
               />
             </div>
             <div className="relative">

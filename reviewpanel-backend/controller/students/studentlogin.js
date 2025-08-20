@@ -1,7 +1,12 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import supabase from "../../Model/supabase.js";
-import { sendMail } from "../../Model/email.js"; // use centralized email module
+import { sendMail } from "../../Model/email.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // Helper: Generate OTP
 function generateOTP(length = 6) {
@@ -37,33 +42,48 @@ export async function setNewUserPassword(req, res) {
     .eq("email", email)
     .single();
 
+  console.log("setNewUserPassword - authData:", authData);
+
   if (error || !authData) {
+    console.log("setNewUserPassword - User not found or error:", error);
     return res.status(400).json({ message: "User not found. Please request OTP first." });
   }
   if (authData.password_hash) {
+    console.log("setNewUserPassword - Password already set for:", email);
     return res.status(400).json({ message: "Password already set. Please login or use forgot password." });
   }
 
-  // Check OTP and expiry
+  // Check OTP and expiry using UTC
   const dbOtp = String(authData.otp);
   const reqOtp = String(otp);
-  const expiry = new Date(authData.otp_expiry);
-  const now = new Date();
+  const nowUTC = dayjs().utc();
+  const expiryUTC = dayjs(authData.otp_expiry).utc();
+
+  console.log("setNewUserPassword - dbOtp:", dbOtp, "reqOtp:", reqOtp);
+  console.log("setNewUserPassword - nowUTC:", nowUTC.format(), "expiryUTC:", expiryUTC.format());
 
   if (!dbOtp || dbOtp !== reqOtp) {
+    console.log("setNewUserPassword - Invalid OTP");
     return res.status(400).json({ message: "Invalid OTP." });
   }
-  if (now > expiry) {
+  if (nowUTC.isAfter(expiryUTC)) {
+    console.log("setNewUserPassword - Expired OTP");
     return res.status(400).json({ message: "Expired OTP." });
   }
 
   // Set password and clear OTP only after successful verification
   const hash = await bcrypt.hash(newPassword, 10);
-  await supabase
+  const { error: updateError } = await supabase
     .from("student_auth")
     .update({ password_hash: hash, otp: null, otp_expiry: null })
     .eq("email", email);
 
+  if (updateError) {
+    console.log("setNewUserPassword - Error updating password:", updateError);
+    return res.status(500).json({ message: "Error saving password." });
+  }
+
+  console.log("setNewUserPassword - Password set successfully for:", email);
   res.json({ message: "Registration successful. You can now login." });
 }
 
@@ -76,16 +96,27 @@ export async function sendForgotPasswordOtp(req, res) {
     .eq("email", email)
     .single();
 
-  if (error || !data) return res.status(400).json({ message: "User not found" });
+  console.log("sendForgotPasswordOtp - authData:", data);
+
+  if (error || !data) {
+    console.log("sendForgotPasswordOtp - User not found or error:", error);
+    return res.status(400).json({ message: "User not found" });
+  }
 
   const otp = generateOTP();
-  const expiry = new Date(Date.now() + 10 * 60000).toISOString();
-  await supabase
+  const expiry = dayjs().utc().add(10, "minute").toISOString();
+  const { error: updateError } = await supabase
     .from("student_auth")
     .update({ otp, otp_expiry: expiry })
     .eq("email", email);
 
-  await sendOtpEmail(email, otp); // uses custom message
+  if (updateError) {
+    console.log("sendForgotPasswordOtp - Error updating OTP:", updateError);
+    return res.status(500).json({ message: "Error sending OTP." });
+  }
+
+  await sendOtpEmail(email, otp);
+  console.log("sendForgotPasswordOtp - OTP sent to:", email, "OTP:", otp, "Expiry:", expiry);
   res.json({ message: "OTP sent to your email" });
 }
 
@@ -99,39 +130,54 @@ export async function resetPasswordWithOtp(req, res) {
     .eq("email", email)
     .single();
 
+  console.log("resetPasswordWithOtp - authData:", authData);
+
   if (error || !authData) {
+    console.log("resetPasswordWithOtp - User not found or error:", error);
     return res.status(400).json({ message: "User not found. Please request OTP first." });
   }
 
   const dbOtp = String(authData.otp);
   const reqOtp = String(otp);
-  const expiry = new Date(authData.otp_expiry);
-  const now = new Date();
+  const nowUTC = dayjs().utc();
+  const expiryUTC = dayjs(authData.otp_expiry).utc();
+
+  console.log("resetPasswordWithOtp - dbOtp:", dbOtp, "reqOtp:", reqOtp);
+  console.log("resetPasswordWithOtp - nowUTC:", nowUTC.format(), "expiryUTC:", expiryUTC.format());
 
   if (!dbOtp || dbOtp !== reqOtp) {
+    console.log("resetPasswordWithOtp - Invalid OTP");
     return res.status(400).json({ message: "Invalid OTP." });
   }
-  if (now > expiry) {
+  if (nowUTC.isAfter(expiryUTC)) {
+    console.log("resetPasswordWithOtp - Expired OTP");
     return res.status(400).json({ message: "Expired OTP." });
   }
 
-  // Set password and clear OTP only after successful verification
   const hash = await bcrypt.hash(newPassword, 10);
-  await supabase
+  const { error: updateError } = await supabase
     .from("student_auth")
     .update({ password_hash: hash, otp: null, otp_expiry: null })
     .eq("email", email);
 
+  if (updateError) {
+    console.log("resetPasswordWithOtp - Error updating password:", updateError);
+    return res.status(500).json({ message: "Error saving password." });
+  }
+
+  console.log("resetPasswordWithOtp - Password reset successful for:", email);
   res.json({ message: "Password reset successful. You can now login." });
 }
 
-// Login
+// Login (now supports login with enrollment_no instead of email)
 export async function studentLogin(req, res) {
-  const { email, password } = req.body;
+  const { enrollment_no, password } = req.body;
+
+  // Find user by enrollment_no
   const { data, error } = await supabase
     .from("student_auth")
-    .select("enrollment_no, password_hash")
-    .eq("email", email)
+    .select("enrollment_no, email, password_hash")
+    .eq("enrollment_no", enrollment_no)
     .single();
 
   if (error || !data) return res.status(400).json({ message: "User not found" });
@@ -140,7 +186,7 @@ export async function studentLogin(req, res) {
   if (!valid) return res.status(401).json({ message: "Invalid password" });
 
   const token = jwt.sign(
-    { enrollment_no: data.enrollment_no, email },
+    { enrollment_no: data.enrollment_no, email: data.email },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
@@ -239,9 +285,10 @@ export async function sendFirstTimeOtp(req, res) {
     return res.status(400).json({ message: "Email not found in student records." });
   }
 
-  // Generate OTP and expiry
+  // Generate OTP and expiry (store in UTC)
   const otp = generateOTP();
-  const expiry = new Date(Date.now() + 10 * 60000).toISOString();
+  // Always use UTC for expiry!
+  const expiry = dayjs().utc().add(10, "minute").toISOString();
 
   // Insert into student_auth with OTP (if not exists)
   await supabase

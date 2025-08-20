@@ -20,6 +20,7 @@ import AddGroup from '../Pages/Admin/addGroup';
 import EditGroup from '../Pages/Admin/editGroup';
 import Mentor from '../Pages/Admin/mentors';
 import StudentLogin from '../Pages/students/login';
+import StudentDashboard from '../Pages/students/studentDashboard';
 
 const AppRoutes = () => {
   return (
@@ -31,6 +32,7 @@ const AppRoutes = () => {
       <Route path="/aboutpbl" element={<AboutPBL />} />
       <Route path="/download" element={<Download />} />
       <Route path="/studentlogin" element={<StudentLogin />} />
+      <Route path="/studentdashboard" element={<StudentDashboard />} />
 
        {/* Student Routes */}
       

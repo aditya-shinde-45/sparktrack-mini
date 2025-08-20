@@ -14,6 +14,7 @@ import mentor from './Route/admin/mentorRoutes.js';
 import admin from './Route/admin/adminRoute.js';
 import sihRoutes from './Route/admin/sihRoutes.js';
 import studentLogin from './Route/students/studentloginRoute.js';
+import studentRoute from './Route/students/studentRoute.js';
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ app.use('/api', mentor);
 app.use("/api/admin", admin);
 app.use('/api/sih', sihRoutes);
 app.use('/api/student', studentLogin);
+app.use('/api', studentRoute);
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
