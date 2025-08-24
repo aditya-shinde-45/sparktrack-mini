@@ -1,7 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, NavLink } from 'react-router-dom';
 import './sidebar.css'; // Assuming you have a CSS file for styles
+import {
+  LayoutDashboard,
+  UserCheck,
+  FileSpreadsheet,
+  PlusSquare,
+  Edit,
+  GraduationCap,
+  Settings
+} from "lucide-react";
 import mitLogo from '../../assets/mitlogo.png';
+
+const routes = [
+  { name: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
+  { name: "Team Workspace", path: "/teamwork-space", icon: PlusSquare },
+  { name: "Project Planning", path: "/project-planning", icon: Edit },
+  { name: "Project Review", path: "/project-review", icon: FileSpreadsheet },
+  { name: "Documentation", path: "/documentation", icon: GraduationCap },
+  { name: "Tools", path: "/studenttools", icon: Settings },
+];
 
 const Sidebar = () => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -24,56 +42,46 @@ const Sidebar = () => {
     navigate('/');
   };
 
-  const navItems = [
-    { label: 'Dashboard', icon: 'dashboard', path: '/student-dashboard' },
-    { label: 'Team Workspace', icon: 'desktop_windows', path: '/teamwork-space' },
-    { label: 'Project Planning', icon: 'list_alt', path: '/project-planning' },
-    { label: 'Project Review', icon: 'rate_review', path: '/project-review' },
-    { label: 'Documentation', icon: 'description', path: '/documentation' },
-  ];
-
   return (
     <>
       {/* ✅ Desktop Sidebar (now w-48) */}
       {isDesktop && (
-        <div className="flex flex-col fixed h-screen w-48 bg-[#7A4FAD] text-white shadow-lg z-40 justify-between">
-          <div>
-            <div className="flex justify-center p-4 mb-4">
-              <img src={mitLogo} alt="MIT Logo" className="h-12" /> {/* smaller logo */}
-            </div>
-
-           <nav className="">
-  {navItems.map((item, index) => {
-    const isActive = location.pathname === item.path;
-    return (
-      <Link
-        key={index}
-        to={item.path}
-        className={`flex items-center gap-x-3 px-4 py-4  text-sm transition-colors duration-200 ${
-          isActive ? 'bg-[#9e7ccf] shadow-md' : 'hover:bg-[#9e7ccf]'
-        }`}
-      >
-        <span className="material-icons text-white text-lg">{item.icon}</span>
-        <span className="text-white">{item.label}</span>
-      </Link>
-    );
-  })}
-</nav>
-
-
+        <div className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
+          <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
+            {routes.map(({ name, path, icon: Icon }, index) => (
+              <NavLink
+                key={index}
+                to={path}
+                className={({ isActive }) =>
+                  `w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out shadow-sm
+              ${
+                isActive
+                  ? "bg-white text-[#4C1D95] shadow-lg"
+                  : "bg-white/20 text-white hover:bg-white/30"
+              }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
+                    <span className={isActive ? "text-[#4C1D95]" : "text-white"}>
+                      {name}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            ))}
           </div>
-
-          <div className="p-3">
+          <div className="mt-auto pt-6">
             <button
               onClick={handleLogout}
-              className="flex items-center justify-center w-full p-2.5 rounded-md bg-white text-gray-700 hover:bg-gray-200 transition"
+              className="w-full flex items-center justify-center py-2 rounded-xl bg-white text-[#4C1D95] font-semibold hover:bg-purple-100 transition"
             >
-              <span className="material-icons mr-2 text-base text-gray-700">logout</span>
-              <span className="text-sm text-gray-700">Logout</span>
+              <span className="material-icons mr-2 text-base text-[#4C1D95]">logout</span>
+              Logout
             </button>
           </div>
         </div>
-
       )}
 
       {/* ✅ Mobile Hamburger */}
@@ -95,18 +103,20 @@ const Sidebar = () => {
             <img src={mitLogo} alt="MIT Logo" className="h-10" />
           </div>
           <ul className="space-y-3">
-            {navItems.map((item, index) => {
-              const isActive = location.pathname === item.path;
+            {routes.map(({ name, path, icon: Icon }, index) => {
+              const isActive = location.pathname === path;
               return (
                 <li key={index}>
                   <Link
-                    to={item.path}
+                    to={path}
                     onClick={() => setShowDropdown(false)}
                     className={`flex items-center space-x-3 px-4 py-2 rounded-md text-sm ${isActive ? 'bg-purple-100 text-purple-700' : 'hover:bg-purple-50 text-gray-800'
                       }`}
                   >
-                    <span className="material-icons-outlined text-base">{item.icon}</span>
-                    <span>{item.label}</span>
+                    <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
+                    <span className={isActive ? "text-[#4C1D95]" : "text-white"}>
+                      {name}
+                    </span>
                   </Link>
                 </li>
               );

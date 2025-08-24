@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import supabase from "../../Model/supabase.js";
+import { users } from "../../Model/userModel.js"; 
 
 export const login = (req, res) => {
   const { username, password } = req.body;

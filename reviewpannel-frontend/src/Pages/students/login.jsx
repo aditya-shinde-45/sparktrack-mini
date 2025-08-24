@@ -29,7 +29,7 @@ const StudentLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/login", "POST", { enrollment_no: enrollmentNo, password });
+    const data = await apiRequest("/api/studentlogin/login", "POST", { enrollment_no: enrollmentNo, password });
     if (data.success === false) {
       setMessage(data.message || "Login failed.");
     } else {
@@ -50,7 +50,7 @@ const StudentLogin = () => {
   const handleSendFirstTimeOtp = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/first-time/send-otp", "POST", { email });
+    const data = await apiRequest("/api/studentlogin/first-time/send-otp", "POST", { email });
     if (data.success === false) {
       setMessage(data.message || "Failed to send OTP.");
     } else {
@@ -63,7 +63,7 @@ const StudentLogin = () => {
   const handleSetNewUserPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/set-password", "POST", { email, otp, newPassword });
+    const data = await apiRequest("/api/studentlogin/set-password", "POST", { email, otp, newPassword });
     if (data.success === false) {
       setMessage(data.message || "Failed to set password.");
     } else {
@@ -77,7 +77,7 @@ const StudentLogin = () => {
   const handleSendForgotOtp = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/forgot-password/send-otp", "POST", { email });
+    const data = await apiRequest("/api/studentlogin/forgot-password/send-otp", "POST", { email });
     if (data.success === false) {
       setMessage(data.message || "Failed to send OTP.");
     } else {
@@ -90,7 +90,7 @@ const StudentLogin = () => {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/student/forgot-password/reset", "POST", { email, otp, newPassword });
+    const data = await apiRequest("/api/studentlogin/forgot-password/reset", "POST", { email, otp, newPassword });
     if (data.success === false) {
       setMessage(data.message || "Failed to reset password.");
     } else {

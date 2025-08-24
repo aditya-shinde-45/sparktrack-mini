@@ -1,18 +1,34 @@
 import supabase from "../../Model/supabase.js";
 
-// Get student profile
+// Get student profile (with group_id from pbl table)
 export async function getStudentProfile(req, res) {
   const tokenEmail = req.user?.email || req.body?.email;
   if (!tokenEmail) return res.status(401).json({ message: "Unauthorized" });
 
-  const { data, error } = await supabase
+  // Get student basic info
+  console.log("Looking up student for email:", tokenEmail);
+  const { data: student, error: studentError } = await supabase
     .from("students")
-    .select("enrollment_no, email, class, name, specialization")
-    .eq("email", tokenEmail)
+    .select("enrollment_no, email_id, class, name, specialization")
+    .eq("email_id", tokenEmail)
     .single();
 
-  if (error || !data) return res.status(404).json({ message: "Student not found" });
-  res.json({ profile: data });
+  if (studentError || !student) return res.status(404).json({ message: "Student not found" });
+
+  // Get group_id from pbl table using enrollment_no
+  const { data: groupEntry, error: groupError } = await supabase
+    .from("pbl")
+    .select("group_id")
+    .eq("enrollement_no", student.enrollment_no)
+    .single();
+
+  // Attach group_id if found
+  const profile = {
+    ...student,
+    group_id: groupEntry?.group_id || null,
+  };
+
+  res.json({ profile });
 }
 
 // Get group details: find group_id by enrollment, then fetch all group members and guide name

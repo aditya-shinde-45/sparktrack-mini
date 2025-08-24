@@ -17,10 +17,19 @@ import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
-import EditGroup from '../Pages/Admin/editGroup';
 import Mentor from '../Pages/Admin/mentors';
+
+// Admin Tools (parent and children)
+import AdminToolTabs from '../Components/Admin/admintools';
+import EditGroup from '../Components/Admin/editGroup';
+import DeadlineAdmin from '../Components/Admin/deadline';
+import AnnouncementAdmin from '../Components/Admin/announcement';
+// You can import other admin tool subpages here
+
+// Students page
 import StudentLogin from '../Pages/students/login';
 import StudentDashboard from '../Pages/students/studentDashboard';
+import ProblemStatement from '../Pages/students/problemstatement';
 
 const AppRoutes = () => {
   return (
@@ -33,16 +42,15 @@ const AppRoutes = () => {
       <Route path="/download" element={<Download />} />
       <Route path="/studentlogin" element={<StudentLogin />} />
       <Route path="/studentdashboard" element={<StudentDashboard />} />
+      <Route path="/student/problem-statement" element={<ProblemStatement />} />
 
-       {/* Student Routes */}
-      
       {/* External/Mentor Routes */}
       <Route path="/external-home" element={
         <ProtectedRoute allowedRoles={['External', 'Mentor']}>
           <ExternalHome />
         </ProtectedRoute>
       } />
-      
+
       {/* Admin Routes */}
       <Route path="/admin-dashboard" element={
         <ProtectedRoute allowedRoles={['Admin']}>
@@ -64,18 +72,27 @@ const AppRoutes = () => {
           <AddGroup />
         </ProtectedRoute>
       } />
-      <Route path="/edit-group" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
-          <EditGroup />
-        </ProtectedRoute>
-      } />
       <Route path="/mentor" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <Mentor />
         </ProtectedRoute>
       } />
-      
-      {/* Test Routes */}
+
+      {/* Nested Admin Tools Routes */}
+      <Route path="/admintools" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <AdminToolTabs />
+        </ProtectedRoute>
+      }>
+        {/* Nested routes under /admintools */}
+        <Route path="edit-group" element={<EditGroup />} />
+        {/* Add other admin tool subpages here, e.g.: */}
+        {/* <Route path="role-permission" element={<RolePermission />} /> */}
+        <Route path="deadline" element={<DeadlineAdmin />} />
+        <Route path="announcement" element={<AnnouncementAdmin />} />
+        {/* <Route path="dynamic-form" element={<DynamicForm />} /> */}
+        {/* <Route path="classlead" element={<ClassLead />} /> */}
+      </Route>
     </Routes>
   );
 };

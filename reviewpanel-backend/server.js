@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import supabase from "./Model/supabase.js";
+import morgan from "morgan";
 
 // Route imports
 import apiRoutes from "./Route/admin/connectioncheck.js";
@@ -10,30 +11,32 @@ import groupInfoRoutes from "./Route/admin/groupinfo.js";
 import authRoutes from "./Route/admin/authroutes.js";
 import assignExternalRoutes from './Route/admin/assignExternalroute.js';
 import externalAuthRoute from './Route/admin/externalAuthRoute.js';
-import mentor from './Route/admin/mentorRoutes.js';
-import admin from './Route/admin/adminRoute.js';
+import mentorRoutes from './Route/admin/mentorRoutes.js';
+import adminRoutes from './Route/admin/adminRoute.js';
 import sihRoutes from './Route/admin/sihRoutes.js';
-import studentLogin from './Route/students/studentloginRoute.js';
-import studentRoute from './Route/students/studentRoute.js';
+import studentLoginRoutes from './Route/students/studentloginRoute.js';
+import studentRoutes from './Route/students/studentRoute.js';
+import psRoutes from './Route/students/psroutes.js';
+import announcementRoutes from './Route/admin/announcementroute.js';
+import deadline from './Route/admin/deadlinecontrolRoute.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const TEST_TABLE = "pbl"; // Change this to an existing table
+const TEST_TABLE = "pbl";
 
-// CORS configurationnn
+// CORS configuration
 const allowedOrigins = [
-  "https://sparktrack-mini-lkij.vercel.app", // old frontend URL
-  "https://sparktrack-mini-3r93.vercel.app", // new frontend URL (add this!)
-  "http://localhost:5173" // local dev
+  "https://sparktrack-mini-lkij.vercel.app",
+  "https://sparktrack-mini-3r93.vercel.app",
+  "http://localhost:5173"
 ];
 
 app.use(cors({
   origin: function(origin, callback){
     if(!origin) return callback(null, true);
     if(allowedOrigins.indexOf(origin) === -1){
-      // Respond with CORS error, not server error
       return callback(null, false);
     }
     return callback(null, true);
@@ -43,19 +46,24 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(morgan("dev"));
 
-// Routes
+// API Routes
 app.use("/api", apiRoutes);
 app.use("/api/evaluation", evaluationRoutes);
 app.use("/api/groupinfo", groupInfoRoutes);
 app.use("/api/auth", authRoutes);
-app.use('/api', assignExternalRoutes);
-app.use('/api/external-auth', externalAuthRoute);
-app.use('/api', mentor);
-app.use("/api/admin", admin);
-app.use('/api/sih', sihRoutes);
-app.use('/api/student', studentLogin);
-app.use('/api', studentRoute);
+app.use("/api", assignExternalRoutes);
+app.use("/api/external-auth", externalAuthRoute);
+app.use("/api", mentorRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/sih", sihRoutes);
+app.use("/api/studentlogin", studentLoginRoutes);
+app.use("/api", studentRoutes);
+app.use("/api", psRoutes);
+app.use("/api", announcementRoutes);
+app.use("/api", deadline);
+
 // Basic route
 app.get("/", (req, res) => {
   res.json({ message: "Review Panel Backend API is running!" });
@@ -85,6 +93,12 @@ app.get("/db-test", async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Error handling middleware (optional, but recommended)
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ success: false, error: err.message });
 });
 
 // Startup connection check

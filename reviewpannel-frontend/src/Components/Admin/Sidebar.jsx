@@ -6,7 +6,8 @@ import {
   FileSpreadsheet, 
   PlusSquare, 
   Edit, 
-  GraduationCap  // ✅ import Mentor icon
+  GraduationCap,
+  Settings
 } from "lucide-react";
 
 const routes = [
@@ -14,7 +15,7 @@ const routes = [
   { name: "Mentors", path: "/mentor", icon: GraduationCap }, 
   { name: "Assigned External", path: "/assign-external", icon: UserCheck },
   { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
-  { name: "Edit Group", path: "/edit-group", icon: Edit },
+  { name: "Tools", path: "/admintools", icon: Settings },
 ];
 
 const Sidebar = () => {
