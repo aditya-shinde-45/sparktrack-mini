@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Student/sidebar";
-import Header from "../../Components/Common/Header"; // <-- Use Common Header
+import Header from "../../Components/Student/Header"; // <-- Use Common Header
 import GroupDetails from "../../Components/Student/GroupDetails";
 import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";

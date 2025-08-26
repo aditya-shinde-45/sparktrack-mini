@@ -30,6 +30,7 @@ import AnnouncementAdmin from '../Components/Admin/announcement';
 import StudentLogin from '../Pages/students/login';
 import StudentDashboard from '../Pages/students/studentDashboard';
 import ProblemStatement from '../Pages/students/problemstatement';
+import StudentProfile from '../Pages/students/StudentProfile';
 
 const AppRoutes = () => {
   return (
@@ -43,6 +44,8 @@ const AppRoutes = () => {
       <Route path="/studentlogin" element={<StudentLogin />} />
       <Route path="/studentdashboard" element={<StudentDashboard />} />
       <Route path="/student/problem-statement" element={<ProblemStatement />} />
+      <Route path="/student/student-profile" element={<StudentProfile />} />
+
 
       {/* External/Mentor Routes */}
       <Route path="/external-home" element={

@@ -236,7 +236,7 @@ export async function updateUserProfile(req, res) {
   res.json({ message: "Profile updated successfully" });
 }
 
-// Change Password
+// Change Password (for authenticated users in profile settings)
 export async function changePassword(req, res) {
   const { email } = req.user;
   const { oldPassword, newPassword } = req.body;
@@ -259,6 +259,59 @@ export async function changePassword(req, res) {
     .eq("email", email);
 
   res.json({ message: "Password changed successfully" });
+}
+
+// Update Student Password (for header functionality - uses enrollment_no from token)
+export async function updateStudentPassword(req, res) {
+  const { oldPassword, newPassword } = req.body;
+  
+  try {
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Both old and new passwords are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long" });
+    }
+
+    // Get student from token
+    const enrollmentNo = req.user.enrollment_no;
+
+    // Get current student password from student_auth
+    const { data: student, error: fetchError } = await supabase
+      .from("student_auth")
+      .select("password_hash")
+      .eq("enrollment_no", enrollmentNo)
+      .single();
+
+    if (fetchError || !student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, student.password_hash);
+    if (!isOldPasswordValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password in student_auth
+    const { error: updateError } = await supabase
+      .from("student_auth")
+      .update({ password_hash: hashedNewPassword })
+      .eq("enrollment_no", enrollmentNo);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Error updating password:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
 }
 
 // First Time User: Send OTP
@@ -304,4 +357,42 @@ export async function sendFirstTimeOtp(req, res) {
 
   await sendOtpEmail(email, otp); // uses custom message
   res.json({ message: "OTP sent to your email." });
+}
+
+// Get Student Profile (fetches from students table using enrollment_no from token)
+export async function getStudentProfile(req, res) {
+  try {
+    const { enrollment_no } = req.user;
+
+    // Get basic student data from students table
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("*")
+      .eq("enrollment_no", enrollment_no)
+      .single();
+
+
+    if (studentError || !student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // ✅ IMPORTANT: Also get extended profile data (includes profile picture)
+    const { data: extendedProfile, error: profileError } = await supabase
+      .from("student_profiles")
+      .select("*")
+      .eq("enrollment_no", enrollment_no)
+      .single();
+
+    // Merge basic info with extended profile (even if extended profile doesn't exist)
+    const fullProfile = {
+      ...student,
+      ...extendedProfile // This adds profile_picture_url, bio, skills, etc.
+    };
+
+
+    res.json({ profile: fullProfile });
+  } catch (err) {
+    console.error("❌ Error fetching student profile:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
 }

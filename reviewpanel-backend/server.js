@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import supabase from "./Model/supabase.js";
 import morgan from "morgan";
+import path from "path";
 
 // Route imports
 import apiRoutes from "./Route/admin/connectioncheck.js";
@@ -47,6 +48,9 @@ app.use(cors({
 
 app.use(express.json());
 app.use(morgan("dev"));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // API Routes
 app.use("/api", apiRoutes);

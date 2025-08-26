@@ -8,7 +8,9 @@ import {
   getUserProfile,
   updateUserProfile,
   changePassword,
+  updateStudentPassword,
   sendFirstTimeOtp,
+  getStudentProfile,
 } from "../../controller/students/studentlogin.js";
 
 const router = express.Router();
@@ -29,8 +31,14 @@ router.post("/forgot-password/send-otp", sendForgotPasswordOtp);
 router.post("/forgot-password/reset", resetPasswordWithOtp);
 
 // Authenticated routes
-router.get("/profile", authenticateUser, getUserProfile);
+router.get("/profile", authenticateUser, getStudentProfile);
 router.put("/profile", authenticateUser, updateUserProfile);
 router.post("/change-password", authenticateUser, changePassword);
+
+// Update student password (for header dropdown functionality)
+router.put("/update-password", authenticateUser, updateStudentPassword);
+
+// Get student profile from students table (for header and profile components)
+router.get("/student-profile", authenticateUser, getStudentProfile);
 
 export default router;
