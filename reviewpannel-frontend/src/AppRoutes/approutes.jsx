@@ -8,6 +8,7 @@ import Login from '../Pages/Common/Login';
 import AboutPBL from '../Pages/Common/AboutPBL';
 import ProblemStatementSih from '../Pages/Common/ProblemStatement';
 import Download from '../Pages/Common/Download';
+import Students from '../Pages/Common/students';
 
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
@@ -41,6 +42,7 @@ const AppRoutes = () => {
       <Route path="/problem-statementsih" element={<ProblemStatementSih />} />
       <Route path="/aboutpbl" element={<AboutPBL />} />
       <Route path="/download" element={<Download />} />
+      <Route path="/students" element={<Students />} />
       <Route path="/studentlogin" element={<StudentLogin />} />
       <Route path="/studentdashboard" element={<StudentDashboard />} />
       <Route path="/student/problem-statement" element={<ProblemStatement />} />

@@ -7,6 +7,9 @@ import {
 import {
   getGroupDetails,
   getAnnouncements,
+  getAllStudents,
+  getStudentsByClass,
+  getStudentsBySpecialization,
 } from "../../controller/students/studentcontroller.js";
 import { authenticateUser } from "../../controller/students/studentlogin.js"; // if you use JWT
 
@@ -32,5 +35,10 @@ router.get(
   authenticateUser,
   getAnnouncements
 );
+
+// New routes
+router.get("/students/", getAllStudents);                                    // GET /api/students
+router.get("/students/class/:classname", getStudentsByClass);               // GET /api/students/class/TY-CSF-3
+router.get("/students/specialization/:specialization", getStudentsBySpecialization); // GET /api/students/specialization/cyber
 
 export default router;

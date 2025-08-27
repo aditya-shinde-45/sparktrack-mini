@@ -24,6 +24,7 @@ const Navbar = () => {
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/problem-statementsih">Problem Statement</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
+          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/students">Students</Link>
 
         </nav>
 
