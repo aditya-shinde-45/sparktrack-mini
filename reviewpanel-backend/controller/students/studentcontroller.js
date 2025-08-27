@@ -106,41 +106,122 @@ export async function getStudentProfile(req, res) {
   res.json({ profile });
 }
 
-// Get group details: find group_id by enrollment, then fetch all group members and guide name
+// Get student profile by enrollment number (for group member profile viewing)
+export async function getStudentProfileByEnrollment(req, res) {
+  try {
+    const { enrollment_no } = req.params;
+
+    // Get student basic info
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("enrollment_no, email_id, class, name, specialization, roll_no, contact")
+      .eq("enrollment_no", enrollment_no)
+      .single();
+
+    if (studentError || !student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Get extended profile data
+    const { data: extendedProfile, error: profileError } = await supabase
+      .from("student_profiles")
+      .select("*")
+      .eq("enrollment_no", enrollment_no)
+      .single();
+
+    // Get group_id from pbl table using enrollment_no
+    const { data: groupEntry, error: groupError } = await supabase
+      .from("pbl")
+      .select("group_id")
+      .eq("enrollement_no", enrollment_no)
+      .single();
+
+    // Merge all data including extended profile
+    const profile = {
+      ...student,
+      name_of_students: student.name,
+      group_id: groupEntry?.group_id || null,
+      bio: extendedProfile?.bio || null,
+      skills: extendedProfile?.skills || null,
+      github_url: extendedProfile?.github_url || null,
+      linkedin_url: extendedProfile?.linkedin_url || null,
+      portfolio_url: extendedProfile?.portfolio_url || null,
+      profile_picture_url: extendedProfile?.profile_picture_url || null,
+      resume_url: extendedProfile?.resume_url || null,
+      phone: extendedProfile?.phone || null
+    };
+
+    res.json({ profile });
+
+  } catch (err) {
+    console.error("Error in getStudentProfileByEnrollment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// Get group details with enhanced member information
 export async function getGroupDetails(req, res) {
-  const { enrollment_no } = req.params;
+  try {
+    const { enrollment_no } = req.params;
 
-  // Step 1: Find group_id for this enrollment_no
-  const { data: groupEntry, error: groupEntryError } = await supabase
-    .from("pbl")
-    .select("group_id")
-    .eq("enrollement_no", enrollment_no)
-    .single();
+    // Step 1: Find group_id for this enrollment_no
+    const { data: groupEntry, error: groupEntryError } = await supabase
+      .from("pbl")
+      .select("group_id")
+      .eq("enrollement_no", enrollment_no)
+      .single();
 
-  if (groupEntryError || !groupEntry) {
-    return res.status(404).json({ message: "Group not found for this enrollment." });
+    if (groupEntryError || !groupEntry) {
+      return res.status(404).json({ message: "Group not found for this enrollment." });
+    }
+
+    const group_id = groupEntry.group_id;
+
+    // Step 2: Find all members and guide name in this group
+    const { data: members, error: membersError } = await supabase
+      .from("pbl")
+      .select("enrollement_no, name_of_student, guide_name")
+      .eq("group_id", group_id)
+      .order("enrollement_no", { ascending: true }); // Ensure consistent ordering
+
+    if (membersError || !members || members.length === 0) {
+      return res.status(404).json({ message: "No members found for this group." });
+    }
+
+    // Step 3: Get profile pictures for all members
+    const enrollmentNumbers = members.map(member => member.enrollement_no);
+    const { data: profiles, error: profilesError } = await supabase
+      .from("student_profiles")
+      .select("enrollment_no, profile_picture_url")
+      .in("enrollment_no", enrollmentNumbers);
+
+    // Create a map of profile pictures by enrollment_no
+    const profilePicturesMap = {};
+    if (profiles && !profilesError) {
+      profiles.forEach(profile => {
+        profilePicturesMap[profile.enrollment_no] = profile.profile_picture_url;
+      });
+    }
+
+    // Step 4: Enhance members data with profile pictures
+    const enhancedMembers = members.map(member => ({
+      ...member,
+      profile_picture_url: profilePicturesMap[member.enrollement_no] || null
+    }));
+
+    // Get guide name (assuming same for all members)
+    const guide_name = members[0].guide_name;
+
+    res.json({
+      group_id,
+      guide_name,
+      members: enhancedMembers,
+    });
+
+  } catch (err) {
+    console.error("Error in getGroupDetails:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  const group_id = groupEntry.group_id;
-
-  // Step 2: Find all members and guide name in this group
-  const { data: members, error: membersError } = await supabase
-    .from("pbl")
-    .select("enrollement_no, name_of_student, guide_name")
-    .eq("group_id", group_id);
-
-  if (membersError || !members || members.length === 0) {
-    return res.status(404).json({ message: "No members found for this group." });
-  }
-
-  // Get guide name (assuming same for all members)
-  const guide_name = members[0].guide_name;
-
-  res.json({
-    group_id,
-    guide_name,
-    members,
-  });
 }
 
 // Get announcements for class prefix

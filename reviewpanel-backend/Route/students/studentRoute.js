@@ -10,6 +10,7 @@ import {
   getAllStudents,
   getStudentsByClass,
   getStudentsBySpecialization,
+  getStudentProfileByEnrollment
 } from "../../controller/students/studentcontroller.js";
 import { authenticateUser } from "../../controller/students/studentlogin.js"; // if you use JWT
 
@@ -35,6 +36,7 @@ router.get(
   authenticateUser,
   getAnnouncements
 );
+router.get('/profile/:enrollment_no', authenticateUser, getStudentProfileByEnrollment);
 
 // New routes
 router.get("/students/", getAllStudents);                                    // GET /api/students
