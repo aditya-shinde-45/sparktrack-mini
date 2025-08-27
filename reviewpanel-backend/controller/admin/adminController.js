@@ -1,4 +1,4 @@
-import supabase from "../Model/supabase.js";
+import supabase from "../../Model/supabase.js";
 
 // ====================== EXTERNALS ======================
 

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import xlsx from 'xlsx';
-import supabase from '../Model/supabase.js';
+import supabase from "../../Model/supabase.js";
 
 const uploadSIH = async (req, res) => {
   const filePath = path.join(process.cwd(), 'uploads', req.file.filename);

@@ -1,7 +1,7 @@
 // routes/externalRoutes.js
 import express from 'express';
-import { externalLogin, getAssignedGroups } from '../controller/externalAuthController.js';
-import { verifyToken } from '../middleware/authmiddleware.js';
+import { externalLogin, getAssignedGroups } from '../../controller/admin/externalAuthController.js';
+import { verifyToken } from '../../middleware/authmiddleware.js';
 
 
 const router = express.Router();

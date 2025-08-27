@@ -1,6 +1,6 @@
 // routes/testdb.js
 import express from 'express';
-import supabase from '../Model/supabase.js';
+import supabase from '../../Model/supabase.js';
 
 
 const router = express.Router();

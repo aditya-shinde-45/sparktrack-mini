@@ -5,8 +5,8 @@ import {
   saveMentorEvaluation,
   getStudentsByMentorGroup,
   updateMentorPassword
-} from '../controller/mentorcontroller.js';
-import { verifyToken } from '../middleware/authmiddleware.js';
+} from '../../controller/admin/mentorcontroller.js';
+import { verifyToken } from '../../middleware/authmiddleware.js';
 
 const router = express.Router();
 

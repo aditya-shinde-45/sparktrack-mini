@@ -1,5 +1,5 @@
 import express from "express";
-import supabase from "../Model/supabase.js"; // Ensure .js extension in ESM
+import supabase from "../../Model/supabase.js"; // Ensure .js extension in ESM
 
 const router = express.Router();
 

@@ -1,0 +1,10 @@
+/* Sidebar.css */
+
+.sidebar-bg {
+  background-color: #7A4FAD !important;
+}
+
+.sidebar-text,
+.sidebar-icon {
+  color: white !important;
+}

@@ -1,4 +1,4 @@
-import supabase from '../Model/supabase.js';
+import supabase from "../../Model/supabase.js";
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here'; // Use .env in production

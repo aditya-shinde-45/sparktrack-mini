@@ -1,6 +1,6 @@
 import express from 'express';
-import { createAssignedExternal } from '../controller/assignexternalsContoller.js';
-import { verifyToken } from '../middleware/authmiddleware.js';
+import { createAssignedExternal } from '../../controller/admin/assignexternalsContoller.js';
+import { verifyToken } from '../../middleware/authmiddleware.js';
 
 const router = express.Router();
 
