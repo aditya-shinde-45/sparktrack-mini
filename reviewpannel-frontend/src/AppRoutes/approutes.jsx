@@ -25,6 +25,7 @@ import AdminToolTabs from '../Components/Admin/admintools';
 import EditGroup from '../Components/Admin/editGroup';
 import DeadlineAdmin from '../Components/Admin/deadline';
 import AnnouncementAdmin from '../Components/Admin/announcement';
+import AdminPost from '../Components/Admin/post';
 // You can import other admin tool subpages here
 
 // Students page
@@ -95,7 +96,7 @@ const AppRoutes = () => {
         {/* <Route path="role-permission" element={<RolePermission />} /> */}
         <Route path="deadline" element={<DeadlineAdmin />} />
         <Route path="announcement" element={<AnnouncementAdmin />} />
-        {/* <Route path="dynamic-form" element={<DynamicForm />} /> */}
+        <Route path="post" element={<AdminPost />} />
         {/* <Route path="classlead" element={<ClassLead />} /> */}
       </Route>
     </Routes>

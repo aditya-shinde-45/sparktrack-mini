@@ -5,6 +5,7 @@ import Header from "../../Components/Student/Header"; // <-- Use Common Header
 import GroupDetails from "../../Components/Student/GroupDetails";
 import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
+import StudentPosts from "../../Components/Student/posts"; // Import posts modal
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -13,6 +14,10 @@ const StudentDashboard = () => {
   const [review2Marks, setReview2Marks] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState({ title: "", message: "" });
+  
+  // Posts modal state
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [triggerPostsFetch, setTriggerPostsFetch] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("student_token");
@@ -86,7 +91,7 @@ const StudentDashboard = () => {
     return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  // Announcements are now fetched and shown in the card click handler
+  // Updated card click handler to include posts modal
   const handleCardClick = async (type) => {
     try {
       let res;
@@ -113,23 +118,11 @@ const StudentDashboard = () => {
             : "📢 No announcements available.";
           break;
 
-        case "Deadlines":
-          res = await apiRequest("/admintools/timelines", "GET", null, token);
-          title = "Deadlines";
-          message = res?.length
-            ? res
-                .map(
-                  (d) => `
-                    <div class="mb-3">
-                      <p class="font-semibold text-purple-700">📌 ${formatTaskName(d.task_name)}</p>
-                      <p class="text-sm text-gray-600">Start: ${new Date(d.start_datetime).toLocaleDateString()}</p>
-                      <p class="text-sm text-gray-600">End: ${new Date(d.end_datetime).toLocaleDateString()}</p>
-                    </div>
-                  `
-                )
-                .join("")
-            : "🗓 No deadlines found.";
-          break;
+        case "Events & Posts":
+          // Open posts modal instead of drawer
+          setTriggerPostsFetch(true);
+          setShowPostModal(true);
+          return; // Don't open drawer
 
         case "Upload Document":
           title = "Upload Document";
@@ -156,6 +149,12 @@ const StudentDashboard = () => {
       });
       setDrawerOpen(true);
     }
+  };
+
+  // Handle closing posts modal
+  const handleClosePostModal = () => {
+    setShowPostModal(false);
+    setTriggerPostsFetch(false);
   };
 
   if (!student)
@@ -248,11 +247,20 @@ const StudentDashboard = () => {
           </div>
         </main>
       </div>
+      
+      {/* Info Drawer */}
       <InfoDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         title={drawerContent.title}
         message={drawerContent.message}
+      />
+
+      {/* Posts Modal */}
+      <StudentPosts
+        isModalOpen={showPostModal}
+        onCloseModal={handleClosePostModal}
+        triggerFetch={triggerPostsFetch}
       />
     </div>
   );

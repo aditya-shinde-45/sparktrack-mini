@@ -9,6 +9,14 @@ const CARD_COLORS = {
     hover: "hover:bg-blue-200",
     shadow: "shadow-blue-200",
   },
+  purple: {
+    bg: "bg-purple-100",
+    border: "border-purple-300",
+    text: "text-purple-800",
+    icon: "text-purple-500",
+    hover: "hover:bg-purple-200",
+    shadow: "shadow-purple-200",
+  },
   green: {
     bg: "bg-green-100",
     border: "border-green-300",
@@ -25,13 +33,13 @@ const CARD_COLORS = {
     hover: "hover:bg-yellow-200",
     shadow: "shadow-yellow-200",
   },
-  red: {
-    bg: "bg-red-100",
-    border: "border-red-300",
-    text: "text-red-800",
-    icon: "text-red-500",
-    hover: "hover:bg-red-200",
-    shadow: "shadow-red-200",
+  orange: {
+    bg: "bg-orange-100",
+    border: "border-orange-300",
+    text: "text-orange-800",
+    icon: "text-orange-500",
+    hover: "hover:bg-orange-200",
+    shadow: "shadow-orange-200",
   },
 };
 
@@ -40,25 +48,25 @@ export const DashboardCards = ({ onCardClick }) => {
     {
       color: "blue",
       title: "Announcements",
-      subtitle: "Check for updates",
+      subtitle: "Important updates & notices",
       icon: "campaign",
+    },
+    {
+      color: "purple",
+      title: "Events & Posts",
+      subtitle: "College events & updates",
+      icon: "event",
     },
     {
       color: "green",
       title: "Upload Document",
-      subtitle: "Submit your work",
+      subtitle: "Submit project files",
       icon: "upload_file",
     },
     {
-      color: "yellow",
-      title: "Deadlines",
-      subtitle: "View upcoming dates",
-      icon: "event_available",
-    },
-    {
-      color: "red",
+      color: "orange",
       title: "Team Chat",
-      subtitle: "Communicate with group",
+      subtitle: "Communicate with team",
       icon: "chat",
     },
   ];
@@ -81,19 +89,26 @@ export const DashboardCards = ({ onCardClick }) => {
 
 const Card = ({ color, title, subtitle, icon, onClick }) => {
   const styles = CARD_COLORS[color] || CARD_COLORS.blue;
+
   return (
     <div
       onClick={() => onClick(title)}
-      className={`group ${styles.bg} ${styles.border} border p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-200 ${styles.shadow} ${styles.hover} hover:scale-[1.03]`}
+      className={`group ${styles.bg} ${styles.border} border p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-300 ${styles.shadow} ${styles.hover} hover:scale-[1.05] hover:shadow-lg`}
       style={{ minHeight: "120px" }}
     >
-      <div>
-        <h3 className={`font-bold text-lg ${styles.text}`}>{title}</h3>
-        <p className={`text-sm mt-1 ${styles.text} opacity-80`}>{subtitle}</p>
+      <div className="flex-1">
+        <h3 className={`font-bold text-lg ${styles.text} mb-1`}>{title}</h3>
+        <p className={`text-sm ${styles.text} opacity-75 leading-tight`}>
+          {subtitle}
+        </p>
       </div>
-      <span className={`material-icons ${styles.icon} text-4xl group-hover:scale-110 transition-transform`}>
-        {icon}
-      </span>
+      <div className="ml-4">
+        <span
+          className={`material-icons ${styles.icon} text-4xl group-hover:scale-110 transition-transform duration-300`}
+        >
+          {icon}
+        </span>
+      </div>
     </div>
   );
 };
