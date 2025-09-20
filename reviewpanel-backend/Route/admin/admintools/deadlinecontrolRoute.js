@@ -1,6 +1,6 @@
 import express from "express";
-import supabase from "../../Model/supabase.js";
-import { verifyToken } from "../../middleware/authmiddleware.js";
+import supabase from "../../../Model/supabase.js";
+import { verifyToken } from "../../../middleware/authmiddleware.js";
 
 // Get all deadline controls
 const getAllDeadlineControls = async (req, res) => {

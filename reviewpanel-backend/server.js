@@ -18,9 +18,9 @@ import sihRoutes from './Route/admin/sihRoutes.js';
 import studentLoginRoutes from './Route/students/studentloginRoute.js';
 import studentRoutes from './Route/students/studentRoute.js';
 import psRoutes from './Route/students/psroutes.js';
-import announcementRoutes from './Route/admin/announcementroute.js';
-import deadline from './Route/admin/deadlinecontrolRoute.js';
-import post from './Route/admin/postroute.js';
+import announcementRoutes from './Route/admin/admintools/announcementroute.js';
+import deadline from './Route/admin/admintools/deadlinecontrolRoute.js';
+import post from './Route/admin/admintools/postroute.js';
 
 dotenv.config();
 

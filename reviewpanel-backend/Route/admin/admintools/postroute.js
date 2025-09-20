@@ -8,8 +8,8 @@ import {
   toggleLike,
   getPostsPaginated,
   uploadImage
-} from '../../controller/admin/postcontroller.js';
-import { verifyToken } from '../../middleware/authmiddleware.js';
+} from '../../../controller/admin/postcontroller.js';
+import { verifyToken } from '../../../middleware/authmiddleware.js';
 
 const router = express.Router();
 
