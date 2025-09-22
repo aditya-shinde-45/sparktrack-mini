@@ -12,6 +12,7 @@ import {
 } from "../../controller/admin/adminController.js";
 import { verifyToken } from "../../middleware/authmiddleware.js";
 
+
 const router = express.Router();
 
 // ===== Externals Routes =====
@@ -27,6 +28,8 @@ router.put("/pbl/:group_id", verifyToken, updatePBLGroup); // Update PBL group
 // in adminRoutes.js
 router.get('/pbl/:group_id', verifyToken, getPBLGroupById);
 router.get("/mentors", verifyToken, getAllMentors); // Get PBL group by ID
+
+// Dashboard routes
 
 
 export default router;

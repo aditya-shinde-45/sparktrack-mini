@@ -21,6 +21,7 @@ import psRoutes from './Route/students/psroutes.js';
 import announcementRoutes from './Route/admin/admintools/announcementroute.js';
 import deadline from './Route/admin/admintools/deadlinecontrolRoute.js';
 import post from './Route/admin/admintools/postroute.js';
+import dashboard from './Route/admin/dashboard.js';
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.use("/api", psRoutes);
 app.use("/api", announcementRoutes);
 app.use("/api", deadline);
 app.use("/api/admin/posts", post);
+app.use("/api", dashboard);
 
 // Basic route
 app.get("/", (req, res) => {
