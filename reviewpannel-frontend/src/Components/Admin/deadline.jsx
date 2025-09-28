@@ -24,14 +24,14 @@ const DEADLINE_TASKS = [
         icon: <CalendarCheck className="w-6 h-6 text-green-500" />,
     },
     {
-        key: "show_ta1_marks",
-        label: "Show TA1 Marks",
-        icon: <BadgeCheck className="w-6 h-6 text-yellow-500" />,
+        key: "pbl_review_1",
+        label: "PBL Review 1",
+        icon: <BadgeCheck className="w-6 h-6 text-orange-500" />,
     },
     {
-        key: "show_ta2_marks",
-        label: "Show TA2 Marks",
-        icon: <BadgeDollarSign className="w-6 h-6 text-emerald-500" />,
+        key: "pbl_review_2",
+        label: "PBL Review 2",
+        icon: <BadgeCheck className="w-6 h-6 text-indigo-500" />,
     },
 ];
 
@@ -43,7 +43,7 @@ const DeadlineAdmin = () => {
     useEffect(() => {
         const token = localStorage.getItem("admin_token");
         setLoading(true);
-        apiRequest("/api/deadlines_control", "GET", null, token).then((res) => {
+        apiRequest("/api/deadlines", "GET", null, token).then((res) => {
             setLoading(false);
             if (res && res.deadlines) {
                 const toggles = {};
@@ -65,7 +65,7 @@ const DeadlineAdmin = () => {
         }));
         // Update deadline toggle in backend
         await apiRequest(
-            `/api/deadlines_control/${key}`,
+            `/api/deadlines/${key}`,
             "PUT",
             { enabled: newStatus },
             token

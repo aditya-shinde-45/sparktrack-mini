@@ -9,7 +9,7 @@ const Sidebar = ({ onGroupSelect, role }) => {
   useEffect(() => {
     if (role === "Mentor") {
       const token = localStorage.getItem("token");
-      apiRequest("/api/mentor/groups", "GET", null, token)
+      apiRequest("/api/mentors/groups", "GET", null, token)
         .then((data) => {
           const fetchedGroups = data.group_ids || [];
           setGroups(fetchedGroups);

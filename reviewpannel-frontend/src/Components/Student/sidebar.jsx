@@ -38,8 +38,10 @@ const Sidebar = () => {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('student');
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('enrollmentNumber');
     sessionStorage.clear();
-    navigate('/');
+    navigate('/studentlogin');
   };
 
   return (

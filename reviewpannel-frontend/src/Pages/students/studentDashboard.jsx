@@ -29,36 +29,40 @@ const StudentDashboard = () => {
     }
 
     const fetchStudent = async () => {
-      const profileRes = await apiRequest("/api/studentlogin/profile", "GET", null, token);
-      if (!profileRes || !profileRes.profile) {
+      const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
+      const profileData = profileRes?.data?.profile || profileRes?.profile;
+
+      if (!profileData) {
         setStudent(null);
         return;
       }
-      setStudent(profileRes.profile);
+      setStudent(profileData);
 
       // Fetch group details
-      fetchGroup(profileRes.profile.enrollment_no, token);
+      fetchGroup(profileData.enrollment_no, token);
 
       // Fetch problem statement using group_id
-      if (profileRes.profile.group_id) {
-        fetchProblemStatement(profileRes.profile.group_id, token);
+      if (profileData.group_id) {
+        fetchProblemStatement(profileData.group_id, token);
       }
 
       // Fetch PBL Review 1 marks (pass enrollement_no as query param)
-      fetchReview1Marks(profileRes.profile.enrollment_no, token);
+      fetchReview1Marks(profileData.enrollment_no, token);
 
       // Fetch PBL Review 2 marks (pass enrollement_no as query param)
-      fetchReview2Marks(profileRes.profile.enrollment_no, token);
+      fetchReview2Marks(profileData.enrollment_no, token);
     };
 
     const fetchGroup = async (enrollment, token) => {
-      await apiRequest(`/api/pbl/gp/${enrollment}`, "GET", null, token);
+      await apiRequest(`/api/students/pbl/gp/${enrollment}`, "GET", null, token);
     };
 
     const fetchProblemStatement = async (groupId, token) => {
-      const psRes = await apiRequest(`/api/student/problem-statement/${groupId}`, "GET", null, token);
-      if (psRes && psRes.problemStatement) {
-        setProblem(psRes.problemStatement);
+      const psRes = await apiRequest(`/api/students/student/problem-statement/${groupId}`, "GET", null, token);
+      const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement;
+
+      if (problemStatement) {
+        setProblem(problemStatement);
       } else {
         setProblem(null);
       }
@@ -67,23 +71,23 @@ const StudentDashboard = () => {
     // Use /api/announcement/review1marks?enrollement_no=...
     const fetchReview1Marks = async (enrollment_no, token) => {
       const res = await apiRequest(
-        `/api/announcement/review1marks?enrollement_no=${enrollment_no}`,
+        `/api/announcements/announcement/review1marks?enrollement_no=${enrollment_no}`,
         "GET",
         null,
         token
       );
-      setReview1Marks(res?.review1Marks || null);
+      setReview1Marks(res?.data?.review1Marks || res?.review1Marks || null);
     };
 
     // Use /api/announcement/review2marks?enrollement_no=...
     const fetchReview2Marks = async (enrollment_no, token) => {
       const res = await apiRequest(
-        `/api/announcement/review2marks?enrollement_no=${enrollment_no}`,
+        `/api/announcements/announcement/review2marks?enrollement_no=${enrollment_no}`,
         "GET",
         null,
         token
       );
-      setReview2Marks(res?.review2Marks || null);
+      setReview2Marks(res?.data?.review2Marks || res?.review2Marks || null);
     };
 
     fetchStudent();
@@ -100,7 +104,7 @@ const StudentDashboard = () => {
         ? import.meta.env.VITE_API_BASE_URL
         : import.meta.env.VITE_API_BASE_URL_PROD;
       
-      const response = await fetch(`${API_BASE_URL}/api/announcement/${id}/download`, {
+      const response = await fetch(`${API_BASE_URL}/api/announcements/announcement/${id}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,9 +154,11 @@ const StudentDashboard = () => {
   const fetchAnnouncements = async () => {
     try {
       const token = localStorage.getItem("student_token");
-      const res = await apiRequest("/api/announcement", "GET", null, token);
-      if (res?.announcements) {
-        setAnnouncements(res.announcements);
+      const res = await apiRequest("/api/announcements/announcement", "GET", null, token);
+      const announcementData = res?.data?.announcements || res?.announcements;
+
+      if (announcementData) {
+        setAnnouncements(announcementData);
       }
     } catch (err) {
       console.error("Failed to fetch announcements", err);

@@ -31,9 +31,11 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("student_token");
-        const groupRes = await apiRequest(`/api/pbl/gp/${storedEnrollment}`, "GET", null, token);
-        if (groupRes && groupRes.group_id) {
-          setGroupDetails(groupRes);
+        const groupRes = await apiRequest(`/api/students/pbl/gp/${storedEnrollment}`, "GET", null, token);
+        const details = groupRes?.data?.groupDetails || groupRes?.groupDetails;
+
+        if (details) {
+          setGroupDetails(details);
         }
       } catch (err) {
         console.warn('No group found:', err?.message);
@@ -41,8 +43,9 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
       try {
         const token = localStorage.getItem("student_token");
-        const reqRes = await apiRequest(`/api/group/requests/pending/${storedEnrollment}`, "GET", null, token);
-        setRequests(reqRes || []);
+  const reqRes = await apiRequest(`/api/group/requests/pending/${storedEnrollment}`, "GET", null, token);
+  const pendingRequests = reqRes?.data?.requests || reqRes?.requests || (Array.isArray(reqRes) ? reqRes : []);
+  setRequests(pendingRequests);
       } catch (err) {
         setError('Failed to load pending requests.');
       } finally {
@@ -63,9 +66,11 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       setRequests(prev => prev.filter(req => req.request_id !== requestId));
 
       if (response === 'accepted' && enrollmentNo) {
-        const groupRes = await apiRequest(`/api/pbl/gp/${enrollmentNo}`, "GET", null, token);
-        if (groupRes && groupRes.group_id) {
-          setGroupDetails(groupRes);
+        const groupRes = await apiRequest(`/api/students/pbl/gp/${enrollmentNo}`, "GET", null, token);
+        const details = groupRes?.data?.groupDetails || groupRes?.groupDetails;
+
+        if (details) {
+          setGroupDetails(details);
         }
       }
     } catch (err) {
@@ -80,8 +85,8 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     setProfileLoading(true);
     try {
       const token = localStorage.getItem("student_token");
-      const profileRes = await apiRequest(`/api/student/profile/${member.enrollement_no}`, "GET", null, token);
-      setMemberProfile(profileRes?.profile || null);
+  const profileRes = await apiRequest(`/api/students/student/profile/${member.enrollement_no}`, "GET", null, token);
+  setMemberProfile(profileRes?.data?.profile || profileRes?.profile || null);
     } catch (err) {
       console.error('Error fetching member profile:', err);
       setMemberProfile(null);

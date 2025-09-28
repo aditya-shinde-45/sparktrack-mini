@@ -31,8 +31,8 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
     setLoading(true);
     setMessage('');
     const endpoint = existing
-      ? `/api/student/problem-statement/${groupId}`
-      : `/api/student/problem-statement`;
+      ? `/api/students/student/problem-statement/${groupId}`
+      : `/api/students/student/problem-statement`;
     const method = existing ? 'PUT' : 'POST';
     const body = { group_id: groupId, ...form };
     const token = localStorage.getItem('student_token');
@@ -42,7 +42,8 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
     if (res.success !== false) {
       setMessage(res.message || (existing ? 'Problem statement updated successfully!' : 'Problem statement submitted successfully!'));
       setMessageType('success');
-      if (onSubmit) onSubmit(res.problemStatement || form);
+      const updatedStatement = res?.data?.problemStatement || res?.problemStatement || form;
+      if (onSubmit) onSubmit(updatedStatement);
     } else {
       setMessage(res.message || 'An error occurred. Please try again.');
       setMessageType('error');
@@ -54,13 +55,13 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
     setLoading(true);
     setMessage('');
     const token = localStorage.getItem('student_token');
-    const res = await apiRequest(`/api/student/problem-statement/${groupId}`, 'DELETE', null, token);
+  const res = await apiRequest(`/api/students/student/problem-statement/${groupId}`, 'DELETE', null, token);
     setLoading(false);
     
     if (res.success !== false) {
       setMessage(res.message || 'Problem statement deleted successfully!');
       setMessageType('success');
-      if (onDelete) onDelete();
+  if (onDelete) onDelete();
     } else {
       setMessage(res.message || 'Failed to delete problem statement.');
       setMessageType('error');
@@ -194,20 +195,22 @@ const ProblemStatementSih = () => {
     const fetchStudentData = async () => {
       try {
         // Get student profile
-        const profileRes = await apiRequest('/api/studentlogin/profile', 'GET', null, token);
-        if (!profileRes || !profileRes.profile) {
+        const profileRes = await apiRequest('/api/student-auth/profile', 'GET', null, token);
+        const profileData = profileRes?.data?.profile || profileRes?.profile;
+
+        if (!profileData) {
           setLoading(false);
           setError("Could not retrieve student profile.");
           return;
         }
         
-        setStudent(profileRes.profile);
-        console.log("Student profile:", profileRes.profile);
+        setStudent(profileData);
+        console.log("Student profile:", profileData);
         
         // Check if student has a group ID directly in profile
-        const studentGroupId = profileRes.profile.group_id || 
-                               profileRes.profile.groupId || 
-                               profileRes.profile.group || 
+        const studentGroupId = profileData.group_id || 
+                               profileData.groupId || 
+                               profileData.group || 
                                '';
         
         if (studentGroupId) {
@@ -218,7 +221,7 @@ const ProblemStatementSih = () => {
           fetchProblemStatement(studentGroupId, token);
         } else {
           // No group ID in profile, try fetch from group endpoint
-          await fetchGroupDetails(profileRes.profile, token);
+          await fetchGroupDetails(profileData, token);
         }
       } catch (error) {
         console.error("Error fetching student data:", error);
@@ -242,13 +245,15 @@ const ProblemStatementSih = () => {
         console.log("Fetching group details for enrollment:", enrollmentNo);
         
         // Call the group details API
-        const groupRes = await apiRequest(`/api/pbl/gp/${enrollmentNo}`, "GET", null, token);
+        const groupRes = await apiRequest(`/api/students/pbl/gp/${enrollmentNo}`, "GET", null, token);
         console.log("Group API response:", groupRes);
         
-        if (groupRes && groupRes.group && groupRes.group.id) {
-          console.log("Found group ID from API:", groupRes.group.id);
-          setGroupId(groupRes.group.id);
-          fetchProblemStatement(groupRes.group.id, token);
+        const fetchedGroup = groupRes?.data?.groupDetails || groupRes?.groupDetails || groupRes?.group;
+
+        if (fetchedGroup && fetchedGroup.id) {
+          console.log("Found group ID from API:", fetchedGroup.id);
+          setGroupId(fetchedGroup.id);
+          fetchProblemStatement(fetchedGroup.id, token);
         } else if (groupRes && groupRes.group_id) {
           // Alternative response format
           console.log("Found alternate group ID format:", groupRes.group_id);
@@ -283,11 +288,13 @@ const ProblemStatementSih = () => {
     const fetchProblemStatement = async (gid, token) => {
       try {
         console.log("Fetching problem statement for group:", gid);
-        const psRes = await apiRequest(`/api/student/problem-statement/${gid}`, 'GET', null, token);
+        const psRes = await apiRequest(`/api/students/student/problem-statement/${gid}`, 'GET', null, token);
         console.log("Problem statement response:", psRes);
         
-        if (psRes && psRes.problemStatement) {
-          setExistingPS(psRes.problemStatement);
+        const statement = psRes?.data?.problemStatement || psRes?.problemStatement;
+
+        if (statement) {
+          setExistingPS(statement);
         }
       } catch (error) {
         console.error("Error fetching problem statement:", error);
@@ -318,11 +325,13 @@ const ProblemStatementSih = () => {
   const fetchProblemStatement = async (gid, token) => {
     try {
       console.log("Fetching problem statement for group:", gid);
-      const psRes = await apiRequest(`/api/student/problem-statement/${gid}`, 'GET', null, token);
+      const psRes = await apiRequest(`/api/students/student/problem-statement/${gid}`, 'GET', null, token);
       console.log("Problem statement response:", psRes);
       
-      if (psRes && psRes.problemStatement) {
-        setExistingPS(psRes.problemStatement);
+      const statement = psRes?.data?.problemStatement || psRes?.problemStatement;
+
+      if (statement) {
+        setExistingPS(statement);
       }
     } catch (error) {
       console.error("Error fetching problem statement:", error);

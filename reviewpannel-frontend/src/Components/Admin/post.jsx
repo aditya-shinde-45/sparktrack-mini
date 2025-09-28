@@ -42,7 +42,7 @@ const AdminPost = () => {
     setLoading(true);
     try {
       const token = getAdminToken();
-      const data = await apiRequest("/api/admin/posts", "GET", null, token);
+      const data = await apiRequest("/api/posts", "GET", null, token);
       if (data.success) {
         setPosts(data.posts || []);
       } else {

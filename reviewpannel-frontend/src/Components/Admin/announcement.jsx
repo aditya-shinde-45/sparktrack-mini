@@ -28,7 +28,7 @@ const AnnouncementAdmin = () => {
     // Fetch current deadline toggles from backend on mount
     useEffect(() => {
         const token = localStorage.getItem("token");
-        apiRequest("/api/deadlines_control", "GET", null, token).then((res) => {
+        apiRequest("/api/deadlines", "GET", null, token).then((res) => {
             if (res && res.deadlines) {
                 const toggles = {};
                 MARKS_OPTIONS.forEach((opt) => {
@@ -45,7 +45,7 @@ const AnnouncementAdmin = () => {
     const fetchAnnouncements = async () => {
         setLoadingAnnouncements(true);
         const token = localStorage.getItem("token");
-        const res = await apiRequest("/api/announcement", "GET", null, token);
+        const res = await apiRequest("/api/announcements", "GET", null, token);
         setLoadingAnnouncements(false);
         if (res && res.announcements) setAnnouncements(res.announcements);
         else setAnnouncements([]);
@@ -60,7 +60,7 @@ const AnnouncementAdmin = () => {
         }));
         // Update deadline toggle in backend
         await apiRequest(
-            `/api/deadlines_control/${key}`,
+            `/api/deadlines/${key}`,
             "PUT",
             { enabled: newStatus },
             token

@@ -9,6 +9,7 @@ import AboutPBL from '../Pages/Common/AboutPBL';
 import ProblemStatementSih from '../Pages/Common/ProblemStatement';
 import Download from '../Pages/Common/Download';
 import Students from '../Pages/Common/students';
+import TokenDebugger from '../Pages/Common/TokenDebugger';
 
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
@@ -48,6 +49,7 @@ const AppRoutes = () => {
       <Route path="/studentdashboard" element={<StudentDashboard />} />
       <Route path="/student/problem-statement" element={<ProblemStatement />} />
       <Route path="/student/student-profile" element={<StudentProfile />} />
+      <Route path="/debug-token" element={<TokenDebugger />} />
 
 
       {/* External/Mentor Routes */}

@@ -55,7 +55,7 @@ const StudentPosts = ({
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      const data = await apiRequest("/api/admin/posts", "GET");
+      const data = await apiRequest("/api/posts", "GET");
       if (data.success) {
         setPosts(data.posts || []);
       } else {

@@ -17,9 +17,11 @@ const StudentProfile = () => {
           return;
         }
 
-        const profileRes = await apiRequest('/api/studentlogin/profile', 'GET', null, token);
-        if (profileRes && profileRes.profile) {
-          setStudent(profileRes.profile);
+        const profileRes = await apiRequest('/api/student-auth/profile', 'GET', null, token);
+        const profileData = profileRes?.data?.profile || profileRes?.profile;
+
+        if (profileData) {
+          setStudent(profileData);
         }
       } catch (err) {
         console.error('Error fetching student data:', err);

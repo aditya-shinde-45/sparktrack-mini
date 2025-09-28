@@ -91,7 +91,7 @@ const AddGroup = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await apiRequest("/api/admin/add-group-pbl", "POST", payload, token);
+      await apiRequest("/api/pbl/groups", "POST", payload, token);
       setMessage("✅ Group added successfully!");
       setGroupDetails({
         group_id: "",

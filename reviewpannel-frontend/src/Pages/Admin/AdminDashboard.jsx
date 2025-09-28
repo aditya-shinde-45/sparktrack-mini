@@ -4,31 +4,57 @@ import Sidebar from "../../Components/Admin/Sidebar";
 import Header from "../../Components/Common/Header";
 import StatsCards from "../../Components/Admin/StatsCards";
 import {
-  PieChart, Pie, Cell, Tooltip, Legend,
-  ResponsiveContainer
+  PieChart, Pie, Cell, Tooltip, Legend
 } from "recharts";
 
 const COLORS = ["#7B74EF", "#5D3FD3", "#FFBB28", "#FF8042", "#A28BFE"];
 
+const defaultCharts = {
+  attendance: [],
+  approvals: {},
+  distribution: { byClass: [] },
+  groupAssignment: [],
+  guideAssignment: []
+};
+
 const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({});
-  const [charts, setCharts] = useState({});
+  const [charts, setCharts] = useState(defaultCharts);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchDashboard = async () => {
       setLoading(true);
-      const res = await apiRequest("/api/admin/dashboard", "GET", null, localStorage.getItem("token"));
-      if (res.success) {
-        setCounts(res.counts);
-        setCharts(res.charts);
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setError("No authentication token found. Please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await apiRequest("/api/admin/dashboard", "GET", null, token);
+
+      if (res?.success) {
+        const dashboardData = res?.data || { counts: res.counts, charts: res.charts };
+
+        setCounts(dashboardData?.counts || {});
+        setCharts({
+          attendance: dashboardData?.charts?.attendance || [],
+          approvals: dashboardData?.charts?.approvals || {},
+          distribution: dashboardData?.charts?.distribution || { byClass: [] },
+          groupAssignment: dashboardData?.charts?.groupAssignment || [],
+          guideAssignment: dashboardData?.charts?.guideAssignment || []
+        });
         setError("");
       } else {
-        setError(res.message || "Failed to load dashboard");
+        setError(res?.message || "Failed to load dashboard");
       }
+
       setLoading(false);
     };
+
     fetchDashboard();
   }, []);
 
@@ -49,7 +75,6 @@ const AdminDashboard = () => {
           <StatsCards statsData={counts} loading={loading} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            {/* Attendance Pie */}
             <Section title="Attendance">
               <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-center">
                 <PieChart width={300} height={220}>
@@ -63,7 +88,7 @@ const AdminDashboard = () => {
                     label
                   >
                     {charts.attendance.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                      <Cell key={`attendance-${idx}`} fill={COLORS[idx % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -73,7 +98,6 @@ const AdminDashboard = () => {
             </Section>
           </div>
 
-          {/* Approval Charts */}
           <Section title="Approvals">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {Object.entries(charts.approvals).map(([key, data]) => (
@@ -90,7 +114,7 @@ const AdminDashboard = () => {
                       label
                     >
                       {data.map((entry, idx) => (
-                        <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                        <Cell key={`${key}-${idx}`} fill={COLORS[idx % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -100,6 +124,80 @@ const AdminDashboard = () => {
               ))}
             </div>
           </Section>
+
+          {charts.distribution?.byClass?.length > 0 && (
+            <Section title="Class Distribution">
+              <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-center">
+                <PieChart width={320} height={220}>
+                  <Pie
+                    data={charts.distribution.byClass}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    label
+                  >
+                    {charts.distribution.byClass.map((entry, idx) => (
+                      <Cell key={`class-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </div>
+            </Section>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {charts.groupAssignment?.length > 0 && (
+              <Section title="Group Assignment">
+                <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-center">
+                  <PieChart width={280} height={220}>
+                    <Pie
+                      data={charts.groupAssignment}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label
+                    >
+                      {charts.groupAssignment.map((entry, idx) => (
+                        <Cell key={`group-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </div>
+              </Section>
+            )}
+
+            {charts.guideAssignment?.length > 0 && (
+              <Section title="Guide Assignment">
+                <div className="bg-white rounded-xl shadow-lg p-4 flex items-center justify-center">
+                  <PieChart width={280} height={220}>
+                    <Pie
+                      data={charts.guideAssignment}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label
+                    >
+                      {charts.guideAssignment.map((entry, idx) => (
+                        <Cell key={`guide-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </div>
+              </Section>
+            )}
+          </div>
         </main>
       </div>
     </div>

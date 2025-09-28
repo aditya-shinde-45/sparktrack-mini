@@ -31,17 +31,19 @@ const StudentLogin = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/studentlogin/login", "POST", { enrollment_no: enrollmentNo, password });
-    if (data.success === false) {
-      setMessage(data.message || "Login failed.");
+    const res = await apiRequest("/api/student-auth/login", "POST", { enrollment_no: enrollmentNo, password });
+    if (res.success === false) {
+      setMessage(res.message || "Login failed.");
     } else {
-      setMessage(data.message || "Login successful.");
+      setMessage(res.message || "Login successful.");
       // Save token and enrollment_no if present
-      if (data.token) {
-        localStorage.setItem("student_token", data.token);
+      const token = res.data?.token || res.token;
+      if (token) {
+        localStorage.setItem("student_token", token);
       }
-      if (data.enrollment_no || enrollmentNo) {
-        localStorage.setItem("enrollmentNumber", data.enrollment_no || enrollmentNo);
+      const enrollmentId = res.data?.student?.enrollment_no || res.enrollment_no || enrollmentNo;
+      if (enrollmentId || enrollmentNo) {
+        localStorage.setItem("enrollmentNumber", enrollmentId || enrollmentNo);
       }
       // Redirect to student dashboard
       navigate("/studentdashboard");
@@ -52,11 +54,11 @@ const StudentLogin = () => {
   const handleSendFirstTimeOtp = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/studentlogin/first-time/send-otp", "POST", { email });
-    if (data.success === false) {
-      setMessage(data.message || "Failed to send OTP.");
+    const res = await apiRequest("/api/student-auth/first-time/send-otp", "POST", { email });
+    if (res.success === false) {
+      setMessage(res.message || "Failed to send OTP.");
     } else {
-      setMessage(data.message || "OTP sent to your email.");
+      setMessage(res.message || "OTP sent to your email.");
       setOtpSent(true);
     }
   };
@@ -65,11 +67,11 @@ const StudentLogin = () => {
   const handleSetNewUserPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/studentlogin/set-password", "POST", { email, otp, newPassword });
-    if (data.success === false) {
-      setMessage(data.message || "Failed to set password.");
+    const res = await apiRequest("/api/student-auth/set-password", "POST", { email, otp, newPassword });
+    if (res.success === false) {
+      setMessage(res.message || "Failed to set password.");
     } else {
-      setMessage(data.message || "Registration successful. You can now login.");
+      setMessage(res.message || "Registration successful. You can now login.");
       setOtpSent(false);
       setMode("login");
     }
@@ -79,11 +81,11 @@ const StudentLogin = () => {
   const handleSendForgotOtp = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/studentlogin/forgot-password/send-otp", "POST", { email });
-    if (data.success === false) {
-      setMessage(data.message || "Failed to send OTP.");
+    const res = await apiRequest("/api/student-auth/forgot-password/send-otp", "POST", { email });
+    if (res.success === false) {
+      setMessage(res.message || "Failed to send OTP.");
     } else {
-      setMessage(data.message || "OTP sent to your email.");
+      setMessage(res.message || "OTP sent to your email.");
       setOtpSent(true);
     }
   };
@@ -92,11 +94,11 @@ const StudentLogin = () => {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    const data = await apiRequest("/api/studentlogin/forgot-password/reset", "POST", { email, otp, newPassword });
-    if (data.success === false) {
-      setMessage(data.message || "Failed to reset password.");
+    const res = await apiRequest("/api/student-auth/forgot-password/reset", "POST", { email, otp, newPassword });
+    if (res.success === false) {
+      setMessage(res.message || "Failed to reset password.");
     } else {
-      setMessage(data.message || "Password reset successful. You can now login.");
+      setMessage(res.message || "Password reset successful. You can now login.");
       setOtpSent(false);
       setMode("login");
     }

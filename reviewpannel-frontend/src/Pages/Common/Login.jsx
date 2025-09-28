@@ -9,75 +9,140 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
 
     if (!role) {
-      alert("Please select a role to log in.");
+      setErrorMsg("Please select a role to log in.");
       return;
     }
 
     let endpoint = "";
     let payload = {};
 
+    // Standardize role format for API (lowercase)
+    const apiRole = role.toLowerCase();
+
     if (role === "Admin") {
       endpoint = "/api/auth/login";
-      payload = { username, password, role };
+      payload = { username, password, role: apiRole };
     } else if (role === "External") {
-      endpoint = "/api/external-auth/external/login";
+      endpoint = "/api/external-auth/login";
       payload = { external_id: username, password };
     } else if (role === "Mentor") {
-      endpoint = "/api/mentor/login";
+      endpoint = "/api/mentors/login";
       payload = { username, password };
     } else {
-      alert("Selected role is not supported for login.");
+      setErrorMsg("Selected role is not supported for login.");
       return;
     }
 
     try {
       setLoading(true);
       const data = await apiRequest(endpoint, "POST", payload);
-
-      if (!data || !data.token) {
-        alert("Login failed. Invalid credentials.");
+      
+      // Check for success flag to determine if request was successful
+      if (!data || data.success === false) {
+        setErrorMsg(data?.message || "Login failed. Invalid credentials.");
         return;
       }
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("role", role);
+      // If we reach here, login was successful
+      // Debug the data structure
+      console.log("Login response data:", data);
+      
+      // Clear any existing tokens/data first
+      localStorage.removeItem('token');
+      localStorage.removeItem('student_token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('name');
+      localStorage.removeItem('id');
+      localStorage.removeItem('groups');
+      
+      // Store new token and data - handling both response structures
+      // The token could be directly in data.token or nested in data.data.token
+      const token = data.token || (data.data && data.data.token);
+      
+      if (!token) {
+        console.error("No token found in response:", data);
+        setErrorMsg("Login successful but no token received");
+        return;
+      }
+      
+      // Clear old session data first
+      sessionStorage.clear();
+      
+      // Important: Set token in localStorage first
+      console.log("Setting token in localStorage:", token.substring(0, 20) + "...");
+      localStorage.setItem("token", token);
+      
+      // Set role in a specific order to ensure consistency
+      localStorage.setItem("role", role.toLowerCase());
+      console.log("Role set to:", role.toLowerCase());
+
+      // Extract additional data from the response - handling both structures
+      const user = data.user || (data.data && data.data.user);
+      if (user) {
+        localStorage.setItem("user_id", user.id);
+        localStorage.setItem("username", user.username);
+      }
 
       if (role === "Mentor") {
-        localStorage.setItem("name", data.mentor_name);
+        localStorage.setItem("name", data.mentor_name || data.user?.name || username);
         const groupData = await apiRequest(
-          "/api/mentor/groups",
+          "/api/mentors/groups",
           "GET",
           null,
           data.token
         );
-        localStorage.setItem("groups", JSON.stringify(groupData.group_ids));
+        localStorage.setItem("groups", JSON.stringify(groupData.group_ids || []));
         navigate("/external-home");
       }
 
       if (role === "External") {
-        localStorage.setItem("name", data.user.name);
+        localStorage.setItem("name", data.user?.name || username);
         const groupData = await apiRequest(
-          "/api/external-auth/external/groups",
+          "/api/external-auth/groups",
           "GET",
           null,
           data.token
         );
-        localStorage.setItem("groups", JSON.stringify(groupData.groups));
+        localStorage.setItem("groups", JSON.stringify(groupData.groups || []));
         navigate("/external-home");
       }
 
       if (role === "Admin") {
-        navigate("/admin-dashboard");
+        // Store admin-specific data
+        const user = data.user || (data.data && data.data.user);
+        if (user) {
+          localStorage.setItem("name", user.username);
+          localStorage.setItem("id", user.id);
+        } else {
+          // Fallback if user data not available
+          localStorage.setItem("name", username);
+        }
+        
+        // Debug token to console for troubleshooting
+        console.log("Admin token stored:", token ? token.substring(0, 20) + "..." : "No token");
+        console.log("Role stored:", localStorage.getItem('role'));
+        console.log("All localStorage items:", Object.keys(localStorage));
+        
+        // Set an auth flag to track successful authentication
+        localStorage.setItem("isAuthenticated", "true");
+        
+        // Create a clean state by forcing a page reload to admin dashboard
+        // This ensures all React components re-render with the new auth state
+        console.log("Redirecting to admin dashboard...");
+        window.location.href = "/admin-dashboard";
       }
     } catch (error) {
-      alert(error.message);
+      console.error("Login error:", error);
+      setErrorMsg(error.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -103,13 +168,20 @@ const Login = () => {
           {/* Content container */}
           <div className="relative z-10 p-8">
             {/* Header */}
-            <div className="text-center mb-8">
-              <div className="flex items-center justify-center mb-4 space-x-4">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center mb-2 space-x-4">
                 <h1 className="text-3xl font-bold text-white drop-shadow-lg">
                   Login
                 </h1>
               </div>
             </div>
+            
+            {/* Error message */}
+            {errorMsg && (
+              <div className="bg-red-500/20 border border-red-500/50 text-white rounded-lg p-3 mb-4 text-sm">
+                {errorMsg}
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -217,6 +289,18 @@ const Login = () => {
                   <span>Login</span>
                 )}
               </button>
+              
+              {/* Debug link - only visible in development */}
+              {import.meta.env.MODE === "development" && (
+                <div className="mt-4 text-center">
+                  <a 
+                    href="/debug-token" 
+                    className="text-white/70 text-xs hover:text-white transition-colors"
+                  >
+                    Debug Token
+                  </a>
+                </div>
+              )}
             </form>
           </div>
         </div>
