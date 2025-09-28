@@ -59,6 +59,15 @@ const DeadlineAdmin = () => {
     const handleToggle = async (key) => {
         const token = localStorage.getItem("admin_token");
         const newStatus = !activeTasks[key];
+        
+        // Block toggle if trying to enable PBL review when the other is already enabled
+        if ((key === "pbl_review_1" || key === "pbl_review_2") && newStatus) {
+            const otherReviewKey = key === "pbl_review_1" ? "pbl_review_2" : "pbl_review_1";
+            if (activeTasks[otherReviewKey]) {
+                return; // Block the toggle
+            }
+        }
+        
         setActiveTasks((prev) => ({
             ...prev,
             [key]: newStatus,

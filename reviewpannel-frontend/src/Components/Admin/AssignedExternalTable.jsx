@@ -8,15 +8,23 @@ const AssignedExternalTable = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newExternal, setNewExternal] = useState({ external_id: "", password: "", name: "" });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   // Fetch externals
   const fetchExternals = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("token");
-      const data = await apiRequest("/api/admin/externals", "GET", null, token);
-      setExternals(data.externals);
+      const response = await apiRequest("/api/external/externals", "GET", null, token);
+      // Handle new API response structure: { success, message, data: { externals } }
+      setExternals(response.data?.externals || response.externals || []);
     } catch (err) {
       console.error("Error fetching externals:", err);
+      alert("Failed to load externals. Please refresh the page.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,39 +40,77 @@ const AssignedExternalTable = () => {
 
   // Save external
   const handleSave = async (external_id) => {
+    // Validate that at least one field is provided and not empty
+    const hasValidPassword = editData.password && editData.password.trim();
+    const hasValidName = editData.name && editData.name.trim();
+    
+    if (!hasValidPassword && !hasValidName) {
+      alert("Please provide at least password or name to update");
+      return;
+    }
+
     try {
+      setSaving(true);
       const token = localStorage.getItem("token");
-      await apiRequest(`/api/admin/externals/${external_id}`, "PUT", editData, token);
+      // Only send non-empty fields
+      const updateData = {};
+      if (hasValidPassword) updateData.password = editData.password.trim();
+      if (hasValidName) updateData.name = editData.name.trim();
+      
+      const response = await apiRequest(`/api/external/externals/${external_id}`, "PUT", updateData, token);
+      
+      // Update the local state with the new data
       setExternals((prev) =>
         prev.map((ext) =>
-          ext.external_id === external_id ? { ...ext, ...editData } : ext
+          ext.external_id === external_id ? { ...ext, ...updateData } : ext
         )
       );
       setEditingId(null);
     } catch (err) {
       console.error("Error updating external:", err);
+      const errorMessage = err.response?.data?.message || "Failed to update external. Please try again.";
+      alert(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
   // Add external
   const handleAdd = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await apiRequest("/api/admin/externals", "POST", newExternal, token);
+    // Validate required fields
+    if (!newExternal.external_id.trim()) {
+      alert("External ID is required");
+      return;
+    }
+    if (!newExternal.password.trim()) {
+      alert("Password is required");
+      return;
+    }
+    if (!newExternal.name.trim()) {
+      alert("Name is required");
+      return;
+    }
 
-      if (response?.added?.length) {
-        setExternals((prev) => [...prev, response.added[0]]);
+    try {
+      setAdding(true);
+      const token = localStorage.getItem("token");
+      const response = await apiRequest("/api/external/externals", "POST", newExternal, token);
+
+      // Handle new API response structure: { success, message, data: { added } }
+      const addedData = response.data?.added || response.added;
+      if (addedData?.length) {
+        setExternals((prev) => [...prev, addedData[0]]);
       }
 
       setNewExternal({ external_id: "", password: "", name: "" });
       setShowAddForm(false);
     } catch (err) {
-      if (err.response?.data?.message) {
-        alert(err.response.data.message);
-      } else {
-        console.error("Error adding external:", err);
-        alert("Error adding external. Please try again.");
-      }
+      // Handle both old and new error response formats
+      const errorMessage = err.response?.data?.message || err.message || "Error adding external. Please try again.";
+      alert(errorMessage);
+      console.error("Error adding external:", err);
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -73,11 +119,14 @@ const AssignedExternalTable = () => {
     if (!window.confirm("Are you sure you want to delete this external?")) return;
     try {
       const token = localStorage.getItem("token");
-      await apiRequest(`/api/admin/externals/${external_id}`, "DELETE", null, token);
+      const response = await apiRequest(`/api/external/externals/${external_id}`, "DELETE", null, token);
+      
+      // If successful, remove from local state
       setExternals((prev) => prev.filter((ext) => ext.external_id !== external_id));
     } catch (err) {
       console.error("Error deleting external:", err);
-      alert("Failed to delete external.");
+      const errorMessage = err.response?.data?.message || "Failed to delete external.";
+      alert(errorMessage);
     }
   };
 
@@ -137,8 +186,21 @@ const AssignedExternalTable = () => {
             />
           </div>
           <div className="flex gap-2 mt-4">
-            <button onClick={handleAdd} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Add</button>
-            <button onClick={() => setShowAddForm(false)} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Cancel</button>
+            <button 
+              onClick={handleAdd} 
+              disabled={adding}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {adding && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+              {adding ? 'Adding...' : 'Add'}
+            </button>
+            <button 
+              onClick={() => setShowAddForm(false)} 
+              disabled={adding}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -156,57 +218,84 @@ const AssignedExternalTable = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredExternals.map((ext) => (
-              <tr key={ext.external_id} className="bg-white border-b">
-                <td className="px-6 py-4">{ext.external_id}</td>
-                <td className="px-6 py-4">
-                  {editingId === ext.external_id ? (
-                    <input
-                      type="text"
-                      value={editData.password}
-                      onChange={(e) => setEditData((prev) => ({ ...prev, password: e.target.value }))}
-                      className="border px-2 py-1 rounded w-full bg-white text-gray-900"
-                      placeholder="Enter password"
-                    />
-                  ) : (
-                    ext.password
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  {editingId === ext.external_id ? (
-                    <input
-                      type="text"
-                      value={editData.name}
-                      onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
-                      className="border px-2 py-1 rounded w-full bg-white text-gray-900"
-                      placeholder="Enter name"
-                    />
-                  ) : (
-                    ext.name || "-"
-                  )}
-                </td>
-                {/* Update column */}
-                <td className="px-6 py-4">
-                  {editingId === ext.external_id ? (
-                    <button onClick={() => handleSave(ext.external_id)} className="bg-purple-600 text-white px-3 py-1 rounded">
-                      Save
-                    </button>
-                  ) : (
-                    <span className="material-icons text-purple-600 cursor-pointer" onClick={() => handleEdit(ext)}>edit</span>
-                  )}
-                </td>
-                {/* Delete column */}
-                <td className="px-6 py-4">
-                  <span className="material-icons text-red-600 cursor-pointer" onClick={() => handleDelete(ext.external_id)}>delete</span>
-                </td>
-              </tr>
-            ))}
-            {filteredExternals.length === 0 && (
+            {loading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-400">
-                  No externals found
+                <td colSpan={5} className="px-6 py-8 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-600">Loading externals...</span>
+                  </div>
                 </td>
               </tr>
+            ) : (
+              <>
+                {filteredExternals.map((ext) => (
+                  <tr key={ext.external_id} className="bg-white border-b">
+                    <td className="px-6 py-4">{ext.external_id}</td>
+                    <td className="px-6 py-4">
+                      {editingId === ext.external_id ? (
+                        <input
+                          type="text"
+                          value={editData.password}
+                          onChange={(e) => setEditData((prev) => ({ ...prev, password: e.target.value }))}
+                          className="border px-2 py-1 rounded w-full bg-white text-gray-900"
+                          placeholder="Enter password"
+                        />
+                      ) : (
+                        ext.password
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {editingId === ext.external_id ? (
+                        <input
+                          type="text"
+                          value={editData.name}
+                          onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
+                          className="border px-2 py-1 rounded w-full bg-white text-gray-900"
+                          placeholder="Enter name"
+                        />
+                      ) : (
+                        ext.name || "-"
+                      )}
+                    </td>
+                    {/* Update column */}
+                    <td className="px-6 py-4">
+                      {editingId === ext.external_id ? (
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleSave(ext.external_id)} 
+                            disabled={saving}
+                            className="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            {saving && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                            {saving ? 'Saving...' : 'Save'}
+                          </button>
+                          <button 
+                            onClick={() => setEditingId(null)} 
+                            disabled={saving}
+                            className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="material-icons text-purple-600 cursor-pointer hover:text-purple-800" onClick={() => handleEdit(ext)}>edit</span>
+                      )}
+                    </td>
+                    {/* Delete column */}
+                    <td className="px-6 py-4">
+                      <span className="material-icons text-red-600 cursor-pointer hover:text-red-800" onClick={() => handleDelete(ext.external_id)}>delete</span>
+                    </td>
+                  </tr>
+                ))}
+                {filteredExternals.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-400">
+                      No externals found
+                    </td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>

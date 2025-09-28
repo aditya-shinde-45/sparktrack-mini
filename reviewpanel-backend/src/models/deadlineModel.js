@@ -13,13 +13,21 @@ class DeadlineModel {
    * Get all deadline controls
    */
   async getAll() {
-    const { data, error } = await supabase
-      .from(this.table)
-      .select('*')
-      .order('id');
+    try {
+      const { data, error } = await supabase
+        .from(this.table)
+        .select('key, label, enabled')
+        .order('key');
 
-    if (error) throw error;
-    return data || [];
+      if (error) {
+        throw new ApiError(500, `Database error: ${error.message}`);
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('Error getting all deadlines:', error);
+      throw error;
+    }
   }
 
   /**
@@ -27,14 +35,28 @@ class DeadlineModel {
    * @param {string} key - Deadline control key
    */
   async getByKey(key) {
-    const { data, error } = await supabase
-      .from(this.table)
-      .select('*')
-      .eq('key', key)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from(this.table)
+        .select('key, label, enabled')
+        .eq('key', key)
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        // If record not found, log warning and return null
+        if (error.code === 'PGRST116') {
+          console.warn(`Deadline key '${key}' not found in database.`);
+          return null;
+        }
+        
+        throw new ApiError(500, `Database error: ${error.message}`);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error getting deadline by key ${key}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -43,14 +65,27 @@ class DeadlineModel {
    * @param {boolean} enabled - Whether the function is enabled
    */
   async update(key, enabled) {
-    const { data, error } = await supabase
-      .from(this.table)
-      .update({ enabled })
-      .eq('key', key)
-      .select();
+    try {
+      const { data, error } = await supabase
+        .from(this.table)
+        .update({ enabled })
+        .eq('key', key)
+        .select('key, label, enabled');
 
-    if (error) throw error;
-    return data;
+      if (error) {
+        throw new ApiError(500, `Database error: ${error.message}`);
+      }
+
+      // If no rows were updated, the key doesn't exist
+      if (!data || data.length === 0) {
+        throw new ApiError(404, `Deadline control with key '${key}' not found`);
+      }
+      
+      return data[0];
+    } catch (error) {
+      console.error(`Error updating deadline ${key}:`, error);
+      throw error;
+    }
   }
 }
 

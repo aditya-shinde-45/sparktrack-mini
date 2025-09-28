@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../Components/Common/Navbar";
 import { apiRequest } from "../../api.js"; // Import helper
@@ -12,6 +12,29 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [isExternalEnabled, setIsExternalEnabled] = useState(false);
+
+  // Check if external login should be enabled based on deadline controls
+  useEffect(() => {
+    const checkDeadlineControls = async () => {
+      try {
+        const response = await apiRequest("/api/deadlines", "GET");
+        if (response && response.deadlines) {
+          const pblReview1 = response.deadlines.find(d => d.key === 'pbl_review_1');
+          const pblReview2 = response.deadlines.find(d => d.key === 'pbl_review_2');
+          
+          const isEnabled = (pblReview1 && pblReview1.enabled) || (pblReview2 && pblReview2.enabled);
+          setIsExternalEnabled(isEnabled);
+        }
+      } catch (error) {
+        console.error("Error checking deadline controls:", error);
+        // Default to enabled if there's an error
+        setIsExternalEnabled(true);
+      }
+    };
+
+    checkDeadlineControls();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -242,7 +265,9 @@ const Login = () => {
                 >
                   <option value="" className="bg-[#5D3FD3] text-white">Select Role</option>
                   <option value="Admin" className="bg-[#5D3FD3] text-white">Admin</option>
-                  <option value="External" className="bg-[#5D3FD3] text-white">External</option>
+                  {isExternalEnabled && (
+                    <option value="External" className="bg-[#5D3FD3] text-white">External</option>
+                  )}
                   <option value="Mentor" className="bg-[#5D3FD3] text-white">Mentor</option>
                 </select>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">

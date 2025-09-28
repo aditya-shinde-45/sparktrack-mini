@@ -7,66 +7,66 @@ const router = express.Router();
 /**
  * @route GET /api/dashboard/stats
  * @desc Get dashboard statistics
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/stats', 
-  authMiddleware.authenticateUser, 
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken, 
+  authMiddleware.authenticateAdmin,
   dashboardController.getDashboardStats
 );
 
 /**
  * @route GET /api/dashboard/activity
  * @desc Get recent activity data
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/activity', 
-  authMiddleware.authenticateUser,
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
   dashboardController.getRecentActivity
 );
 
 /**
  * @route GET /api/dashboard/projects
  * @desc Get projects overview for dashboard
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/projects', 
-  authMiddleware.authenticateUser,
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
   dashboardController.getProjectsOverview
 );
 
 /**
  * @route GET /api/dashboard/evaluations
  * @desc Get evaluations summary for dashboard
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/evaluations', 
-  authMiddleware.authenticateUser,
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
   dashboardController.getEvaluationsSummary
 );
 
 /**
  * @route GET /api/dashboard/data
  * @desc Get comprehensive dashboard data (all charts and counts)
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/data', 
-  authMiddleware.authenticateUser, 
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken, 
+  authMiddleware.authenticateAdmin,
   dashboardController.getDashboardData
 );
 
 /**
  * @route GET /api/dashboard/stat-cards
  * @desc Get stats for the admin dashboard cards
- * @access Private (Admin, Mentor)
+ * @access Private (Admin)
  */
 router.get('/stat-cards', 
-  authMiddleware.authenticateUser, 
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.verifyToken, 
+  authMiddleware.authenticateAdmin,
   dashboardController.getStatCards
 );
 

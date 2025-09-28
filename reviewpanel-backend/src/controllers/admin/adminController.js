@@ -9,34 +9,6 @@ import pblModel from '../../models/pblModel.js';
  */
 class AdminController {
   /**
-   * Get dashboard data for admin
-   */
-  getDashboardData = asyncHandler(async (req, res) => {
-    // Get counts of users by role
-    const userCounts = await userModel.getUserCountsByRole();
-    
-    // Get count of students
-    const studentCount = await studentAuthModel.getStudentCount();
-    
-    // Get count of groups
-    const groupCount = await pblModel.getGroupCount();
-    
-    // Get count of active projects
-    const activeProjectsCount = await pblModel.getActiveProjectsCount();
-    
-    // Get recent activities
-    const recentActivities = await userModel.getRecentActivities();
-    
-    return ApiResponse.success(res, 'Dashboard data retrieved successfully', {
-      userCounts,
-      studentCount,
-      groupCount,
-      activeProjectsCount,
-      recentActivities
-    });
-  });
-
-  /**
    * Get all users (admin and mentors)
    */
   getAllUsers = asyncHandler(async (req, res) => {
