@@ -112,15 +112,7 @@ class EvaluationModel {
       .select(`
         enrollement_no,
         name_of_student,
-        guide_name,
-        A, B, C, D, E,
-        total,
-        feedback,
-        crieya,
-        copyright,
-        patent,
-        aic,
-        tech_transfer
+        guide_name
       `)
       .eq('group_id', groupId);
 

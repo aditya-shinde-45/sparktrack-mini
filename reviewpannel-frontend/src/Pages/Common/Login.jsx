@@ -19,17 +19,26 @@ const Login = () => {
     const checkDeadlineControls = async () => {
       try {
         const response = await apiRequest("/api/deadlines", "GET");
-        if (response && response.deadlines) {
-          const pblReview1 = response.deadlines.find(d => d.key === 'pbl_review_1');
-          const pblReview2 = response.deadlines.find(d => d.key === 'pbl_review_2');
+        console.log("Deadline controls response:", response);
+        
+        if (response && response.data) {
+          const pblReview1 = response.data.find(d => d.key === 'pbl_review_1');
+          const pblReview2 = response.data.find(d => d.key === 'pbl_review_2');
           
           const isEnabled = (pblReview1 && pblReview1.enabled) || (pblReview2 && pblReview2.enabled);
+          console.log("PBL Review 1 enabled:", pblReview1?.enabled);
+          console.log("PBL Review 2 enabled:", pblReview2?.enabled);
+          console.log("External login enabled:", isEnabled);
+          
           setIsExternalEnabled(isEnabled);
+        } else {
+          console.warn("No deadline controls data received");
+          setIsExternalEnabled(false);
         }
       } catch (error) {
         console.error("Error checking deadline controls:", error);
-        // Default to enabled if there's an error
-        setIsExternalEnabled(true);
+        // Default to disabled if there's an error
+        setIsExternalEnabled(false);
       }
     };
 

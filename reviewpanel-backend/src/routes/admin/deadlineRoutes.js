@@ -7,12 +7,10 @@ const router = express.Router();
 /**
  * @route   GET /api/deadlines
  * @desc    Get all deadline controls
- * @access  Private (Admin)
+ * @access  Private (Admin, External, Mentor)
  */
 router.get(
-  '/', 
-  authMiddleware.verifyToken, 
-  authMiddleware.authenticateAdmin, 
+  '/',
   deadlineController.getAllDeadlines
 );
 

@@ -11,7 +11,7 @@ class DeadlineController {
    */
   getAllDeadlines = asyncHandler(async (req, res) => {
     const deadlines = await deadlineModel.getAll();
-    return ApiResponse.success(res, 'Deadlines retrieved successfully', { deadlines });
+    return ApiResponse.success(res, 'Deadlines retrieved successfully', deadlines);
   });
 
   /**

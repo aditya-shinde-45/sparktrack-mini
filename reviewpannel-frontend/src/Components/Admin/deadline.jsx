@@ -45,14 +45,27 @@ const DeadlineAdmin = () => {
         setLoading(true);
         apiRequest("/api/deadlines", "GET", null, token).then((res) => {
             setLoading(false);
-            if (res && res.deadlines) {
+            console.log("Deadlines API Response:", res);
+            
+            // Handle new response structure with data array
+            let deadlinesData = [];
+            if (res?.data && Array.isArray(res.data)) {
+                deadlinesData = res.data;
+            } else if (res?.deadlines && Array.isArray(res.deadlines)) {
+                deadlinesData = res.deadlines;
+            }
+            
+            if (deadlinesData.length > 0) {
                 const toggles = {};
                 DEADLINE_TASKS.forEach(task => {
-                    const found = res.deadlines.find(d => d.key === task.key);
+                    const found = deadlinesData.find(d => d.key === task.key);
                     toggles[task.key] = found ? !!found.enabled : false;
                 });
                 setActiveTasks(toggles);
             }
+        }).catch((err) => {
+            setLoading(false);
+            console.error("Error fetching deadlines:", err);
         });
     }, []);
 

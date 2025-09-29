@@ -30,7 +30,7 @@ class ExternalAuthModel {
     return {
       external_id: data.external_id,
       name: data.name,
-      role: 'External'
+      role: 'external' // Ensure lowercase for consistency
     };
   }
 
@@ -42,7 +42,7 @@ class ExternalAuthModel {
     const payload = {
       external_id: external.external_id,
       name: external.name,
-      role: external.role
+      role: 'external' // Ensure lowercase for consistency
     };
     
     return jwt.sign(payload, config.jwt.secret, { expiresIn: '1d' });

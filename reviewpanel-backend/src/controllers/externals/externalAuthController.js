@@ -29,7 +29,7 @@ class ExternalAuthController {
       user: { 
         external_id: external.external_id, 
         name: external.name, 
-        role: external.role 
+        role: 'external' // Ensure consistent lowercase role
       }
     });
   });
