@@ -14,7 +14,7 @@ const MentorsPage = () => {
       setError("");
       try {
         const token = localStorage.getItem("token");
-        const res = await apiRequest("/api/admin/mentors", "GET", null, token);
+        const res = await apiRequest("/api/mentors/mentors", "GET", null, token);
 
         if (res && res.mentors) {
           setMentors(res.mentors);

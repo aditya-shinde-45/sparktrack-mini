@@ -24,14 +24,14 @@ const DEADLINE_TASKS = [
         icon: <CalendarCheck className="w-6 h-6 text-green-500" />,
     },
     {
-        key: "show_ta1_marks",
-        label: "Show TA1 Marks",
-        icon: <BadgeCheck className="w-6 h-6 text-yellow-500" />,
+        key: "pbl_review_1",
+        label: "PBL Review 1",
+        icon: <BadgeCheck className="w-6 h-6 text-orange-500" />,
     },
     {
-        key: "show_ta2_marks",
-        label: "Show TA2 Marks",
-        icon: <BadgeDollarSign className="w-6 h-6 text-emerald-500" />,
+        key: "pbl_review_2",
+        label: "PBL Review 2",
+        icon: <BadgeCheck className="w-6 h-6 text-indigo-500" />,
     },
 ];
 
@@ -43,29 +43,51 @@ const DeadlineAdmin = () => {
     useEffect(() => {
         const token = localStorage.getItem("admin_token");
         setLoading(true);
-        apiRequest("/api/deadlines_control", "GET", null, token).then((res) => {
+        apiRequest("/api/deadlines", "GET", null, token).then((res) => {
             setLoading(false);
-            if (res && res.deadlines) {
+            console.log("Deadlines API Response:", res);
+            
+            // Handle new response structure with data array
+            let deadlinesData = [];
+            if (res?.data && Array.isArray(res.data)) {
+                deadlinesData = res.data;
+            } else if (res?.deadlines && Array.isArray(res.deadlines)) {
+                deadlinesData = res.deadlines;
+            }
+            
+            if (deadlinesData.length > 0) {
                 const toggles = {};
                 DEADLINE_TASKS.forEach(task => {
-                    const found = res.deadlines.find(d => d.key === task.key);
+                    const found = deadlinesData.find(d => d.key === task.key);
                     toggles[task.key] = found ? !!found.enabled : false;
                 });
                 setActiveTasks(toggles);
             }
+        }).catch((err) => {
+            setLoading(false);
+            console.error("Error fetching deadlines:", err);
         });
     }, []);
 
     const handleToggle = async (key) => {
         const token = localStorage.getItem("admin_token");
         const newStatus = !activeTasks[key];
+        
+        // Block toggle if trying to enable PBL review when the other is already enabled
+        if ((key === "pbl_review_1" || key === "pbl_review_2") && newStatus) {
+            const otherReviewKey = key === "pbl_review_1" ? "pbl_review_2" : "pbl_review_1";
+            if (activeTasks[otherReviewKey]) {
+                return; // Block the toggle
+            }
+        }
+        
         setActiveTasks((prev) => ({
             ...prev,
             [key]: newStatus,
         }));
         // Update deadline toggle in backend
         await apiRequest(
-            `/api/deadlines_control/${key}`,
+            `/api/deadlines/${key}`,
             "PUT",
             { enabled: newStatus },
             token

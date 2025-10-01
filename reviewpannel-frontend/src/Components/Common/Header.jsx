@@ -27,11 +27,23 @@ const Header = ({ name, id }) => {
   }, []);
 
   const handleLogout = () => {
+    // Clear all authentication-related data
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("name");
     localStorage.removeItem("groups");
+    localStorage.removeItem("id");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("username");
+    localStorage.removeItem("student_token");
+    
+    // Redirect to home page
     navigate("/");
+    
+    // Force reload to clear any in-memory state
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   // ✅ Reset password allowed ONLY if role === mentor

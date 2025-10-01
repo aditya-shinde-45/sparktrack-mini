@@ -78,7 +78,7 @@ const AddGroupModal = ({ isOpen, onClose, onSuccess }) => {
 
     try {
       const token = localStorage.getItem("token");
-      await apiRequest("/api/admin/add-group-pbl", "POST", payload, token);
+      await apiRequest("/api/pbl/groups", "POST", payload, token);
       setMessage("✅ Group added successfully!");
       onSuccess && onSuccess();
       setTimeout(() => {

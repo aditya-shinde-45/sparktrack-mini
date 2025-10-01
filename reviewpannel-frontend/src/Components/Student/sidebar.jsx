@@ -13,7 +13,7 @@ import {
 import mitLogo from '../../assets/mitlogo.png';
 
 const routes = [
-  { name: "Dashboard", path: "/student-dashboard", icon: LayoutDashboard },
+  { name: "Dashboard", path: "/studentdashboard", icon: LayoutDashboard },
   { name: "Team Workspace", path: "/teamwork-space", icon: PlusSquare },
   { name: "Project Planning", path: "/project-planning", icon: Edit },
   { name: "Project Review", path: "/project-review", icon: FileSpreadsheet },
@@ -38,8 +38,10 @@ const Sidebar = () => {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('student');
+    localStorage.removeItem('student_token');
+    localStorage.removeItem('enrollmentNumber');
     sessionStorage.clear();
-    navigate('/');
+    navigate('/studentlogin');
   };
 
   return (

@@ -31,7 +31,7 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
           setProfilePicture(parsedStudent.profile_picture_url);
         }
 
-        const res = await apiRequest("/api/studentlogin/profile", "GET", null, token);
+        const res = await apiRequest("/api/student-auth/profile", "GET", null, token);
         
         // Check for API success
         if (res && res.success !== false && res.profile) {          
@@ -128,7 +128,7 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
       const token = localStorage.getItem("student_token");
 
       await apiRequest(
-        "/api/studentlogin/update-password",
+        "/api/student-auth/update-password",
         "PUT",
         {
           oldPassword: prevPassword,

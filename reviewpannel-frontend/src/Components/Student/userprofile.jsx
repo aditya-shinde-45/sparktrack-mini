@@ -81,7 +81,7 @@ const UserProfile = ({ enrollmentNo }) => {
         ? import.meta.env.VITE_API_BASE_URL 
         : import.meta.env.VITE_API_BASE_URL_PROD;
 
-      const res = await fetch(`${API_BASE_URL}/api/student/profile/${enrollmentNo}`, {
+      const res = await fetch(`${API_BASE_URL}/api/students/profile/${enrollmentNo}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

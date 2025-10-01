@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Student/sidebar";
-import Header from "../../Components/Student/Header"; // <-- Use Common Header
+import Header from "../../Components/Student/Header";
 import GroupDetails from "../../Components/Student/GroupDetails";
 import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
+import StudentPosts from "../../Components/Student/posts";
+import { Download, FileText, Image, File, ExternalLink } from "lucide-react";
 
 const StudentDashboard = () => {
   const [student, setStudent] = useState(null);
@@ -13,6 +15,11 @@ const StudentDashboard = () => {
   const [review2Marks, setReview2Marks] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState({ title: "", message: "" });
+  const [announcements, setAnnouncements] = useState([]);
+  
+  // Posts modal state
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [triggerPostsFetch, setTriggerPostsFetch] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("student_token");
@@ -22,36 +29,40 @@ const StudentDashboard = () => {
     }
 
     const fetchStudent = async () => {
-      const profileRes = await apiRequest("/api/studentlogin/profile", "GET", null, token);
-      if (!profileRes || !profileRes.profile) {
+      const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
+      const profileData = profileRes?.data?.profile || profileRes?.profile;
+
+      if (!profileData) {
         setStudent(null);
         return;
       }
-      setStudent(profileRes.profile);
+      setStudent(profileData);
 
       // Fetch group details
-      fetchGroup(profileRes.profile.enrollment_no, token);
+      fetchGroup(profileData.enrollment_no, token);
 
       // Fetch problem statement using group_id
-      if (profileRes.profile.group_id) {
-        fetchProblemStatement(profileRes.profile.group_id, token);
+      if (profileData.group_id) {
+        fetchProblemStatement(profileData.group_id, token);
       }
 
       // Fetch PBL Review 1 marks (pass enrollement_no as query param)
-      fetchReview1Marks(profileRes.profile.enrollment_no, token);
+      fetchReview1Marks(profileData.enrollment_no, token);
 
       // Fetch PBL Review 2 marks (pass enrollement_no as query param)
-      fetchReview2Marks(profileRes.profile.enrollment_no, token);
+      fetchReview2Marks(profileData.enrollment_no, token);
     };
 
     const fetchGroup = async (enrollment, token) => {
-      await apiRequest(`/api/pbl/gp/${enrollment}`, "GET", null, token);
+      await apiRequest(`/api/students/pbl/gp/${enrollment}`, "GET", null, token);
     };
 
     const fetchProblemStatement = async (groupId, token) => {
-      const psRes = await apiRequest(`/api/student/problem-statement/${groupId}`, "GET", null, token);
-      if (psRes && psRes.problemStatement) {
-        setProblem(psRes.problemStatement);
+      const psRes = await apiRequest(`/api/students/student/problem-statement/${groupId}`, "GET", null, token);
+      const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement;
+
+      if (problemStatement) {
+        setProblem(problemStatement);
       } else {
         setProblem(null);
       }
@@ -60,23 +71,23 @@ const StudentDashboard = () => {
     // Use /api/announcement/review1marks?enrollement_no=...
     const fetchReview1Marks = async (enrollment_no, token) => {
       const res = await apiRequest(
-        `/api/announcement/review1marks?enrollement_no=${enrollment_no}`,
+        `/api/announcements/announcement/review1marks?enrollement_no=${enrollment_no}`,
         "GET",
         null,
         token
       );
-      setReview1Marks(res?.review1Marks || null);
+      setReview1Marks(res?.data?.review1Marks || res?.review1Marks || null);
     };
 
     // Use /api/announcement/review2marks?enrollement_no=...
     const fetchReview2Marks = async (enrollment_no, token) => {
       const res = await apiRequest(
-        `/api/announcement/review2marks?enrollement_no=${enrollment_no}`,
+        `/api/announcements/announcement/review2marks?enrollement_no=${enrollment_no}`,
         "GET",
         null,
         token
       );
-      setReview2Marks(res?.review2Marks || null);
+      setReview2Marks(res?.data?.review2Marks || res?.review2Marks || null);
     };
 
     fetchStudent();
@@ -86,50 +97,98 @@ const StudentDashboard = () => {
     return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  // Announcements are now fetched and shown in the card click handler
+  const handleDownloadFile = async (id, fileName) => {
+    try {
+      const token = localStorage.getItem("student_token");
+      const API_BASE_URL = import.meta.env.MODE === "development"
+        ? import.meta.env.VITE_API_BASE_URL
+        : import.meta.env.VITE_API_BASE_URL_PROD;
+      
+      const response = await fetch(`${API_BASE_URL}/api/announcements/announcement/${id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'download';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        console.error('Download failed');
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
+  const getFileIcon = (fileType) => {
+    if (!fileType) return <File className="w-5 h-5 text-gray-500" />;
+    
+    if (fileType.startsWith('image/')) {
+      return <Image className="w-5 h-5 text-blue-500" />;
+    } else if (fileType === 'application/pdf') {
+      return <FileText className="w-5 h-5 text-red-500" />;
+    }
+    return <File className="w-5 h-5 text-gray-500" />;
+  };
+
+  const canPreviewFile = (fileType) => {
+    return fileType && (fileType.startsWith('image/') || fileType === 'application/pdf');
+  };
+
+  const openFilePreview = (fileUrl, fileType) => {
+    // For images and PDFs, open in new tab for preview
+    if (canPreviewFile(fileType)) {
+      window.open(fileUrl, '_blank');
+    }
+  };
+
+  // Updated to fetch and store announcements as objects
+  const fetchAnnouncements = async () => {
+    try {
+      const token = localStorage.getItem("student_token");
+      const res = await apiRequest("/api/announcements/announcement", "GET", null, token);
+      const announcementData = res?.data?.announcements || res?.announcements;
+
+      if (announcementData) {
+        setAnnouncements(announcementData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch announcements", err);
+    }
+  };
+
+  // Updated card click handler to include file preview and download
   const handleCardClick = async (type) => {
     try {
-      let res;
       let title = "";
       let message = "";
       const token = localStorage.getItem("student_token");
 
       switch (type) {
         case "Announcements":
-          res = await apiRequest("/api/announcement", "GET", null, token);
+          await fetchAnnouncements();
           title = "Announcements";
-          message = res?.announcements?.length
-            ? res.announcements
-                .map(
-                  (a) => `
-                  <div class="mb-3">
-                    <p class="font-semibold text-purple-700">📢 ${a.title}</p>
-                    <p class="text-sm text-gray-600">${a.message}</p>
-                    <p class="text-xs text-gray-400">${new Date(a.created_at).toLocaleDateString()}</p>
-                  </div>
-                `
-                )
-                .join("")
-            : "📢 No announcements available.";
-          break;
+          setDrawerContent({ 
+            title, 
+            message: "Loading announcements...",
+            isAnnouncementView: true 
+          });
+          setDrawerOpen(true);
+          return;
 
-        case "Deadlines":
-          res = await apiRequest("/admintools/timelines", "GET", null, token);
-          title = "Deadlines";
-          message = res?.length
-            ? res
-                .map(
-                  (d) => `
-                    <div class="mb-3">
-                      <p class="font-semibold text-purple-700">📌 ${formatTaskName(d.task_name)}</p>
-                      <p class="text-sm text-gray-600">Start: ${new Date(d.start_datetime).toLocaleDateString()}</p>
-                      <p class="text-sm text-gray-600">End: ${new Date(d.end_datetime).toLocaleDateString()}</p>
-                    </div>
-                  `
-                )
-                .join("")
-            : "🗓 No deadlines found.";
-          break;
+        case "Events & Posts":
+          // Open posts modal instead of drawer
+          setTriggerPostsFetch(true);
+          setShowPostModal(true);
+          return; // Don't open drawer
 
         case "Upload Document":
           title = "Upload Document";
@@ -156,6 +215,77 @@ const StudentDashboard = () => {
       });
       setDrawerOpen(true);
     }
+  };
+
+  // Handle closing posts modal
+  const handleClosePostModal = () => {
+    setShowPostModal(false);
+    setTriggerPostsFetch(false);
+  };
+
+  // Custom announcement drawer content
+  const AnnouncementsContent = () => {
+    if (announcements.length === 0) {
+      return <div className="text-center text-gray-500">No announcements available.</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
+        {announcements.map((announcement) => (
+          <div 
+            key={announcement.id} 
+            className="p-4 bg-white rounded-lg border border-purple-100 shadow-sm"
+          >
+            <h3 className="font-bold text-purple-700 text-lg mb-2">
+              📢 {announcement.title}
+            </h3>
+            <p className="text-gray-700 mb-4 whitespace-pre-wrap">
+              {announcement.message}
+            </p>
+            
+            {/* File attachment section */}
+            {announcement.file_url && (
+              <div className="mt-3 border-t pt-3">
+                <div className="flex items-center gap-3">
+                  {getFileIcon(announcement.file_type)}
+                  <span className="text-sm text-gray-600 font-medium">
+                    {announcement.file_name || 'Attachment'}
+                  </span>
+                  
+                  <div className="ml-auto flex gap-2">
+                    {/* Preview button for supported files */}
+                    {canPreviewFile(announcement.file_type) && (
+                      <button
+                        onClick={() => openFilePreview(announcement.file_url, announcement.file_type)}
+                        className="p-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                        title="Preview file"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+                    )}
+                    
+                    {/* Download button for all files */}
+                    <button
+                      onClick={() => handleDownloadFile(announcement.id, announcement.file_name)}
+                      className="p-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition"
+                      title="Download file"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-2 text-right">
+              <span className="text-xs text-gray-400">
+                {new Date(announcement.created_at).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (!student)
@@ -248,11 +378,23 @@ const StudentDashboard = () => {
           </div>
         </main>
       </div>
+      
+      {/* Enhanced Info Drawer with custom content for announcements */}
       <InfoDrawer
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         title={drawerContent.title}
-        message={drawerContent.message}
+        message={drawerContent.isAnnouncementView ? null : drawerContent.message}
+        customContent={
+          drawerContent.isAnnouncementView ? <AnnouncementsContent /> : null
+        }
+      />
+
+      {/* Posts Modal */}
+      <StudentPosts
+        isModalOpen={showPostModal}
+        onCloseModal={handleClosePostModal}
+        triggerFetch={triggerPostsFetch}
       />
     </div>
   );

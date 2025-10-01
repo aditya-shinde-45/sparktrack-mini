@@ -44,7 +44,7 @@ const EditGroup = () => {
     setMessage("");
     try {
       const token = localStorage.getItem("token");
-      const res = await apiRequest(`/api/admin/pbl/${groupIdInput}`, "GET", null, token);
+      const res = await apiRequest(`/api/pbl/pbl/${groupIdInput}`, "GET", null, token);
 
       if (res) {
         setGroupDetails({
@@ -92,7 +92,7 @@ const EditGroup = () => {
     try {
         const token = localStorage.getItem("token");
         // Include group_id in URL
-        await apiRequest(`/api/admin/pbl/${groupDetails.group_id}`, "PUT", payload, token);
+        await apiRequest(`/api/pbl/pbl/${groupDetails.group_id}`, "PUT", payload, token);
         setMessage("✅ Group updated successfully!");
     } catch (err) {
         setMessage(`❌ Error: ${err.message || "Failed to update group."}`);

@@ -110,7 +110,7 @@ const AssignedExternalForm = () => {
     };
 
     try {
-      const data = await apiRequest("/api/assign-external", "POST", payload);
+      const data = await apiRequest("/api/external/assign", "POST", payload);
 
       alert("External assigned successfully!");
       setCurrentStep(1);

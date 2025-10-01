@@ -1,43 +1,56 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import supabase from "./Model/supabase.js";
 import morgan from "morgan";
 import path from "path";
+import { fileURLToPath } from 'url';
 
-// Route imports
-import apiRoutes from "./Route/admin/connectioncheck.js";
-import evaluationRoutes from "./Route/admin/evalutionRoute.js";
-import groupInfoRoutes from "./Route/admin/groupinfo.js";
-import authRoutes from "./Route/admin/authroutes.js";
-import assignExternalRoutes from './Route/admin/assignExternalroute.js';
-import externalAuthRoute from './Route/admin/externalAuthRoute.js';
-import mentorRoutes from './Route/admin/mentorRoutes.js';
-import adminRoutes from './Route/admin/adminRoute.js';
-import sihRoutes from './Route/admin/sihRoutes.js';
-import studentLoginRoutes from './Route/students/studentloginRoute.js';
-import studentRoutes from './Route/students/studentRoute.js';
-import psRoutes from './Route/students/psroutes.js';
-import announcementRoutes from './Route/admin/announcementroute.js';
-import deadline from './Route/admin/deadlinecontrolRoute.js';
+// Import configurations
+import config from './src/config/index.js';
+import { databaseConfig as dbConfig } from './src/config/database.js';
+import logger from './src/utils/logger.js';
 
-dotenv.config();
+// Import middleware
+import securityMiddleware from './src/middleware/securityMiddleware.js';
+
+// Route imports - New MVC Structure
+import authRoutes from "./src/routes/admin/authRoutes.js";
+import mentorRoutes from "./src/routes/mentor/mentorRoutes.js";
+import announcementRoutes from "./src/routes/admin/announcementRoutes.js";
+import deadlineRoutes from "./src/routes/admin/deadlineRoutes.js";
+import pblRoutes from "./src/routes/admin/pblRoutes.js";
+import externalRoutes from "./src/routes/external/externalRoutes.js";
+import postRoutes from "./src/routes/admin/postRoutes.js";
+import pblEvaluationRoutes from "./src/routes/admin/pblEvaluationRoutes.js";
+
+// Routes we just created
+import adminRoutes from "./src/routes/admin/adminRoutes.js";
+import studentRoutes from "./src/routes/students/studentRoutes.js";
+import dashboardRoutes from "./src/routes/admin/dashboardRoutes.js";
+import pblReviewRoutes from "./src/routes/admin/pblReviewRoutes.js";
+
+// New routes from recent migration
+import externalAuthRoutes from "./src/routes/external/externalAuthRoutes.js";
+import evaluationRoutes from "./src/routes/external/evaluationRoutes.js";
+import studentAuthRoutes from "./src/routes/students/studentAuthRoutes.js";
+import problemStatementRoutes from "./src/routes/students/problemStatementRoutes.js";
+import studentProfileRoutes from "./src/routes/students/studentProfileRoutes.js";
+import externalAssignmentRoutes from "./src/routes/external/externalAssignmentRoutes.js";
+
+// Error handler middleware
+import { errorHandler } from './src/utils/errorHandler.js';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-const TEST_TABLE = "pbl";
+const PORT = config.server.port;
 
 // CORS configuration
-const allowedOrigins = [
-  "https://sparktrack-mini-lkij.vercel.app",
-  "https://sparktrack-mini-3r93.vercel.app",
-  "http://localhost:5173"
-];
-
 app.use(cors({
   origin: function(origin, callback){
     if(!origin) return callback(null, true);
-    if(allowedOrigins.indexOf(origin) === -1){
+    if(config.cors.allowedOrigins.indexOf(origin) === -1){
       return callback(null, false);
     }
     return callback(null, true);
@@ -46,31 +59,57 @@ app.use(cors({
   credentials: true,
 }));
 
+// Add CORS error handling
+app.use(securityMiddleware.handleCorsError);
+
+// Basic middleware
 app.use(express.json());
 app.use(morgan("dev"));
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Security middleware
+app.use(securityMiddleware.applyHelmet());
 
-// API Routes
-app.use("/api", apiRoutes);
-app.use("/api/evaluation", evaluationRoutes);
-app.use("/api/groupinfo", groupInfoRoutes);
+// Only apply general rate limiting in production
+if (config.server.env === 'production') {
+  app.use(securityMiddleware.rateLimiter());
+  logger.info('Rate limiting enabled for production environment');
+}
+
+// Always apply stricter rate limits on authentication endpoints
+app.use('/api/auth/login', securityMiddleware.authLimiter());
+app.use('/api/auth/register', securityMiddleware.authLimiter());
+app.use('/api/student-auth/login', securityMiddleware.authLimiter());
+app.use('/api/external-auth/login', securityMiddleware.authLimiter());
+
+// Serve uploaded files statically with security headers
+app.use('/uploads', securityMiddleware.secureUploads, express.static(path.join(__dirname, 'uploads')));
+
+// API Routes - New MVC Structure
 app.use("/api/auth", authRoutes);
-app.use("/api", assignExternalRoutes);
-app.use("/api/external-auth", externalAuthRoute);
-app.use("/api", mentorRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/sih", sihRoutes);
-app.use("/api/studentlogin", studentLoginRoutes);
-app.use("/api", studentRoutes);
-app.use("/api", psRoutes);
-app.use("/api", announcementRoutes);
-app.use("/api", deadline);
+app.use("/api/admin", dashboardRoutes);  // Added admin dashboard routes
+app.use("/api/mentors", mentorRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/deadlines", deadlineRoutes);
+app.use("/api/pbl", pblRoutes);
+app.use("/api/external", externalRoutes);
+app.use("/api/students", studentRoutes);
+app.use("/api/students", studentProfileRoutes);
+app.use("/api/students", problemStatementRoutes);
+app.use("/api/admin", externalAssignmentRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/reviews", pblReviewRoutes);
+app.use("/api/evaluation", pblEvaluationRoutes); // Added PBL evaluation routes
+
+// Newly migrated routes
+app.use("/api/external-auth", externalAuthRoutes);
+app.use("/api/evaluation", evaluationRoutes);
+app.use("/api/student-auth", studentAuthRoutes);
 
 // Basic route
 app.get("/", (req, res) => {
-  res.json({ message: "Review Panel Backend API is running!" });
+  res.json({ message: "SparkTrack Backend API is running!", version: "1.0" });
 });
 
 // Health check route
@@ -81,17 +120,11 @@ app.get("/health", (req, res) => {
 // Database connection test route
 app.get("/db-test", async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from(TEST_TABLE)
-      .select("*")
-      .limit(1);
-
-    if (error) throw error;
-
+    const result = await dbConfig.testConnection();
     res.json({
       success: true,
       message: "Database connected successfully!",
-      sampleData: data,
+      sampleData: result.data,
       supabaseUrl: process.env.SUPABASE_URL,
     });
   } catch (error) {
@@ -99,28 +132,21 @@ app.get("/db-test", async (req, res) => {
   }
 });
 
-// Error handling middleware (optional, but recommended)
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ success: false, error: err.message });
-});
+// Global error handling middleware
+app.use(errorHandler);
 
 // Startup connection check
 const testConnection = async () => {
   try {
-    const { error } = await supabase
-      .from(TEST_TABLE)
-      .select("*")
-      .limit(1);
-    if (error) throw error;
-    console.log("✅ Database connected successfully!");
+    await dbConfig.testConnection();
+    logger.success("Database connected successfully!");
   } catch (error) {
-    console.error("❌ Database connection failed:", error.message);
+    logger.error("Database connection failed:", error);
   }
 };
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  logger.serverStarted(PORT, config.server.env);
   testConnection();
 });
