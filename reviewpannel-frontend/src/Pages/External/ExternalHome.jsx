@@ -13,6 +13,9 @@ const ExternalHome = () => {
   const [loading, setLoading] = useState(true);
   const role = localStorage.getItem("role"); // "Mentor" or "External"
   const name = localStorage.getItem("name") || ""; // Get name from localStorage
+  const externalId = localStorage.getItem("external_id") || "";
+  const isMITADT = externalId.toUpperCase() === "MITADT";
+  const selectedMentor = localStorage.getItem("selected_mentor");
 
   // Fetch deadline controls to determine which evaluation form to show
   useEffect(() => {

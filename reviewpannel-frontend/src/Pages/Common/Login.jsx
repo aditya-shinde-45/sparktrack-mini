@@ -19,25 +19,17 @@ const Login = () => {
     const checkDeadlineControls = async () => {
       try {
         const response = await apiRequest("/api/deadlines", "GET");
-        console.log("Deadline controls response:", response);
         
         if (response && response.data) {
           const pblReview1 = response.data.find(d => d.key === 'pbl_review_1');
           const pblReview2 = response.data.find(d => d.key === 'pbl_review_2');
           
           const isEnabled = (pblReview1 && pblReview1.enabled) || (pblReview2 && pblReview2.enabled);
-          console.log("PBL Review 1 enabled:", pblReview1?.enabled);
-          console.log("PBL Review 2 enabled:", pblReview2?.enabled);
-          console.log("External login enabled:", isEnabled);
-          
           setIsExternalEnabled(isEnabled);
         } else {
-          console.warn("No deadline controls data received");
           setIsExternalEnabled(false);
         }
       } catch (error) {
-        console.error("Error checking deadline controls:", error);
-        // Default to disabled if there's an error
         setIsExternalEnabled(false);
       }
     };
@@ -85,9 +77,6 @@ const Login = () => {
       }
 
       // If we reach here, login was successful
-      // Debug the data structure
-      console.log("Login response data:", data);
-      
       // Clear any existing tokens/data first
       localStorage.removeItem('token');
       localStorage.removeItem('student_token');
@@ -97,11 +86,9 @@ const Login = () => {
       localStorage.removeItem('groups');
       
       // Store new token and data - handling both response structures
-      // The token could be directly in data.token or nested in data.data.token
       const token = data.token || (data.data && data.data.token);
       
       if (!token) {
-        console.error("No token found in response:", data);
         setErrorMsg("Login successful but no token received");
         return;
       }
@@ -109,13 +96,9 @@ const Login = () => {
       // Clear old session data first
       sessionStorage.clear();
       
-      // Important: Set token in localStorage first
-      console.log("Setting token in localStorage:", token.substring(0, 20) + "...");
+      // Set token and role in localStorage
       localStorage.setItem("token", token);
-      
-      // Set role in a specific order to ensure consistency
       localStorage.setItem("role", role.toLowerCase());
-      console.log("Role set to:", role.toLowerCase());
 
       // Extract additional data from the response - handling both structures
       const user = data.user || (data.data && data.data.user);
@@ -137,7 +120,24 @@ const Login = () => {
       }
 
       if (role === "External") {
-        localStorage.setItem("name", data.user?.name || username);
+        // Get external data from response
+        const externalId = data.user?.external_id || username;
+        const externalName = data.user?.name || externalId;
+        
+        // Store BOTH the name (for display) and external_id (for identification)
+        localStorage.setItem("name", externalName);
+        localStorage.setItem("external_id", externalId);
+        
+        // Check if this is MITADT external login using external_id
+        const isMITADT = externalId.toUpperCase() === "MITADT";
+        
+        if (isMITADT) {
+          // For MITADT, redirect to mentor selection page
+          window.location.href = "/mentor-selection";
+          return; // Important: exit early to prevent further execution
+        }
+        
+        // For other externals, proceed with normal group assignment
         const groupData = await apiRequest(
           "/api/external-auth/groups",
           "GET",
@@ -155,14 +155,8 @@ const Login = () => {
           localStorage.setItem("name", user.username);
           localStorage.setItem("id", user.id);
         } else {
-          // Fallback if user data not available
           localStorage.setItem("name", username);
         }
-        
-        // Debug token to console for troubleshooting
-        console.log("Admin token stored:", token ? token.substring(0, 20) + "..." : "No token");
-        console.log("Role stored:", localStorage.getItem('role'));
-        console.log("All localStorage items:", Object.keys(localStorage));
         
         // Set an auth flag to track successful authentication
         localStorage.setItem("isAuthenticated", "true");

@@ -21,4 +21,23 @@ router.get('/groups',
   externalAuthController.getAssignedGroups
 );
 
+/**
+ * @route GET /api/external-auth/mentor-groups
+ * @desc Get groups assigned to a mentor by mentor name
+ * @access Public (or add auth middleware if needed)
+ */
+router.get('/mentor-groups', 
+  externalAuthController.getGroupsByMentor
+);
+
+/**
+ * @route GET /api/external-auth/mentors
+ * @desc Get all mentors list
+ * @access Private (External only)
+ */
+router.get('/mentors', 
+  authMiddleware.authenticateExternal,
+  externalAuthController.getAllMentors
+);
+
 export default router;

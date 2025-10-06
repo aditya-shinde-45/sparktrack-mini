@@ -70,12 +70,12 @@ class AuthController {
       let userInfo = {};
       
       if (decoded.role === 'external') {
-        // External token should have external_id, name, role
-        if (decoded.external_id && decoded.name && decoded.role) {
+        // External token should have external_id and role (name can be null/missing)
+        if (decoded.external_id && decoded.role) {
           isValid = true;
           userInfo = {
             external_id: decoded.external_id,
-            name: decoded.name,
+            name: decoded.name || decoded.external_id, // Use external_id as fallback
             role: decoded.role
           };
         }

@@ -13,7 +13,9 @@ const Header = ({ name, id }) => {
   const [message, setMessage] = useState("");
   const menuRef = useRef(null);
 
-  const role = localStorage.getItem("role"); // ✅ Get role from storage
+  const role = localStorage.getItem("role");
+  const externalId = localStorage.getItem("external_id");
+  const isMITADT = role?.toLowerCase() === "external" && externalId?.toUpperCase() === "MITADT";
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -26,6 +28,24 @@ const Header = ({ name, id }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleChangeMentor = () => {
+    localStorage.removeItem("selected_mentor");
+    localStorage.removeItem("groups");
+    setShowMenu(false);
+    navigate("/mentor-selection");
+  };
+
+  const handleUpdateDetails = () => {
+    localStorage.removeItem("selected_mentor");
+    localStorage.removeItem("groups");
+    localStorage.removeItem("external1_name");
+    localStorage.removeItem("external2_name");
+    localStorage.removeItem("organization1_name");
+    localStorage.removeItem("organization2_name");
+    setShowMenu(false);
+    navigate("/mentor-selection");
+  };
+
   const handleLogout = () => {
     // Clear all authentication-related data
     localStorage.removeItem("token");
@@ -36,9 +56,15 @@ const Header = ({ name, id }) => {
     localStorage.removeItem("user_id");
     localStorage.removeItem("username");
     localStorage.removeItem("student_token");
-    
-    // Redirect to home page
-    navigate("/");
+    localStorage.removeItem("external_id");
+    localStorage.removeItem("selected_mentor");
+    localStorage.removeItem("external1_name");
+    localStorage.removeItem("external2_name");
+    localStorage.removeItem("organization1_name");
+    localStorage.removeItem("organization2_name");
+
+    // Redirect to login page
+    navigate("/login");
     
     // Force reload to clear any in-memory state
     setTimeout(() => {
@@ -76,7 +102,6 @@ const Header = ({ name, id }) => {
       setPrevPassword("");
       setNewPassword("");
     } catch (err) {
-      console.error("Reset password error:", err);
       setMessage(`❌ ${err.message || "Something went wrong. Try again."}`);
     } finally {
       setLoading(false);
@@ -133,10 +158,32 @@ const Header = ({ name, id }) => {
               </>
             )}
 
+            {/* ✅ Show MITADT options if external is MITADT */}
+            {isMITADT && (
+              <>
+                <button
+                  onClick={handleChangeMentor}
+                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
+                >
+                  <span className="material-icons text-base">swap_horiz</span>
+                  Change Mentor
+                </button>
+                <button
+                  onClick={handleUpdateDetails}
+                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
+                >
+                  <span className="material-icons text-base">edit</span>
+                  Update Details
+                </button>
+                <div className="border-t border-gray-200"></div>
+              </>
+            )}
+
             <button
               onClick={handleLogout}
-              className="block w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 hover:text-red-600 transition"
+              className="block w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 hover:text-red-600 transition flex items-center gap-2"
             >
+              <span className="material-icons text-base">logout</span>
               Logout
             </button>
           </div>

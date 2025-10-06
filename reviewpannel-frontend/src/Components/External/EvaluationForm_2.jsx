@@ -4,20 +4,20 @@ import { apiRequest } from "../../api.js";
 const EvaluationForm_2 = ({ groupId, role }) => {
   const [students, setStudents] = useState([]);
   const [facultyGuide, setFacultyGuide] = useState("");
+  const [industryGuide, setIndustryGuide] = useState("");
   const [externalName, setExternalName] = useState("");
+  const [external2Name, setExternal2Name] = useState("");
+  const [organization1Name, setOrganization1Name] = useState("");
+  const [organization2Name, setOrganization2Name] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [extraEval, setExtraEval] = useState({
-    crieya: "No",
-    patent: "No",
-    copyright: "No",
-    aic: "No",
-    tech_transfer: "No",
-  });
   const [isReadOnly, setIsReadOnly] = useState(false);
 
   // ✅ new states for button behavior
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Check if group is Second Year (SY)
+  const isSecondYear = groupId?.startsWith("SY");
 
      useEffect(() => {
     setIsSubmitted(false);
@@ -27,16 +27,26 @@ const EvaluationForm_2 = ({ groupId, role }) => {
     if (!groupId) return;
     const token = localStorage.getItem("token");
     const external = localStorage.getItem("name"); // for external only
+    
+    // Get stored external evaluator details from localStorage
+    const storedExternal1 = localStorage.getItem("external1_name") || "";
+    const storedExternal2 = localStorage.getItem("external2_name") || "";
+    const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+    const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+
+    // Set external evaluator details from localStorage IMMEDIATELY
+    setExternalName(storedExternal1 || "");
+    setExternal2Name(storedExternal2 || "");
+    setOrganization1Name(storedOrganization1 || "");
+    setOrganization2Name(storedOrganization2 || "");
 
     const fetchUrl =
       role === "Mentor"
         ? `/api/mentor/students/${groupId}`
-        : `/api/evaluation/group/${groupId}`;
+        : `/api/evaluation/review2/group/${groupId}`;
 
     apiRequest(fetchUrl, "GET", null, token)
       .then((response) => {
-        console.log("API Response:", response);
-        
         // Handle nested response structure
         let evaluationsData = [];
         if (response?.data?.evaluations) {
@@ -49,6 +59,9 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           evaluationsData = [];
         }
         
+        const isSY = groupId?.startsWith("SY");
+        const fieldsToCalculate = isSY ? ["A", "B", "C", "D", "F", "G"] : ["A", "B", "C", "D", "E", "F", "G"];
+
         const formatted = evaluationsData.map((student) => ({
           enrollement_no: student.enrollement_no,
           student_name: student.name_of_student,
@@ -59,56 +72,44 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           C: student.C ?? "",
           D: student.D ?? "",
           E: student.E ?? "",
+          F: student.F ?? "",
+          G: student.G ?? "",
           absent: student.absent || false,
           total:
             student.absent ? "AB" :
             student.total ??
-            ["A", "B", "C", "D", "E"]
+            fieldsToCalculate
               .map((k) => Number(student[k]) || 0)
               .reduce((a, b) => a + b, 0),
           feedback: student.feedback ?? "",
-          crieya: student.crieya ?? "No",
-          patent: student.patent ?? "No",
-          copyright: student.copyright ?? "No",
-          aic: student.aic ?? "No",
-          tech_transfer: student.tech_transfer ?? "No",
         }));
 
         setStudents(formatted);
 
         const anyMarksFilled = formatted.some((student) =>
-          ["A", "B", "C", "D", "E"].some(
+          ["A", "B", "C", "D", "E", "F", "G"].some(
             (k) => student[k] !== "" && student[k] !== null
           )
         );
         setIsReadOnly(role !== "Mentor" && anyMarksFilled);
-
+        
         if (formatted.length > 0) {
           const first = formatted[0];
           setFacultyGuide(first?.guide_name || "");
           setFeedback(first?.feedback || "");
-
-          if (role === "External") setExternalName(external || "");
-          else setExternalName(first?.external_name || "");
-
-          setExtraEval({
-            crieya: first?.crieya ?? "No",
-            patent: first?.patent ?? "No",
-            copyright: first?.copyright ?? "No",
-            aic: first?.aic ?? "No",
-            tech_transfer: first?.tech_transfer ?? "No",
-          });
+          setIndustryGuide(first?.industry_guide || "");
         }
       })
-      .catch((err) => console.error("Error fetching student data:", err));
+      .catch((err) => {});
   }, [groupId, role]);
 
-  const handleMarkChange = (index, field, value) => {
+  const handleMarkChange = (index, field, value, maxMarks = 10) => {
     if (isReadOnly && role !== "Mentor") return;
-    const val = value === "" ? "" : Math.max(0, Math.min(10, Number(value)));
+    const val = value === "" ? "" : Math.max(0, Math.min(maxMarks, Number(value)));
     const updated = [...students];
     updated[index][field] = val;
-    updated[index].total = updated[index].absent ? "AB" : ["A", "B", "C", "D", "E"]
+    const fieldsToCalculate = isSecondYear ? ["A", "B", "C", "D", "F", "G"] : ["A", "B", "C", "D", "E", "F", "G"];
+    updated[index].total = updated[index].absent ? "AB" : fieldsToCalculate
       .map((k) => Number(updated[index][k]) || 0)
       .reduce((a, b) => a + b, 0);
     setStudents(updated);
@@ -126,20 +127,18 @@ const EvaluationForm_2 = ({ groupId, role }) => {
       updated[index].C = "";
       updated[index].D = "";
       updated[index].E = "";
+      updated[index].F = "";
+      updated[index].G = "";
       updated[index].total = "AB";
     } else {
       // Recalculate total when unmarked absent
-      updated[index].total = ["A", "B", "C", "D", "E"]
+      const fieldsToCalculate = isSecondYear ? ["A", "B", "C", "D", "F", "G"] : ["A", "B", "C", "D", "E", "F", "G"];
+      updated[index].total = fieldsToCalculate
         .map((k) => Number(updated[index][k]) || 0)
         .reduce((a, b) => a + b, 0);
     }
     
     setStudents(updated);
-  };
-
-  const handleExtraEvalChange = (field, value) => {
-    if (isReadOnly && role !== "Mentor") return;
-    setExtraEval((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
@@ -153,13 +152,12 @@ const EvaluationForm_2 = ({ groupId, role }) => {
     const payload = {
       group_id: groupId,
       faculty_guide: facultyGuide,
-      external_name: externalName,
+      industry_guide: industryGuide,
+      external1_name: externalName,
+      external2_name: external2Name,
+      organization1_name: organization1Name,
+      organization2_name: organization2Name,
       feedback,
-      crieya: extraEval.crieya,
-      patent: extraEval.patent,
-      copyright: extraEval.copyright,
-      aic: extraEval.aic,
-      tech_transfer: extraEval.tech_transfer,
       evaluations: students.map((student) => ({
         enrollement_no: student.enrollement_no,
         student_name: student.student_name,
@@ -168,6 +166,8 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         C: student.absent ? "AB" : (Number(student.C) || 0),
         D: student.absent ? "AB" : (Number(student.D) || 0),
         E: student.absent ? "AB" : (Number(student.E) || 0),
+        F: student.absent ? "AB" : (Number(student.F) || 0),
+        G: student.absent ? "AB" : (Number(student.G) || 0),
         total: student.absent ? "AB" : (Number(student.total) || 0),
         absent: student.absent || false,
       })),
@@ -175,8 +175,8 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
     const submitUrl =
       role === "Mentor"
-        ? "/api/mentor/evaluation"
-        : "/api/evaluation/save-evaluation";
+        ? "/api/mentor/evaluation/review2"
+        : "/api/evaluation/review2/save-evaluation";
 
     try {
       const response = await apiRequest(submitUrl, "POST", payload, token);
@@ -187,76 +187,77 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         return;
       }
 
-      setIsSubmitted(true); // ✅ show success
+      setIsSubmitted(true);
     } catch (error) {
-      console.error("🚨 Error submitting evaluation:", error);
       alert(error.message || "Error submitting evaluation");
     } finally {
       setIsSubmitting(false); // stop loading
     }
   };
 
+  // Get today's date in a readable format
+  const getTodayDate = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   return (
-    <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
-      {/* PBL Review 2 Header */}
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent mb-2">
-          PBL Review 2 - Evaluation Form
-        </h1>
-        <div className="w-24 h-1 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full mx-auto"></div>
+    <main className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-4 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
+      {/* Header Section */}
+      <div className="border-2 border-black">
+        <div className="grid grid-cols-2 border-b-2 border-black">
+          <div className="border-r-2 border-black p-2">
+            <span className="font-semibold">Project ID:</span>
+            <span className="ml-2">{groupId || ""}</span>
+          </div>
+          <div className="p-2">
+            <span className="font-semibold">Review No.: 02</span>
+          </div>
+        </div>
+        <div className="border-b-2 border-black p-2">
+          <span className="font-semibold">Project Title:</span>
+        </div>
+        <div className="border-b-2 border-black p-2">
+          <span className="font-semibold">Name of Faculty Guide:</span>
+          <span className="ml-2">{facultyGuide}</span>
+        </div>
+        <div className="p-2">
+          <span className="font-semibold">Date:</span>
+          <span className="ml-2">{getTodayDate()}</span>
+        </div>
       </div>
 
-      <section>
-        <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>
-        <ul className="list-disc pl-5 text-sm leading-6">
-          <li>A. Problem Identification – Clarity in defining the design challenge <b>(10 Marks)</b></li>
-          <li>B. Empathy Map – Understanding user needs, emotions, and perspectives <b>(10 Marks)</b></li>
-          <li>C. Solution Creativity – Originality and innovation of design solution <b>(10 Marks)</b></li>
-          <li>D. Solution Feasibility – Practicality and viability of proposed solutions <b>(10 Marks)</b></li>
-          <li>E. Communication – Clarity in presenting the design concept <b>(10 Marks)</b></li>
-        </ul>
-      </section>
-
-      {/* Marks Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border border-gray-300 text-sm text-center min-w-[700px]">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-gray-300 px-3 py-4">Enrollment No.</th>
-              <th className="border border-gray-300 px-3 py-4">Name of Students</th>
-              {["A", "B", "C", "D", "E"].map((k) => (
-                <th key={k} className="border border-gray-300 px-2 py-4">{k}</th>
-              ))}
-              <th className="border border-gray-300 px-3 py-4">Total Marks (50)</th>
-              <th className="border border-gray-300 px-3 py-4">Absent</th>
+      {/* Student Information Table */}
+      <div className="border-2 border-black">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b-2 border-black">
+              <th className="border-r-2 border-black p-2 text-left font-semibold">Enrollment No.</th>
+              <th className="border-r-2 border-black p-2 text-left font-semibold">Name of Member</th>
+              <th className="border-r-2 border-black p-2 text-left font-semibold">Contact No.</th>
+              <th className="p-2 text-left font-semibold">Absent</th>
             </tr>
           </thead>
           <tbody>
             {students.map((student, i) => (
-              <tr className={`hover:bg-gray-50 ${student.absent ? 'text-gray-500 bg-gray-100' : ''}` } key={i}>
-                <td className={`border border-gray-300 px-3 py-4 ${student.absent ? 'line-through' : ''}`}>{student.enrollement_no}</td>
-                <td className={`border border-gray-300 px-3 py-4 ${student.absent ? 'line-through' : ''}`}>{student.student_name}</td>
-                {["A", "B", "C", "D", "E"].map((key) => (
-                  <td key={key} className="border border-gray-300 px-3 py-4">
-                    <input
-                      type="number"
-                      min="0"
-                      max="10"
-                      value={student[key]}
-                      onChange={(e) => handleMarkChange(i, key, e.target.value)}
-                      disabled={student.absent || (isReadOnly && role !== "Mentor")}
-                      className="w-14 border border-gray-300 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
-                    />
-                  </td>
-                ))}
-                <td className="border border-gray-300 px-3 py-4 font-semibold">{student.total || 0}</td>
-                <td className="border border-gray-300 px-3 py-4 text-center">
+              <tr key={i} className={`border-b border-black ${student.absent ? 'bg-gray-100' : ''}`}>
+                <td className={`border-r-2 border-black p-2 ${student.absent ? 'line-through text-gray-500' : ''}`}>
+                  {student.enrollement_no}
+                </td>
+                <td className={`border-r-2 border-black p-2 ${student.absent ? 'line-through text-gray-500' : ''}`}>
+                  {student.student_name}
+                </td>
+                <td className="border-r-2 border-black p-2"></td>
+                <td className="p-2 text-center">
                   <input
                     type="checkbox"
                     checked={student.absent}
                     onChange={(e) => handleAbsentChange(i, e.target.checked)}
                     disabled={isReadOnly && role !== "Mentor"}
-                    className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    className="w-4 h-4 accent-purple-600"
                   />
                 </td>
               </tr>
@@ -265,83 +266,122 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         </table>
       </div>
 
-      {/* External Name */}
-      <div>
-        <label className="block font-semibold text-sm">Name of External:</label>
+      {/* Marks Table */}
+      <div className="border-2 border-black">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b-2 border-black">
+              <th className="border-r-2 border-black p-2 font-semibold">Metric</th>
+              <th className="border-r-2 border-black p-2 font-semibold">Max Marks</th>
+              {students.map((student, i) => (
+                <th key={i} className={`border-r-2 border-black p-2 font-semibold ${i === students.length - 1 ? 'border-r-0' : ''}`}>
+                  Enrollment {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              { key: "A", label: "1. Problem Definition & Understanding", marks: 5 },
+              { key: "B", label: "2. Project Planning & Resource Tracking", marks: 5 },
+              { key: "C", label: isSecondYear ? "3. Technology Stack & Feasibility" : "3. Technology Stack & Feasibility", marks: isSecondYear ? 15 : 5 },
+              { key: "D", label: "4. Core Programming Implementation", marks: 10 },
+              ...(!isSecondYear ? [{ key: "E", label: "5. Specialization/Skill Application", marks: 15 }] : []),
+              { key: "F", label: isSecondYear ? "5. Coding Skills/ Demonstration" : "6. Coding Skills/ Demonstration", marks: isSecondYear ? 10 : 5 },
+              { key: "G", label: isSecondYear ? "6. Presentation & Communication" : "7. Presentation & Communication", marks: 5 },
+            ].map(({ key, label, marks }) => (
+              <tr key={key} className="border-b-2 border-black">
+                <td className="border-r-2 border-black p-2 text-left">{label}</td>
+                <td className="border-r-2 border-black p-2 text-center font-semibold">{marks}</td>
+                {students.map((student, i) => (
+                  <td key={i} className={`border-r-2 border-black p-2 text-center ${i === students.length - 1 ? 'border-r-0' : ''}`}>
+                    <input
+                      type="number"
+                      min="0"
+                      max={marks}
+                      value={student[key]}
+                      onChange={(e) => handleMarkChange(i, key, e.target.value, marks)}
+                      disabled={student.absent || (isReadOnly && role !== "Mentor")}
+                      className="w-16 border border-gray-400 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200"
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+            <tr className="border-b-2 border-black bg-gray-50">
+              <td className="border-r-2 border-black p-2 text-left font-semibold">Total</td>
+              <td className="border-r-2 border-black p-2 text-center font-semibold">50</td>
+              {students.map((student, i) => (
+                <td key={i} className={`border-r-2 border-black p-2 text-center font-bold ${i === students.length - 1 ? 'border-r-0' : ''}`}>
+                  {student.total || 0}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Description of Metrics */}
+      <div className="border-2 border-black p-3">
+        <div className="font-semibold mb-2">Description of Metrics</div>
+        <ol className="text-xs space-y-1 list-decimal pl-5">
+          <li>Clarity in problem understanding the scope, relevance, and application.</li>
+          <li>Project planning, task allocation, use of <b>Project Tracker sheet</b></li>
+          <li>Appropriate chosen languages, frameworks, libraries, tools &amp; feasibility of project implementation.</li>
+          <li>Core and advanced programming concepts, integration of key programming fundamentals [Loops/Arrays]</li>
+          <li>Application of Specialization/specific knowledge in the project implementation.</li>
+          <li>Use coding or web/application of implemented modules to detect understanding and logic building</li>
+          <li>Innovative usage of technology stack, novelty factor and creative technical solutions</li>
+        </ol>
+      </div>
+
+      {/* Name of Industry Guide */}
+      <div className="border-2 border-black p-3">
+        <div className="font-semibold mb-2">Name of Industry Guide (if any):</div>
         <input
           type="text"
-          value={externalName}
-          readOnly
-          className="w-full border border-gray-300 p-2 mt-1 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
+          value={industryGuide}
+          onChange={(e) => setIndustryGuide(e.target.value)}
+          disabled={isReadOnly && role !== "Mentor"}
+          className="w-full border-b border-gray-400 p-2 focus:outline-none bg-transparent focus:border-purple-500 disabled:bg-gray-100"
+          placeholder="Enter industry guide name"
         />
       </div>
 
-      {/* Faculty Guide */}
-      <div>
-        <label className="block font-semibold text-sm">Name of Faculty Guide:</label>
-        <input
-          type="text"
-          value={facultyGuide}
-          readOnly
-          className="w-full border border-gray-300 p-2 mt-1 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
-        />
-      </div>
-
-      {/* Feedback */}
-      <div>
-        <label className="block font-semibold text-sm">
-          Feedback by Evaluator <span className="text-gray-500">(Feedback based Learning)</span>
-        </label>
+      {/* Conclusive Remark */}
+      <div className="border-2 border-black p-3">
+        <div className="font-semibold mb-2">Conclusive Remark by Guide/ Expert:</div>
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           disabled={isReadOnly && role !== "Mentor"}
-          className="w-full border border-gray-300 p-2 mt-1 rounded h-24 focus:outline-none focus:ring-2 focus:ring-purple-400"
+          className="w-full border border-gray-400 p-2 rounded h-20 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
       </div>
 
-      {/* Yes/No Options */}
-      <div className="mt-4">
-        <label className="block font-semibold text-sm mb-2">Additional Evaluations</label>
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 text-sm">
-          {[
-            { key: "crieya", label: "Creiya" },
-            { key: "patent", label: "Patent" },
-            { key: "copyright", label: "Copyright" },
-            { key: "aic", label: "AIC" },
-            { key: "tech_transfer", label: "Tech Transfer" },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex flex-col items-center border p-2 rounded-md shadow-sm">
-              <span className="font-medium mb-1">{label}</span>
-              <div className="flex gap-2">
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name={key}
-                    value="Yes"
-                    checked={extraEval[key] === "Yes"}
-                    onChange={() => handleExtraEvalChange(key, "Yes")}
-                    disabled={isReadOnly && role !== "Mentor"}
-                    className="accent-purple-600"
-                  />
-                  Yes
-                </label>
-                <label className="flex items-center gap-1">
-                  <input
-                    type="radio"
-                    name={key}
-                    value="No"
-                    checked={extraEval[key] === "No"}
-                    onChange={() => handleExtraEvalChange(key, "No")}
-                    disabled={isReadOnly && role !== "Mentor"}
-                    className="accent-purple-600"
-                  />
-                  No
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Reviewers Table */}
+      <div className="border-2 border-black">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b-2 border-black">
+              <th className="border-r-2 border-black p-3 font-semibold w-16">Sr. No.</th>
+              <th className="border-r-2 border-black p-3 font-semibold">Name of Reviewers</th>
+              <th className="p-3 font-semibold">Organization</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b-2 border-black">
+              <td className="border-r-2 border-black p-3 text-center">1</td>
+              <td className="border-r-2 border-black p-3">{externalName || ""}</td>
+              <td className="p-3">{organization1Name || ""}</td>
+            </tr>
+            <tr>
+              <td className="border-r-2 border-black p-3 text-center">2</td>
+              <td className="border-r-2 border-black p-3">{external2Name || ""}</td>
+              <td className="p-3">{organization2Name || ""}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Submit Button / Success State */}
