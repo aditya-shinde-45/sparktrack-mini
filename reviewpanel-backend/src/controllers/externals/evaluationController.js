@@ -8,7 +8,7 @@ import pblModel from '../../models/pblModel.js';
  */
 class EvaluationController {
   /**
-   * Submit evaluation for a PBL group
+   * Submit evaluation for a PBL group (Review 1)
    */
   submitEvaluation = asyncHandler(async (req, res) => {
     const {
@@ -58,7 +58,58 @@ class EvaluationController {
   });
 
   /**
-   * Get evaluations for a specific group
+   * Submit evaluation for PBL Review 2
+   */
+  submitEvaluationReview2 = asyncHandler(async (req, res) => {
+    const {
+      group_id,
+      evaluations,
+      feedback,
+      faculty_guide,
+      industry_guide,
+      external1_name,
+      external2_name,
+      organization1_name,
+      organization2_name,
+    } = req.body;
+
+    if (!group_id || !Array.isArray(evaluations) || !evaluations.length) {
+      throw ApiError.badRequest('Group ID and evaluations array are required.');
+    }
+
+    const role = req.user?.role;
+    if (!['admin', 'mentor', 'external'].includes(role)) {
+      throw ApiError.forbidden('You are not authorized to submit evaluations.');
+    }
+
+    const groupExists = await pblModel.findGroupById(group_id);
+    if (!groupExists) {
+      throw ApiError.notFound('Group not found.');
+    }
+
+    // Check if external has already evaluated this group for Review 2
+    if (role === 'external') {
+      const alreadyEvaluated = await evaluationModel.checkExternalEvaluationReview2(group_id);
+      if (alreadyEvaluated) {
+        throw ApiError.forbidden('This group has already been evaluated by an external examiner for Review 2.');
+      }
+    }
+
+    const updates = await evaluationModel.saveEvaluationReview2Batch(group_id, evaluations, {
+      feedback,
+      faculty_guide,
+      industry_guide,
+      external1_name,
+      external2_name,
+      organization1_name,
+      organization2_name,
+    });
+
+    return ApiResponse.success(res, 'PBL Review 2 evaluations saved successfully.', { updates }, 201);
+  });
+
+  /**
+   * Get evaluations for a specific group (Review 1)
    */
   getGroupEvaluations = asyncHandler(async (req, res) => {
     const { group_id } = req.params;
@@ -72,6 +123,23 @@ class EvaluationController {
     const evaluations = await evaluationModel.getStudentsByGroup(group_id);
 
     return ApiResponse.success(res, 'Evaluations retrieved successfully.', { evaluations });
+  });
+
+  /**
+   * Get evaluations for a specific group (Review 2)
+   */
+  getGroupEvaluationsReview2 = asyncHandler(async (req, res) => {
+    const { group_id } = req.params;
+
+    if (!group_id) {
+      throw ApiError.badRequest('Group ID is required.');
+    }
+
+    await this.#ensureViewPermission(req.user, group_id);
+
+    const evaluations = await evaluationModel.getStudentsByGroupReview2(group_id);
+
+    return ApiResponse.success(res, 'Review 2 evaluations retrieved successfully.', { evaluations });
   });
 
   /**
@@ -128,6 +196,13 @@ class EvaluationController {
     }
 
     if (user.role === 'external') {
+      // Check if MITADT external - they have access to all groups for selected mentor
+      if (user.external_id?.toUpperCase() === 'MITADT') {
+        // For MITADT, we allow access to all groups as they select mentor dynamically
+        return true;
+      }
+      
+      // For regular externals, check assignment
       const assigned = await pblModel.isExternalAssignedToGroup(user.external_id, groupId);
       if (!assigned) {
         throw ApiError.forbidden('You do not have permission to view this group.');

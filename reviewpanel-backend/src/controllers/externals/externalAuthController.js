@@ -51,6 +51,35 @@ class ExternalAuthController {
       groups 
     });
   });
+
+  /**
+   * Get groups assigned to a mentor by mentor name
+   */
+  getGroupsByMentor = asyncHandler(async (req, res) => {
+    const { mentor_name } = req.query; // Get mentor_name from query parameters
+    
+    if (!mentor_name) {
+      throw ApiError.badRequest('Mentor name is required.');
+    }
+    
+    const groups = await externalAuthModel.getGroupsByMentorName(mentor_name);
+    
+    return ApiResponse.success(res, 'Mentor groups retrieved successfully', { 
+      mentor_name, 
+      groups 
+    });
+  });
+
+  /**
+   * Get all mentors list
+   */
+  getAllMentors = asyncHandler(async (req, res) => {
+    const mentors = await externalAuthModel.getAllMentors();
+    
+    return ApiResponse.success(res, 'Mentors list retrieved successfully', { 
+      mentors 
+    });
+  });
 }
 
 export default new ExternalAuthController();

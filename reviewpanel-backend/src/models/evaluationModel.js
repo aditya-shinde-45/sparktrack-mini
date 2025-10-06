@@ -224,6 +224,173 @@ class EvaluationModel {
       averageScore: group.evaluations ? group.totalScore / group.evaluations : 0,
     }));
   }
+
+  /**
+   * Check if external evaluator has already evaluated a group for Review 2
+   * @param {string} groupId - Group ID
+   */
+  async checkExternalEvaluationReview2(groupId) {
+    const { data, error } = await supabase
+      .from('pbl2')
+      .select('external1, external2')
+      .eq('group_id', groupId)
+      .limit(1);
+
+    if (error) throw error;
+    
+    // Check if either external1 or external2 has a value
+    return data && data.length > 0 && (data[0].external1 || data[0].external2);
+  }
+
+  /**
+   * Save evaluation for a student in PBL Review 2
+   * @param {string} groupId - Group ID
+   * @param {string} enrollmentNo - Student enrollment number
+   * @param {object} evalData - Evaluation data with m1-m7 fields
+   */
+  async saveStudentEvaluationReview2(groupId, enrollmentNo, evalData) {
+    const {
+      A, B, C, D, E, F, G,
+      absent,
+      feedback,
+      faculty_guide,
+      industry_guide,
+      external1_name,
+      external2_name,
+      organization1_name,
+      organization2_name,
+      submission_date
+    } = evalData;
+
+    // Calculate total marks, handle "AB" for absent students
+    let total;
+    if (absent) {
+      total = "AB";
+    } else {
+      total = 
+        (Number(A) || 0) +
+        (Number(B) || 0) +
+        (Number(C) || 0) +
+        (Number(D) || 0) +
+        (Number(E) || 0) +
+        (Number(F) || 0) +
+        (Number(G) || 0);
+    }
+
+    const updatePayload = {
+      m1: absent ? null : (A || null),
+      m2: absent ? null : (B || null),
+      m3: absent ? null : (C || null),
+      m4: absent ? null : (D || null),
+      m5: absent ? null : (E || null),
+      m6: absent ? null : (F || null),
+      m7: absent ? null : (G || null),
+      total,
+      feedback: feedback || null,
+      guide_name: faculty_guide || null,
+      ig: industry_guide || null,
+      ext1_org: organization1_name || null,
+      ext2_org: organization2_name || null,
+      date: submission_date || new Date().toISOString().split('T')[0],
+    };
+
+    const { data, error } = await supabase
+      .from('pbl2')
+      .update(updatePayload)
+      .eq('group_id', groupId)
+      .eq('enrollement_no', enrollmentNo)
+      .select();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Save a batch of evaluations for PBL Review 2
+   */
+  async saveEvaluationReview2Batch(groupId, evaluations, metadata = {}) {
+    const updates = [];
+    
+    // Get current date in YYYY-MM-DD format for submission date
+    const submissionDate = new Date().toISOString().split('T')[0];
+
+    for (const evalData of evaluations) {
+      const { enrollement_no, A, B, C, D, E, F, G, absent } = evalData;
+
+      const payload = {
+        A,
+        B,
+        C,
+        D,
+        E,
+        F,
+        G,
+        absent: absent || false,
+        feedback: metadata.feedback ?? evalData.feedback ?? null,
+        faculty_guide: metadata.faculty_guide ?? evalData.faculty_guide ?? null,
+        industry_guide: metadata.industry_guide ?? evalData.industry_guide ?? null,
+        external1_name: metadata.external1_name ?? evalData.external1_name ?? null,
+        external2_name: metadata.external2_name ?? evalData.external2_name ?? null,
+        organization1_name: metadata.organization1_name ?? evalData.organization1_name ?? null,
+        organization2_name: metadata.organization2_name ?? evalData.organization2_name ?? null,
+        submission_date: submissionDate,
+      };
+
+      const result = await this.saveStudentEvaluationReview2(groupId, enrollement_no, payload);
+      updates.push(...(result || []));
+    }
+
+    return updates;
+  }
+
+  /**
+   * Get students by group ID with PBL Review 2 evaluation data
+   * @param {string} groupId - Group ID
+   */
+  async getStudentsByGroupReview2(groupId) {
+    const { data, error } = await supabase
+      .from('pbl2')
+      .select(`
+        enrollement_no,
+        name_of_student,
+        guide_name,
+        ig,
+        m1,
+        m2,
+        m3,
+        m4,
+        m5,
+        m6,
+        m7,
+        total,
+        feedback,
+        external1,
+        external2,
+        ext1_org,
+        ext2_org
+      `)
+      .eq('group_id', groupId);
+
+    if (error) throw error;
+    
+    // Map m1-m7 to A-G and database columns to frontend-expected names
+    return (data || []).map(student => ({
+      ...student,
+      A: student.m1,
+      B: student.m2,
+      C: student.m3,
+      D: student.m4,
+      E: student.m5,
+      F: student.m6,
+      G: student.m7,
+      industry_guide: student.ig,
+      external1_name: student.external1,
+      external2_name: student.external2,
+      organization1_name: student.ext1_org,
+      organization2_name: student.ext2_org,
+      externalname: student.external1 || student.external2,
+    }));
+  }
 }
 
 export default new EvaluationModel();
