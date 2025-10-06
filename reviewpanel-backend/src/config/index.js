@@ -8,8 +8,8 @@ const config = {
   },
   cors: {
     allowedOrigins: [
-      "https://sparktrack-mini-lkij.vercel.app",
-      "https://sparktrack-mini-3r93.vercel.app",
+    
+      "https://sparktrack-mini-rho.vercel.app",
       "http://localhost:5173"
     ]
   },
