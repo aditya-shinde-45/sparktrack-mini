@@ -6,11 +6,6 @@ import { apiRequest } from "../../api.js"; // centralized API wrapper
 const Header = ({ name, id }) => {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [prevPassword, setPrevPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const menuRef = useRef(null);
 
   const role = localStorage.getItem("role");
@@ -28,20 +23,9 @@ const Header = ({ name, id }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleChangeMentor = () => {
-    localStorage.removeItem("selected_mentor");
+  const handleUpdate = () => {
+    // Remove groups from localStorage but keep other data
     localStorage.removeItem("groups");
-    setShowMenu(false);
-    navigate("/mentor-selection");
-  };
-
-  const handleUpdateDetails = () => {
-    localStorage.removeItem("selected_mentor");
-    localStorage.removeItem("groups");
-    localStorage.removeItem("external1_name");
-    localStorage.removeItem("external2_name");
-    localStorage.removeItem("organization1_name");
-    localStorage.removeItem("organization2_name");
     setShowMenu(false);
     navigate("/mentor-selection");
   };
@@ -58,10 +42,18 @@ const Header = ({ name, id }) => {
     localStorage.removeItem("student_token");
     localStorage.removeItem("external_id");
     localStorage.removeItem("selected_mentor");
+    
+    // Clear external evaluator details
     localStorage.removeItem("external1_name");
     localStorage.removeItem("external2_name");
     localStorage.removeItem("organization1_name");
     localStorage.removeItem("organization2_name");
+    localStorage.removeItem("external1_contact");
+    localStorage.removeItem("external2_contact");
+    localStorage.removeItem("external1_email");
+    localStorage.removeItem("external2_email");
+    localStorage.removeItem("google_meet_link");
+    localStorage.removeItem("meet_screenshot_url");
 
     // Redirect to login page
     navigate("/login");
@@ -70,42 +62,6 @@ const Header = ({ name, id }) => {
     setTimeout(() => {
       window.location.reload();
     }, 100);
-  };
-
-  // ✅ Reset password allowed ONLY if role === mentor
-  const handleResetPassword = async () => {
-    if (role !== "Mentor") return; // 🔒 safety check
-
-    if (!prevPassword || !newPassword) {
-      setMessage("Please fill in both fields");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const token = localStorage.getItem("token");
-
-      await apiRequest(
-        "/api/mentor/update-password",
-        "PUT",
-        {
-          oldPassword: prevPassword,
-          newPassword: newPassword,
-        },
-        token
-      );
-
-      setMessage("✅ Password updated successfully!");
-      setShowModal(false);
-      setPrevPassword("");
-      setNewPassword("");
-    } catch (err) {
-      setMessage(`❌ ${err.message || "Something went wrong. Try again."}`);
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -142,43 +98,21 @@ const Header = ({ name, id }) => {
         {/* Dropdown Menu */}
         {showMenu && (
           <div className="absolute right-0 top-full mt-2 w-48 bg-white text-gray-800 rounded-xl shadow-xl ring-1 ring-black/5 animate-fadeIn">
-            {/* ✅ Show Reset Password only if role = mentor */}
-            {role === "Mentor" && (
-              <>
-                <button
-                  onClick={() => {
-                    setShowModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition"
-                >
-                  Reset Password
-                </button>
-                <div className="border-t border-gray-200"></div>
-              </>
-            )}
-
-            {/* ✅ Show MITADT options if external is MITADT */}
+            {/* ✅ Show Update option only for MITADT externals */}
             {isMITADT && (
               <>
                 <button
-                  onClick={handleChangeMentor}
-                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
-                >
-                  <span className="material-icons text-base">swap_horiz</span>
-                  Change Mentor
-                </button>
-                <button
-                  onClick={handleUpdateDetails}
+                  onClick={handleUpdate}
                   className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
                 >
                   <span className="material-icons text-base">edit</span>
-                  Update Details
+                  Update
                 </button>
                 <div className="border-t border-gray-200"></div>
               </>
             )}
 
+            {/* ✅ Logout option for everyone */}
             <button
               onClick={handleLogout}
               className="block w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 hover:text-red-600 transition flex items-center gap-2"
@@ -189,65 +123,6 @@ const Header = ({ name, id }) => {
           </div>
         )}
       </div>
-
-      {/* ✅ Reset Password Modal - only for mentors */}
-      {showModal && role === "Mentor" && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-80 animate-fadeIn">
-            <h2 className="text-lg font-semibold mb-4 text-gray-800">
-              Reset Password
-            </h2>
-
-            {/* Previous Password */}
-            <div className="mb-3">
-              <label className="block text-sm mb-1 text-gray-800">
-                Previous Password
-              </label>
-              <input
-                type="password"
-                value={prevPassword}
-                onChange={(e) => setPrevPassword(e.target.value)}
-                className="w-full border border-gray-400 px-3 py-2 rounded-md text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Enter previous password"
-              />
-            </div>
-
-            {/* New Password */}
-            <div className="mb-4">
-              <label className="block text-sm mb-1 text-gray-800">
-                New Password
-              </label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full border border-gray-400 px-3 py-2 rounded-md text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Enter new password"
-              />
-            </div>
-
-            {/* Message */}
-            {message && <p className="text-sm mb-2 text-red-500">{message}</p>}
-
-            {/* Buttons */}
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm rounded-md border border-gray-500 text-gray-800 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleResetPassword}
-                disabled={loading}
-                className="px-4 py-2 text-sm rounded-md loginbutton disabled:opacity-50"
-              >
-                {loading ? "Updating..." : "Update"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };

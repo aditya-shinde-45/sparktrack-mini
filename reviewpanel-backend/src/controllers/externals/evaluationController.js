@@ -2,6 +2,7 @@ import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import evaluationModel from '../../models/evaluationModel.js';
 import pblModel from '../../models/pblModel.js';
+import supabase from '../../config/database.js';
 
 /**
  * Controller for handling evaluation operations
@@ -71,7 +72,15 @@ class EvaluationController {
       external2_name,
       organization1_name,
       organization2_name,
+      ext1_contact,
+      ext2_contact,
+      ext1_email,
+      ext2_email,
       google_meet_link,
+      copyright,
+      patent,
+      research_paper,
+      screenshot,
     } = req.body;
 
     if (!group_id || !Array.isArray(evaluations) || !evaluations.length) {
@@ -104,7 +113,15 @@ class EvaluationController {
       external2_name,
       organization1_name,
       organization2_name,
+      ext1_contact,
+      ext2_contact,
+      ext1_email,
+      ext2_email,
       google_meet_link,
+      copyright,
+      patent,
+      research_paper,
+      screenshot,
     });
 
     return ApiResponse.success(res, 'PBL Review 2 evaluations saved successfully.', { updates }, 201);
@@ -214,6 +231,53 @@ class EvaluationController {
 
     throw ApiError.forbidden('You do not have permission to view this group.');
   };
+
+  /**
+   * Upload screenshot to Supabase storage
+   */
+  uploadScreenshot = asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw ApiError.badRequest('No file uploaded');
+    }
+
+    const { group_id } = req.body;
+    if (!group_id) {
+      throw ApiError.badRequest('Group ID is required');
+    }
+
+    try {
+      // Generate unique filename
+      const fileExt = req.file.originalname.split('.').pop();
+      const fileName = `${group_id}_${Date.now()}.${fileExt}`;
+      const filePath = `meet_screenshots/${fileName}`;
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('meet_screenshot')
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: true
+        });
+
+      if (error) {
+        console.error('Supabase upload error:', error);
+        throw ApiError.internal('Failed to upload screenshot to storage');
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('meet_screenshot')
+        .getPublicUrl(filePath);
+
+      return ApiResponse.success(res, 'Screenshot uploaded successfully', { 
+        url: publicUrl,
+        path: filePath 
+      }, 201);
+    } catch (error) {
+      console.error('Screenshot upload error:', error);
+      throw ApiError.internal('Failed to upload screenshot');
+    }
+  });
 }
 
 export default new EvaluationController();

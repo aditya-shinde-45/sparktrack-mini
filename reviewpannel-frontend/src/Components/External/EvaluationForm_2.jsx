@@ -9,41 +9,37 @@ const EvaluationForm_2 = ({ groupId, role }) => {
   const [external2Name, setExternal2Name] = useState("");
   const [organization1Name, setOrganization1Name] = useState("");
   const [organization2Name, setOrganization2Name] = useState("");
+  const [external1Contact, setExternal1Contact] = useState("");
+  const [external2Contact, setExternal2Contact] = useState("");
+  const [external1Email, setExternal1Email] = useState("");
+  const [external2Email, setExternal2Email] = useState("");
   const [googleMeetLink, setGoogleMeetLink] = useState("");
+  const [meetScreenshot, setMeetScreenshot] = useState(null);
+  const [screenshotUrl, setScreenshotUrl] = useState("");
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const [hasCopyright, setHasCopyright] = useState(true); // Default to true (Yes) for SY groups
+  const [copyrightStatus, setCopyrightStatus] = useState("NA"); // For SY groups: NA, In progress, Submitted, Granted
+  const [patentStatus, setPatentStatus] = useState("NA"); // For TY/LY groups: NA, In progress, Submitted, Granted
+  const [researchPaperStatus, setResearchPaperStatus] = useState("NA"); // For TY/LY groups: NA, Prepared, Submitted, Accepted, Published
 
   // ✅ new states for button behavior
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Check if group is Second Year (SY)
+  // Check if group is Second Year (SY) or Third/Last Year (TY/LY)
   const isSecondYear = groupId?.startsWith("SY");
+  const isThirdOrLastYear = groupId?.startsWith("TY") || groupId?.startsWith("LY");
 
-     useEffect(() => {
+  useEffect(() => {
     setIsSubmitted(false);
-    setHasCopyright(true); // Reset to "Yes" when group changes
+    setCopyrightStatus("NA"); // Reset to "NA" when group changes
+    setPatentStatus("NA"); // Reset to "NA" when group changes
+    setResearchPaperStatus("NA"); // Reset to "NA" when group changes
   }, [groupId]);
 
   useEffect(() => {
     if (!groupId) return;
     const token = localStorage.getItem("token");
-    const external = localStorage.getItem("name"); // for external only
-    
-    // Get stored external evaluator details from localStorage
-    const storedExternal1 = localStorage.getItem("external1_name") || "";
-    const storedExternal2 = localStorage.getItem("external2_name") || "";
-    const storedOrganization1 = localStorage.getItem("organization1_name") || "";
-    const storedOrganization2 = localStorage.getItem("organization2_name") || "";
-    const storedGmLink = localStorage.getItem("google_meet_link") || "";
-
-    // Set external evaluator details from localStorage IMMEDIATELY
-    setExternalName(storedExternal1 || "");
-    setExternal2Name(storedExternal2 || "");
-    setOrganization1Name(storedOrganization1 || "");
-    setOrganization2Name(storedOrganization2 || "");
-    setGoogleMeetLink(storedGmLink || "");
 
     const fetchUrl =
       role === "Mentor"
@@ -67,28 +63,33 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         const isSY = groupId?.startsWith("SY");
         const fieldsToCalculate = isSY ? ["A", "B", "C", "D", "F", "G"] : ["A", "B", "C", "D", "E", "F", "G"];
 
-        const formatted = evaluationsData.map((student) => ({
-          enrollement_no: student.enrollement_no,
-          student_name: student.name_of_student,
-          guide_name: student.guide_name || "",
-          external_name: student.externalname || "",
-          contact: student.contact || "",
-          A: student.A ?? "",
-          B: student.B ?? "",
-          C: student.C ?? "",
-          D: student.D ?? "",
-          E: student.E ?? "",
-          F: student.F ?? "",
-          G: student.G ?? "",
-          absent: student.absent || false,
-          total:
-            student.absent ? "AB" :
-            student.total ??
-            fieldsToCalculate
-              .map((k) => Number(student[k]) || 0)
-              .reduce((a, b) => a + b, 0),
-          feedback: student.feedback ?? "",
-        }));
+        const formatted = evaluationsData.map((student) => {
+          // Check if student is absent - either from absent field or if total is "AB"
+          const isAbsent = student.absent || student.total === "AB";
+          
+          return {
+            enrollement_no: student.enrollement_no,
+            student_name: student.name_of_student,
+            guide_name: student.guide_name || "",
+            external_name: student.externalname || "",
+            contact: student.contact || "",
+            A: student.A ?? "",
+            B: student.B ?? "",
+            C: student.C ?? "",
+            D: student.D ?? "",
+            E: student.E ?? "",
+            F: student.F ?? "",
+            G: student.G ?? "",
+            absent: isAbsent,
+            total:
+              isAbsent ? "AB" :
+              student.total ??
+              fieldsToCalculate
+                .map((k) => Number(student[k]) || 0)
+                .reduce((a, b) => a + b, 0),
+            feedback: student.feedback ?? "",
+          };
+        });
 
         setStudents(formatted);
 
@@ -100,19 +101,98 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         setIsReadOnly(role !== "Mentor" && anyMarksFilled);
         
         if (formatted.length > 0) {
+          // Use the raw evaluationsData instead of formatted to get DB fields
+          const firstRaw = evaluationsData[0];
           const first = formatted[0];
-          setFacultyGuide(first?.guide_name || "");
-          setFeedback(first?.feedback || "");
-          setIndustryGuide(first?.industry_guide || "");
+          
+          console.log("Loading evaluation data from DB:", firstRaw);
+          
+          // Get localStorage values as fallback
+          const storedExternal1 = localStorage.getItem("external1_name") || "";
+          const storedExternal2 = localStorage.getItem("external2_name") || "";
+          const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+          const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+          const storedExt1Contact = localStorage.getItem("external1_contact") || "";
+          const storedExt2Contact = localStorage.getItem("external2_contact") || "";
+          const storedExt1Email = localStorage.getItem("external1_email") || "";
+          const storedExt2Email = localStorage.getItem("external2_email") || "";
+          const storedGmLink = localStorage.getItem("google_meet_link") || "";
+          const storedScreenshotUrl = localStorage.getItem("meet_screenshot_url") || "";
+          
+          // Set basic fields
+          setFacultyGuide(firstRaw?.guide_name || "");
+          setFeedback(firstRaw?.feedback || "");
+          
+          // Prioritize database values over localStorage for industry guide
+          const industryGuideValue = firstRaw?.ig || firstRaw?.industry_guide || "";
+          console.log("Setting industry guide to:", industryGuideValue);
+          setIndustryGuide(industryGuideValue);
+          
+          // Prioritize database values over localStorage for copyright/patent/research paper
+          const copyrightValue = firstRaw?.copyright || "NA";
+          const patentValue = firstRaw?.patent || "NA";
+          const researchPaperValue = firstRaw?.research_paper || "NA";
+          console.log("Setting copyright to:", copyrightValue);
+          console.log("Setting patent to:", patentValue);
+          console.log("Setting research_paper to:", researchPaperValue);
+          setCopyrightStatus(copyrightValue);
+          setPatentStatus(patentValue);
+          setResearchPaperStatus(researchPaperValue);
+          
+          // Prioritize database values over localStorage for external evaluator details
+          setExternalName(firstRaw?.external1 || firstRaw?.external1_name || storedExternal1);
+          setExternal2Name(firstRaw?.external2 || firstRaw?.external2_name || storedExternal2);
+          setOrganization1Name(firstRaw?.ext1_org || firstRaw?.organization1_name || storedOrganization1);
+          setOrganization2Name(firstRaw?.ext2_org || firstRaw?.organization2_name || storedOrganization2);
+          setExternal1Contact(firstRaw?.ext1_contact || storedExt1Contact);
+          setExternal2Contact(firstRaw?.ext2_contact || storedExt2Contact);
+          setExternal1Email(firstRaw?.ext1_email || storedExt1Email);
+          setExternal2Email(firstRaw?.ext2_email || storedExt2Email);
+          setGoogleMeetLink(firstRaw?.gm_link || storedGmLink);
+          setScreenshotUrl(firstRaw?.screenshot || storedScreenshotUrl);
         }
       })
-      .catch((err) => {});
+      .catch((err) => {
+        console.error("Error loading evaluation data:", err);
+        // If API fails, fall back to localStorage
+        const storedExternal1 = localStorage.getItem("external1_name") || "";
+        const storedExternal2 = localStorage.getItem("external2_name") || "";
+        const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+        const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+        const storedExt1Contact = localStorage.getItem("external1_contact") || "";
+        const storedExt2Contact = localStorage.getItem("external2_contact") || "";
+        const storedExt1Email = localStorage.getItem("external1_email") || "";
+        const storedExt2Email = localStorage.getItem("external2_email") || "";
+        const storedGmLink = localStorage.getItem("google_meet_link") || "";
+        const storedScreenshotUrl = localStorage.getItem("meet_screenshot_url") || "";
+        
+        setExternalName(storedExternal1);
+        setExternal2Name(storedExternal2);
+        setOrganization1Name(storedOrganization1);
+        setOrganization2Name(storedOrganization2);
+        setExternal1Contact(storedExt1Contact);
+        setExternal2Contact(storedExt2Contact);
+        setExternal1Email(storedExt1Email);
+        setExternal2Email(storedExt2Email);
+        setGoogleMeetLink(storedGmLink);
+        setScreenshotUrl(storedScreenshotUrl);
+      });
   }, [groupId, role]);
+
+  // Check if evaluation should be blocked based on copyright/patent/research paper status
+  const isEvaluationBlocked = () => {
+    if (isSecondYear) {
+      return copyrightStatus === "NA";
+    }
+    if (isThirdOrLastYear) {
+      return patentStatus === "NA" || researchPaperStatus === "NA";
+    }
+    return false;
+  };
 
   const handleMarkChange = (index, field, value, maxMarks = 10) => {
     if (isReadOnly && role !== "Mentor") return;
-    // For SY groups, disable if copyright is "No"
-    if (isSecondYear && hasCopyright === false) return;
+    if (isEvaluationBlocked()) return; // Block if copyright/patent/research is NA
     const val = value === "" ? "" : Math.max(0, Math.min(maxMarks, Number(value)));
     const updated = [...students];
     updated[index][field] = val;
@@ -125,8 +205,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleAbsentChange = (index, isAbsent) => {
     if (isReadOnly && role !== "Mentor") return;
-    // For SY groups, disable if copyright is "No"
-    if (isSecondYear && hasCopyright === false) return;
+    if (isEvaluationBlocked()) return; // Block if copyright/patent/research is NA
     const updated = [...students];
     updated[index].absent = isAbsent;
     
@@ -153,12 +232,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleSubmit = async () => {
     if (isReadOnly && role !== "Mentor") return;
-    
-    // For SY groups, prevent submission if copyright is "No"
-    if (isSecondYear && hasCopyright === false) {
-      alert("Evaluation can only be submitted if copyright is 'Yes'.");
-      return;
-    }
+    if (isEvaluationBlocked()) return; // Block submission if copyright/patent/research is NA
 
     setIsSubmitting(true); // start loading
     setIsSubmitted(false); // reset success state
@@ -173,7 +247,15 @@ const EvaluationForm_2 = ({ groupId, role }) => {
       external2_name: external2Name,
       organization1_name: organization1Name,
       organization2_name: organization2Name,
+      ext1_contact: external1Contact,
+      ext2_contact: external2Contact,
+      ext1_email: external1Email,
+      ext2_email: external2Email,
       google_meet_link: googleMeetLink,
+      screenshot: screenshotUrl || null,
+      copyright: isSecondYear ? copyrightStatus : null,
+      patent: isThirdOrLastYear ? patentStatus : null,
+      research_paper: isThirdOrLastYear ? researchPaperStatus : null,
       feedback,
       evaluations: students.map((student) => ({
         enrollement_no: student.enrollement_no,
@@ -241,46 +323,84 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         {/* Copyright Section - Only for Second Year (SY) Groups */}
         {isSecondYear && (
           <div className="border-b-2 border-black p-2 bg-gray-50">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="font-semibold">Copyright:</span>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="copyright"
-                    checked={hasCopyright === true}
-                    onChange={() => setHasCopyright(true)}
-                    disabled={isReadOnly && role !== "Mentor"}
-                    className="w-4 h-4 accent-purple-600 cursor-pointer"
-                  />
-                  <span className={`font-medium ${
-                    hasCopyright === true ? 'text-purple-700' : 'text-gray-600'
-                  }`}>
-                    Yes
-                  </span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="copyright"
-                    checked={hasCopyright === false}
-                    onChange={() => setHasCopyright(false)}
-                    disabled={isReadOnly && role !== "Mentor"}
-                    className="w-4 h-4 accent-purple-600 cursor-pointer"
-                  />
-                  <span className={`font-medium ${
-                    hasCopyright === false ? 'text-purple-700' : 'text-gray-600'
-                  }`}>
-                    No
-                  </span>
-                </label>
+            <div className="flex items-start justify-between flex-wrap gap-2">
+              <span className="font-semibold pt-1">Copyright:</span>
+              <div className="flex flex-wrap gap-3">
+                {["NA", "In progress", "Submitted", "Granted"].map((option) => (
+                  <label key={option} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="copyright"
+                      checked={copyrightStatus === option}
+                      onChange={() => setCopyrightStatus(option)}
+                      disabled={isReadOnly && role !== "Mentor"}
+                      className="w-4 h-4 accent-purple-600 cursor-pointer"
+                    />
+                    <span className={`font-medium text-sm ${
+                      copyrightStatus === option ? 'text-purple-700' : 'text-gray-600'
+                    }`}>
+                      {option}
+                    </span>
+                  </label>
+                ))}
               </div>
             </div>
-            {hasCopyright === false && (
-              <div className="mt-2 text-xs text-purple-700 font-medium">
-                ⚠ Evaluation cannot proceed without copyright.
+          </div>
+        )}
+        
+        {/* Patent Section - Only for Third Year (TY) and Last Year (LY) Groups */}
+        {isThirdOrLastYear && (
+          <div className="border-b-2 border-black p-2 bg-gray-50">
+            <div className="flex items-start justify-between flex-wrap gap-2">
+              <span className="font-semibold pt-1">Patent:</span>
+              <div className="flex flex-wrap gap-3">
+                {["NA", "In progress", "Submitted", "Granted"].map((option) => (
+                  <label key={option} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="patent"
+                      checked={patentStatus === option}
+                      onChange={() => setPatentStatus(option)}
+                      disabled={isReadOnly && role !== "Mentor"}
+                      className="w-4 h-4 accent-purple-600 cursor-pointer"
+                    />
+                    <span className={`font-medium text-sm ${
+                      patentStatus === option ? 'text-purple-700' : 'text-gray-600'
+                    }`}>
+                      {option}
+                    </span>
+                  </label>
+                ))}
               </div>
-            )}
+            </div>
+          </div>
+        )}
+        
+        {/* Research Paper Section - Only for Third Year (TY) and Last Year (LY) Groups */}
+        {isThirdOrLastYear && (
+          <div className="border-b-2 border-black p-2 bg-gray-50">
+            <div className="flex items-start justify-between flex-wrap gap-2">
+              <span className="font-semibold pt-1">Research Paper:</span>
+              <div className="flex flex-wrap gap-3">
+                {["NA", "Prepared", "Submitted", "Accepted", "Published"].map((option) => (
+                  <label key={option} className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="researchPaper"
+                      checked={researchPaperStatus === option}
+                      onChange={() => setResearchPaperStatus(option)}
+                      disabled={isReadOnly && role !== "Mentor"}
+                      className="w-4 h-4 accent-purple-600 cursor-pointer"
+                    />
+                    <span className={`font-medium text-sm ${
+                      researchPaperStatus === option ? 'text-purple-700' : 'text-gray-600'
+                    }`}>
+                      {option}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         
@@ -320,10 +440,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                     type="checkbox"
                     checked={student.absent}
                     onChange={(e) => handleAbsentChange(i, e.target.checked)}
-                    disabled={
-                      (isReadOnly && role !== "Mentor") ||
-                      (isSecondYear && hasCopyright === false)
-                    }
+                    disabled={(isReadOnly && role !== "Mentor") || isEvaluationBlocked()}
                     className="w-4 h-4 accent-purple-600"
                   />
                 </td>
@@ -371,7 +488,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                       disabled={
                         student.absent || 
                         (isReadOnly && role !== "Mentor") ||
-                        (isSecondYear && hasCopyright === false)
+                        isEvaluationBlocked()
                       }
                       className="w-16 border border-gray-400 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200"
                     />
@@ -413,10 +530,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           type="text"
           value={industryGuide}
           onChange={(e) => setIndustryGuide(e.target.value)}
-          disabled={
-            (isReadOnly && role !== "Mentor") ||
-            (isSecondYear && (hasCopyright === null || hasCopyright === false))
-          }
+          disabled={isReadOnly && role !== "Mentor"}
           className="w-full border-b border-gray-400 p-2 focus:outline-none bg-transparent focus:border-purple-500 disabled:bg-gray-100"
           placeholder="Enter industry guide name"
         />
@@ -428,10 +542,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          disabled={
-            (isReadOnly && role !== "Mentor") ||
-            (isSecondYear && hasCopyright === false)
-          }
+          disabled={isReadOnly && role !== "Mentor"}
           className="w-full border border-gray-400 p-2 rounded h-20 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
       </div>
@@ -443,26 +554,50 @@ const EvaluationForm_2 = ({ groupId, role }) => {
             <tr className="border-b-2 border-black">
               <th className="border-r-2 border-black p-3 font-semibold w-16">Sr. No.</th>
               <th className="border-r-2 border-black p-3 font-semibold">Name of Reviewers</th>
-              <th className="p-3 font-semibold">Organization</th>
+              <th className="border-r-2 border-black p-3 font-semibold">Organization</th>
+              <th className="border-r-2 border-black p-3 font-semibold">Contact</th>
+              <th className="p-3 font-semibold">Email</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b-2 border-black">
               <td className="border-r-2 border-black p-3 text-center">1</td>
               <td className="border-r-2 border-black p-3">{externalName || ""}</td>
-              <td className="p-3">{organization1Name || ""}</td>
+              <td className="border-r-2 border-black p-3">{organization1Name || ""}</td>
+              <td className="border-r-2 border-black p-3">{external1Contact || "-"}</td>
+              <td className="p-3">{external1Email || "-"}</td>
             </tr>
             <tr>
               <td className="border-r-2 border-black p-3 text-center">2</td>
               <td className="border-r-2 border-black p-3">{external2Name || ""}</td>
-              <td className="p-3">{organization2Name || ""}</td>
+              <td className="border-r-2 border-black p-3">{organization2Name || ""}</td>
+              <td className="border-r-2 border-black p-3">{external2Contact || "-"}</td>
+              <td className="p-3">{external2Email || "-"}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       {/* Submit Button / Success State */}
-      <div className="pt-4 flex justify-center">
+      <div className="pt-4 flex flex-col items-center gap-3">
+        {isEvaluationBlocked() && (
+          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 max-w-2xl">
+            <div className="flex items-start gap-3">
+              <svg className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <p className="font-semibold text-yellow-800 mb-1">Evaluation Blocked</p>
+                <p className="text-sm text-yellow-700">
+                  {isSecondYear 
+                    ? "Please select a Copyright status other than 'NA' to enable evaluation."
+                    : "Please select Patent and Research Paper status other than 'NA' to enable evaluation."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {isSubmitted ? (
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
@@ -479,10 +614,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         ) : (
           <button
             onClick={handleSubmit}
-            disabled={
-              isSubmitting ||
-              (isSecondYear && hasCopyright === false)
-            }
+            disabled={isSubmitting || isEvaluationBlocked()}
             className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (

@@ -232,3 +232,70 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     };
   }
 };
+
+/**
+ * Upload file to API endpoint
+ * @param {string} endpoint - API endpoint
+ * @param {FormData} formData - FormData object containing the file
+ * @param {string} token - Optional authentication token
+ */
+export const uploadFile = async (endpoint, formData, token = null) => {
+  // Use token from parameter first, then try localStorage
+  if (!token) {
+    token = localStorage.getItem('token') || localStorage.getItem('student_token');
+  }
+
+  const headers = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+    console.log(`File Upload: POST ${endpoint} with token ${token.substring(0, 15)}...`);
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (parseError) {
+      data = {};
+    }
+
+    if (!res.ok || data.success === false) {
+      console.error(`Upload Error (${res.status}):`, data, 'Endpoint:', endpoint);
+      
+      if (res.status === 401) {
+        console.warn(`401 Unauthorized for upload endpoint: ${endpoint}`);
+        localStorage.removeItem('token');
+        localStorage.removeItem('student_token');
+        
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
+      
+      return {
+        success: false,
+        status: res.status,
+        message: data?.message || "Upload failed",
+        error: data?.error || null,
+      };
+    }
+
+    return {
+      success: true,
+      message: data.message || 'Upload successful',
+      data: data.data || data,
+    };
+  } catch (error) {
+    console.error("Upload Error:", error.message);
+    return {
+      success: false,
+      message: error.message || "Network error during upload",
+    };
+  }
+};

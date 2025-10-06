@@ -1,8 +1,25 @@
 import express from 'express';
+import multer from 'multer';
 import evaluationController from '../../controllers/externals/evaluationController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed'), false);
+    } else {
+      cb(null, true);
+    }
+  }
+});
 
 /**
  * @route POST /api/evaluation
@@ -76,6 +93,18 @@ router.get('/all',
   authMiddleware.authenticateUser, 
   authMiddleware.restrictTo('admin'),
   evaluationController.getAllEvaluations
+);
+
+/**
+ * @route POST /api/evaluation/upload-screenshot
+ * @desc Upload meet screenshot to Supabase storage
+ * @access Private (Admin, Mentor, External Evaluator)
+ */
+router.post('/upload-screenshot', 
+  authMiddleware.authenticateUser, 
+  authMiddleware.restrictTo('admin', 'mentor', 'external'),
+  upload.single('file'),
+  evaluationController.uploadScreenshot
 );
 
 export default router;

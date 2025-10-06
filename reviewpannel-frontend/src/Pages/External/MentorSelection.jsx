@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../api.js";
+import { apiRequest, uploadFile } from "../../api.js";
 
 const MentorSelection = () => {
   const [mentors, setMentors] = useState([]);
@@ -12,7 +12,13 @@ const MentorSelection = () => {
   const [external2Name, setExternal2Name] = useState("");
   const [organization1Name, setOrganization1Name] = useState("");
   const [organization2Name, setOrganization2Name] = useState("");
+  const [external1Contact, setExternal1Contact] = useState("");
+  const [external2Contact, setExternal2Contact] = useState("");
+  const [external1Email, setExternal1Email] = useState("");
+  const [external2Email, setExternal2Email] = useState("");
   const [googleMeetLink, setGoogleMeetLink] = useState("");
+  const [meetScreenshot, setMeetScreenshot] = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState("");
   const navigate = useNavigate();
 
   // Load saved evaluator details from localStorage on component mount
@@ -21,13 +27,27 @@ const MentorSelection = () => {
     const savedExternal2 = localStorage.getItem("external2_name");
     const savedOrg1 = localStorage.getItem("organization1_name");
     const savedOrg2 = localStorage.getItem("organization2_name");
+    const savedExt1Contact = localStorage.getItem("external1_contact");
+    const savedExt2Contact = localStorage.getItem("external2_contact");
+    const savedExt1Email = localStorage.getItem("external1_email");
+    const savedExt2Email = localStorage.getItem("external2_email");
     const savedGmLink = localStorage.getItem("google_meet_link");
+    const savedScreenshotUrl = localStorage.getItem("meet_screenshot_url");
 
     if (savedExternal1) setExternal1Name(savedExternal1);
     if (savedExternal2) setExternal2Name(savedExternal2);
     if (savedOrg1) setOrganization1Name(savedOrg1);
     if (savedOrg2) setOrganization2Name(savedOrg2);
+    if (savedExt1Contact) setExternal1Contact(savedExt1Contact);
+    if (savedExt2Contact) setExternal2Contact(savedExt2Contact);
+    if (savedExt1Email) setExternal1Email(savedExt1Email);
+    if (savedExt2Email) setExternal2Email(savedExt2Email);
     if (savedGmLink) setGoogleMeetLink(savedGmLink);
+    
+    // If screenshot URL exists, show it as preview
+    if (savedScreenshotUrl) {
+      setScreenshotPreview(savedScreenshotUrl);
+    }
   }, []);
 
   useEffect(() => {
@@ -74,6 +94,25 @@ const MentorSelection = () => {
       setLoading(true);
       const token = localStorage.getItem("token");
       
+      // Upload screenshot first if it exists
+      let screenshotUrl = null;
+      if (meetScreenshot) {
+        try {
+          const formData = new FormData();
+          formData.append('file', meetScreenshot);
+          formData.append('group_id', 'meet_screenshot_' + Date.now());
+
+          const uploadResult = await uploadFile('/api/evaluation/upload-screenshot', formData, token);
+          
+          if (uploadResult.success && uploadResult.data?.url) {
+            screenshotUrl = uploadResult.data.url;
+          }
+        } catch (uploadError) {
+          console.error("Error uploading screenshot:", uploadError);
+          // Continue even if upload fails
+        }
+      }
+      
       // Fetch groups for the selected mentor
       const response = await apiRequest(
         `/api/external-auth/mentor-groups?mentor_name=${encodeURIComponent(selectedMentor)}`,
@@ -90,7 +129,16 @@ const MentorSelection = () => {
         localStorage.setItem("external2_name", external2Name.trim());
         localStorage.setItem("organization1_name", organization1Name.trim());
         localStorage.setItem("organization2_name", organization2Name.trim());
+        localStorage.setItem("external1_contact", external1Contact.trim());
+        localStorage.setItem("external2_contact", external2Contact.trim());
+        localStorage.setItem("external1_email", external1Email.trim());
+        localStorage.setItem("external2_email", external2Email.trim());
         localStorage.setItem("google_meet_link", googleMeetLink.trim());
+        
+        // Store screenshot URL if uploaded
+        if (screenshotUrl) {
+          localStorage.setItem("meet_screenshot_url", screenshotUrl);
+        }
         
         // Navigate to external home
         navigate("/external-home");
@@ -195,6 +243,30 @@ const MentorSelection = () => {
                       className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Contact Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={external1Contact}
+                      onChange={(e) => setExternal1Contact(e.target.value)}
+                      placeholder="Enter contact number"
+                      className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={external1Email}
+                      onChange={(e) => setExternal1Email(e.target.value)}
+                      placeholder="Enter email address"
+                      className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -226,6 +298,30 @@ const MentorSelection = () => {
                       value={organization2Name}
                       onChange={(e) => setOrganization2Name(e.target.value)}
                       placeholder="Enter organization name"
+                      className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Contact Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={external2Contact}
+                      onChange={(e) => setExternal2Contact(e.target.value)}
+                      placeholder="Enter contact number"
+                      className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={external2Email}
+                      onChange={(e) => setExternal2Email(e.target.value)}
+                      placeholder="Enter email address"
                       className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                     />
                   </div>
@@ -350,6 +446,76 @@ const MentorSelection = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <p className="mt-4 text-sm text-gray-500">No mentors found matching your search</p>
+                </div>
+              )}
+            </div>
+
+            {/* Screenshot Upload Section */}
+            <div className="mt-4 bg-white rounded-2xl shadow-xl p-6 border border-purple-100">
+              <div className="flex items-center mb-6">
+                <div className="p-3 bg-purple-600 rounded-xl shadow-lg">
+                  <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-xl font-bold text-gray-900">Upload Meet Screenshot</h3>
+                  <p className="text-sm text-gray-500">Upload meeting screenshot for reference</p>
+                </div>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setMeetScreenshot(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setScreenshotPreview(reader.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="hidden"
+                  id="screenshot-upload"
+                />
+                <label
+                  htmlFor="screenshot-upload"
+                  className="flex flex-col items-center justify-center w-full px-6 py-8 border-2 border-dashed border-purple-300 rounded-xl cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-all bg-white"
+                >
+                  <svg className="w-12 h-12 text-purple-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="text-base font-semibold text-gray-700 mb-1">
+                    {meetScreenshot ? "Change Screenshot" : "Click to upload screenshot"}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {meetScreenshot ? meetScreenshot.name : "PNG, JPG or JPEG (Max 10MB)"}
+                  </span>
+                </label>
+              </div>
+              
+              {screenshotPreview && (
+                <div className="mt-4 relative">
+                  <img
+                    src={screenshotPreview}
+                    alt="Screenshot preview"
+                    className="w-full h-64 object-contain rounded-xl border-2 border-purple-200 bg-gray-50"
+                  />
+                  <button
+                    onClick={() => {
+                      setMeetScreenshot(null);
+                      setScreenshotPreview("");
+                    }}
+                    className="absolute top-3 right-3 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-all shadow-lg hover:scale-110"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               )}
             </div>

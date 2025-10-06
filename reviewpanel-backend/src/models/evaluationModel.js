@@ -295,7 +295,15 @@ class EvaluationModel {
       external2: external2_name || null,
       ext1_org: organization1_name || null,
       ext2_org: organization2_name || null,
+      ext1_contact: evalData.ext1_contact || null,
+      ext2_contact: evalData.ext2_contact || null,
+      ext1_email: evalData.ext1_email || null,
+      ext2_email: evalData.ext2_email || null,
       gm_link: google_meet_link || null,
+      copyright: evalData.copyright || null,
+      patent: evalData.patent || null,
+      research_paper: evalData.research_paper || null,
+      screenshot: evalData.screenshot || null,
       date: submission_date || new Date().toISOString().split('T')[0],
     };
 
@@ -338,7 +346,15 @@ class EvaluationModel {
         external2_name: metadata.external2_name ?? evalData.external2_name ?? null,
         organization1_name: metadata.organization1_name ?? evalData.organization1_name ?? null,
         organization2_name: metadata.organization2_name ?? evalData.organization2_name ?? null,
+        ext1_contact: metadata.ext1_contact ?? evalData.ext1_contact ?? null,
+        ext2_contact: metadata.ext2_contact ?? evalData.ext2_contact ?? null,
+        ext1_email: metadata.ext1_email ?? evalData.ext1_email ?? null,
+        ext2_email: metadata.ext2_email ?? evalData.ext2_email ?? null,
         google_meet_link: metadata.google_meet_link ?? evalData.google_meet_link ?? null,
+        copyright: metadata.copyright ?? evalData.copyright ?? null,
+        patent: metadata.patent ?? evalData.patent ?? null,
+        research_paper: metadata.research_paper ?? evalData.research_paper ?? null,
+        screenshot: metadata.screenshot ?? evalData.screenshot ?? null,
         submission_date: submissionDate,
       };
 
@@ -375,7 +391,15 @@ class EvaluationModel {
         external2,
         ext1_org,
         ext2_org,
-        gm_link
+        ext1_contact,
+        ext2_contact,
+        ext1_email,
+        ext2_email,
+        gm_link,
+        copyright,
+        patent,
+        research_paper,
+        screenshot
       `)
       .eq('group_id', groupId);
 
