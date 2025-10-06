@@ -12,6 +12,7 @@ const MentorSelection = () => {
   const [external2Name, setExternal2Name] = useState("");
   const [organization1Name, setOrganization1Name] = useState("");
   const [organization2Name, setOrganization2Name] = useState("");
+  const [googleMeetLink, setGoogleMeetLink] = useState("");
   const navigate = useNavigate();
 
   // Load saved evaluator details from localStorage on component mount
@@ -20,11 +21,13 @@ const MentorSelection = () => {
     const savedExternal2 = localStorage.getItem("external2_name");
     const savedOrg1 = localStorage.getItem("organization1_name");
     const savedOrg2 = localStorage.getItem("organization2_name");
+    const savedGmLink = localStorage.getItem("google_meet_link");
 
     if (savedExternal1) setExternal1Name(savedExternal1);
     if (savedExternal2) setExternal2Name(savedExternal2);
     if (savedOrg1) setOrganization1Name(savedOrg1);
     if (savedOrg2) setOrganization2Name(savedOrg2);
+    if (savedGmLink) setGoogleMeetLink(savedGmLink);
   }, []);
 
   useEffect(() => {
@@ -87,6 +90,7 @@ const MentorSelection = () => {
         localStorage.setItem("external2_name", external2Name.trim());
         localStorage.setItem("organization1_name", organization1Name.trim());
         localStorage.setItem("organization2_name", organization2Name.trim());
+        localStorage.setItem("google_meet_link", googleMeetLink.trim());
         
         // Navigate to external home
         navigate("/external-home");
@@ -225,6 +229,30 @@ const MentorSelection = () => {
                       className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Google Meet Link Section */}
+              <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <h4 className="text-sm font-bold text-purple-900 mb-3 flex items-center">
+                  <span className="flex items-center justify-center w-6 h-6 bg-purple-600 text-white rounded-full text-xs mr-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                  </span>
+                  Google Meet Link
+                </h4>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                    Meeting Link
+                  </label>
+                  <input
+                    type="url"
+                    value={googleMeetLink}
+                    onChange={(e) => setGoogleMeetLink(e.target.value)}
+                    placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                    className="w-full px-4 py-2.5 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                  />
                 </div>
               </div>
             </div>

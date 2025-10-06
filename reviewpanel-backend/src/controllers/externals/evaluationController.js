@@ -71,6 +71,7 @@ class EvaluationController {
       external2_name,
       organization1_name,
       organization2_name,
+      google_meet_link,
     } = req.body;
 
     if (!group_id || !Array.isArray(evaluations) || !evaluations.length) {
@@ -103,6 +104,7 @@ class EvaluationController {
       external2_name,
       organization1_name,
       organization2_name,
+      google_meet_link,
     });
 
     return ApiResponse.success(res, 'PBL Review 2 evaluations saved successfully.', { updates }, 201);

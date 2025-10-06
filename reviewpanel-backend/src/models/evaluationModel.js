@@ -260,6 +260,7 @@ class EvaluationModel {
       external2_name,
       organization1_name,
       organization2_name,
+      google_meet_link,
       submission_date
     } = evalData;
 
@@ -290,8 +291,11 @@ class EvaluationModel {
       feedback: feedback || null,
       guide_name: faculty_guide || null,
       ig: industry_guide || null,
+      external1: external1_name || null,
+      external2: external2_name || null,
       ext1_org: organization1_name || null,
       ext2_org: organization2_name || null,
+      gm_link: google_meet_link || null,
       date: submission_date || new Date().toISOString().split('T')[0],
     };
 
@@ -334,6 +338,7 @@ class EvaluationModel {
         external2_name: metadata.external2_name ?? evalData.external2_name ?? null,
         organization1_name: metadata.organization1_name ?? evalData.organization1_name ?? null,
         organization2_name: metadata.organization2_name ?? evalData.organization2_name ?? null,
+        google_meet_link: metadata.google_meet_link ?? evalData.google_meet_link ?? null,
         submission_date: submissionDate,
       };
 
@@ -369,7 +374,8 @@ class EvaluationModel {
         external1,
         external2,
         ext1_org,
-        ext2_org
+        ext2_org,
+        gm_link
       `)
       .eq('group_id', groupId);
 

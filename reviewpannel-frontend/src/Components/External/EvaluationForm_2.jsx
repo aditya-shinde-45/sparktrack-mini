@@ -9,8 +9,10 @@ const EvaluationForm_2 = ({ groupId, role }) => {
   const [external2Name, setExternal2Name] = useState("");
   const [organization1Name, setOrganization1Name] = useState("");
   const [organization2Name, setOrganization2Name] = useState("");
+  const [googleMeetLink, setGoogleMeetLink] = useState("");
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [hasCopyright, setHasCopyright] = useState(true); // Default to true (Yes) for SY groups
 
   // ✅ new states for button behavior
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,6 +23,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
      useEffect(() => {
     setIsSubmitted(false);
+    setHasCopyright(true); // Reset to "Yes" when group changes
   }, [groupId]);
 
   useEffect(() => {
@@ -33,12 +36,14 @@ const EvaluationForm_2 = ({ groupId, role }) => {
     const storedExternal2 = localStorage.getItem("external2_name") || "";
     const storedOrganization1 = localStorage.getItem("organization1_name") || "";
     const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+    const storedGmLink = localStorage.getItem("google_meet_link") || "";
 
     // Set external evaluator details from localStorage IMMEDIATELY
     setExternalName(storedExternal1 || "");
     setExternal2Name(storedExternal2 || "");
     setOrganization1Name(storedOrganization1 || "");
     setOrganization2Name(storedOrganization2 || "");
+    setGoogleMeetLink(storedGmLink || "");
 
     const fetchUrl =
       role === "Mentor"
@@ -106,6 +111,8 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleMarkChange = (index, field, value, maxMarks = 10) => {
     if (isReadOnly && role !== "Mentor") return;
+    // For SY groups, disable if copyright is "No"
+    if (isSecondYear && hasCopyright === false) return;
     const val = value === "" ? "" : Math.max(0, Math.min(maxMarks, Number(value)));
     const updated = [...students];
     updated[index][field] = val;
@@ -118,6 +125,8 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleAbsentChange = (index, isAbsent) => {
     if (isReadOnly && role !== "Mentor") return;
+    // For SY groups, disable if copyright is "No"
+    if (isSecondYear && hasCopyright === false) return;
     const updated = [...students];
     updated[index].absent = isAbsent;
     
@@ -144,6 +153,12 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleSubmit = async () => {
     if (isReadOnly && role !== "Mentor") return;
+    
+    // For SY groups, prevent submission if copyright is "No"
+    if (isSecondYear && hasCopyright === false) {
+      alert("Evaluation can only be submitted if copyright is 'Yes'.");
+      return;
+    }
 
     setIsSubmitting(true); // start loading
     setIsSubmitted(false); // reset success state
@@ -158,6 +173,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
       external2_name: external2Name,
       organization1_name: organization1Name,
       organization2_name: organization2Name,
+      google_meet_link: googleMeetLink,
       feedback,
       evaluations: students.map((student) => ({
         enrollement_no: student.enrollement_no,
@@ -221,6 +237,53 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         <div className="border-b-2 border-black p-2">
           <span className="font-semibold">Project Title:</span>
         </div>
+        
+        {/* Copyright Section - Only for Second Year (SY) Groups */}
+        {isSecondYear && (
+          <div className="border-b-2 border-black p-2 bg-gray-50">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="font-semibold">Copyright:</span>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="copyright"
+                    checked={hasCopyright === true}
+                    onChange={() => setHasCopyright(true)}
+                    disabled={isReadOnly && role !== "Mentor"}
+                    className="w-4 h-4 accent-purple-600 cursor-pointer"
+                  />
+                  <span className={`font-medium ${
+                    hasCopyright === true ? 'text-purple-700' : 'text-gray-600'
+                  }`}>
+                    Yes
+                  </span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="copyright"
+                    checked={hasCopyright === false}
+                    onChange={() => setHasCopyright(false)}
+                    disabled={isReadOnly && role !== "Mentor"}
+                    className="w-4 h-4 accent-purple-600 cursor-pointer"
+                  />
+                  <span className={`font-medium ${
+                    hasCopyright === false ? 'text-purple-700' : 'text-gray-600'
+                  }`}>
+                    No
+                  </span>
+                </label>
+              </div>
+            </div>
+            {hasCopyright === false && (
+              <div className="mt-2 text-xs text-purple-700 font-medium">
+                ⚠ Evaluation cannot proceed without copyright.
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="border-b-2 border-black p-2">
           <span className="font-semibold">Name of Faculty Guide:</span>
           <span className="ml-2">{facultyGuide}</span>
@@ -257,7 +320,10 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                     type="checkbox"
                     checked={student.absent}
                     onChange={(e) => handleAbsentChange(i, e.target.checked)}
-                    disabled={isReadOnly && role !== "Mentor"}
+                    disabled={
+                      (isReadOnly && role !== "Mentor") ||
+                      (isSecondYear && hasCopyright === false)
+                    }
                     className="w-4 h-4 accent-purple-600"
                   />
                 </td>
@@ -302,7 +368,11 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                       max={marks}
                       value={student[key]}
                       onChange={(e) => handleMarkChange(i, key, e.target.value, marks)}
-                      disabled={student.absent || (isReadOnly && role !== "Mentor")}
+                      disabled={
+                        student.absent || 
+                        (isReadOnly && role !== "Mentor") ||
+                        (isSecondYear && hasCopyright === false)
+                      }
                       className="w-16 border border-gray-400 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200"
                     />
                   </td>
@@ -343,7 +413,10 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           type="text"
           value={industryGuide}
           onChange={(e) => setIndustryGuide(e.target.value)}
-          disabled={isReadOnly && role !== "Mentor"}
+          disabled={
+            (isReadOnly && role !== "Mentor") ||
+            (isSecondYear && (hasCopyright === null || hasCopyright === false))
+          }
           className="w-full border-b border-gray-400 p-2 focus:outline-none bg-transparent focus:border-purple-500 disabled:bg-gray-100"
           placeholder="Enter industry guide name"
         />
@@ -355,7 +428,10 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          disabled={isReadOnly && role !== "Mentor"}
+          disabled={
+            (isReadOnly && role !== "Mentor") ||
+            (isSecondYear && hasCopyright === false)
+          }
           className="w-full border border-gray-400 p-2 rounded h-20 focus:outline-none focus:ring-2 focus:ring-purple-400"
         />
       </div>
@@ -403,8 +479,11 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         ) : (
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto"
+            disabled={
+              isSubmitting ||
+              (isSecondYear && hasCopyright === false)
+            }
+            className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (
               <>
