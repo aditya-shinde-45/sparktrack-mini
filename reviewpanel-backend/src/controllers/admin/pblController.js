@@ -7,13 +7,29 @@ import pblModel from '../../models/pblModel.js';
  */
 class PblController {
   /**
-   * Get all PBL groups with optional class filtering
+   * Get all PBL groups with optional class filtering and review type
    */
   getPBLData = asyncHandler(async (req, res) => {
     const classFilter = req.query.class?.toUpperCase();
-    const data = await pblModel.getAll(classFilter);
+    const reviewType = req.query.review || 'review1'; // 'review1' or 'review2'
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    const searchQuery = req.query.search || '';
     
-    return ApiResponse.success(res, 'PBL data retrieved successfully', data);
+    const result = await pblModel.getAll(classFilter, reviewType, limit, offset, searchQuery);
+    
+    return ApiResponse.success(res, 'PBL data retrieved successfully', {
+      data: result.data,
+      pagination: {
+        currentPage: page,
+        totalPages: result.totalPages,
+        totalRecords: result.totalRecords,
+        limit: limit,
+        hasNextPage: page < result.totalPages,
+        hasPrevPage: page > 1
+      }
+    });
   });
 
   /**

@@ -36,111 +36,84 @@ const StatsCards = ({ statsData, loading }) => {
       label: "Total Students", 
       value: statsData?.students ?? 0,
       icon: <StudentIcon />,
-      color: "from-blue-500 to-blue-600",
-      bgColor: "from-blue-50 to-blue-100",
-      textColor: "text-blue-600",
-      change: "+12%",
-      trend: "up"
+      gradient: "from-blue-500 to-blue-700",
+      bgGradient: "from-blue-50 to-blue-100/50",
+      borderColor: "border-blue-200",
+      textColor: "text-blue-700",
+      hoverShadow: "hover:shadow-blue-200/50"
     },
     { 
       label: "Active Groups", 
       value: statsData?.groups ?? 0,
       icon: <GroupIcon />,
-      color: "from-green-500 to-green-600",
-      bgColor: "from-green-50 to-green-100",
-      textColor: "text-green-600",
-      change: "+8%",
-      trend: "up"
+      gradient: "from-green-500 to-emerald-600",
+      bgGradient: "from-green-50 to-emerald-100/50",
+      borderColor: "border-green-200",
+      textColor: "text-green-700",
+      hoverShadow: "hover:shadow-green-200/50"
     },
     { 
       label: "Faculty Mentors", 
       value: statsData?.mentors ?? 0,
       icon: <MentorIcon />,
-      color: "from-purple-500 to-purple-600",
-      bgColor: "from-purple-50 to-purple-100",
-      textColor: "text-purple-600",
-      change: "+5%",
-      trend: "up"
+      gradient: "from-purple-500 to-purple-700",
+      bgGradient: "from-purple-50 to-purple-100/50",
+      borderColor: "border-purple-200",
+      textColor: "text-purple-700",
+      hoverShadow: "hover:shadow-purple-200/50"
     },
     { 
       label: "External Evaluators", 
       value: statsData?.externals ?? 0,
       icon: <ExternalIcon />,
-      color: "from-orange-500 to-orange-600",
-      bgColor: "from-orange-50 to-orange-100",
-      textColor: "text-orange-600",
-      change: "+3%",
-      trend: "up"
+      gradient: "from-orange-500 to-orange-700",
+      bgGradient: "from-orange-50 to-orange-100/50",
+      borderColor: "border-orange-200",
+      textColor: "text-orange-700",
+      hoverShadow: "hover:shadow-orange-200/50"
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((stat, index) => (
         <div
           key={index}
-          className={`relative bg-gradient-to-br ${stat.bgColor} backdrop-blur-sm rounded-2xl shadow-xl border border-white/40 p-6 hover:shadow-2xl transition-all duration-500 hover:scale-105 group overflow-hidden`}
+          className={`relative overflow-hidden bg-gradient-to-br ${stat.bgGradient} rounded-2xl shadow-xl border-2 ${stat.borderColor} p-6 hover:shadow-2xl ${stat.hoverShadow} transition-all duration-300 transform hover:scale-105 group`}
         >
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-gradient-to-br from-white to-transparent"></div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-gradient-to-br from-white to-transparent"></div>
-          </div>
+          {/* Decorative Background Pattern */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12 group-hover:scale-150 transition-transform duration-500"></div>
           
           {/* Content */}
           <div className="relative z-10">
             {/* Header with Icon */}
             <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color} shadow-lg transform group-hover:scale-110 transition-transform duration-300`}>
+              <div className={`p-4 rounded-xl bg-gradient-to-br ${stat.gradient} shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110`}>
                 {stat.icon}
               </div>
-              <div className="flex items-center space-x-1 text-sm font-semibold text-green-600">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 17l9.2-9.2M17 17V7h-10"/>
-                </svg>
-                <span>{stat.change}</span>
-              </div>
+              <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${stat.gradient} animate-pulse`}></div>
             </div>
 
             {/* Main Value */}
-            <div className="mb-3">
+            <div>
               {loading ? (
                 <div className="animate-pulse">
-                  <div className="h-10 bg-gray-300 rounded-lg mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-12 bg-white/50 rounded-lg mb-3"></div>
+                  <div className="h-4 bg-white/30 rounded w-3/4"></div>
                 </div>
               ) : (
                 <>
-                  <h3 className={`text-4xl font-bold ${stat.textColor} mb-1 group-hover:scale-110 transition-transform duration-300`}>
+                  <h3 className={`text-4xl font-extrabold ${stat.textColor} mb-2 group-hover:scale-105 transition-transform duration-300`}>
                     {stat.value.toLocaleString()}
                   </h3>
-                  <p className="text-gray-600 font-semibold text-sm uppercase tracking-wide">
+                  <p className="text-gray-700 font-semibold text-sm tracking-wide">
                     {stat.label}
                   </p>
                 </>
               )}
             </div>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-white/50 rounded-full h-2 mb-3">
-              <div 
-                className={`bg-gradient-to-r ${stat.color} h-2 rounded-full transition-all duration-1000 ease-out`}
-                style={{ width: loading ? '0%' : '75%' }}
-              ></div>
-            </div>
-
-            {/* Footer Stats */}
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span className="flex items-center">
-                <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
-                Active Now
-              </span>
-              <span>Updated {new Date().toLocaleDateString()}</span>
-            </div>
           </div>
-
-          {/* Hover Effect Overlay */}
-          <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
         </div>
       ))}
     </div>

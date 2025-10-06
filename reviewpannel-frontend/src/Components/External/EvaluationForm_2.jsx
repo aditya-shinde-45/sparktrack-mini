@@ -67,6 +67,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           student_name: student.name_of_student,
           guide_name: student.guide_name || "",
           external_name: student.externalname || "",
+          contact: student.contact || "",
           A: student.A ?? "",
           B: student.B ?? "",
           C: student.C ?? "",
@@ -250,7 +251,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                 <td className={`border-r-2 border-black p-2 ${student.absent ? 'line-through text-gray-500' : ''}`}>
                   {student.student_name}
                 </td>
-                <td className="border-r-2 border-black p-2"></td>
+                <td className="border-r-2 border-black p-2">{student.contact || "-"}</td>
                 <td className="p-2 text-center">
                   <input
                     type="checkbox"

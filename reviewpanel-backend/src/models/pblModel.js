@@ -10,23 +10,62 @@ class PblModel {
   }
 
   /**
-   * Get all PBL data with optional class filtering
+   * Get all PBL data with optional class filtering, review type, search, and pagination
    * @param {string} classFilter - Optional class filter
+   * @param {string} reviewType - 'review1' or 'review2'
+   * @param {number} limit - Number of records per page
+   * @param {number} offset - Offset for pagination
+   * @param {string} searchQuery - Search term for group_id or enrollment_no
    */
-  async getAll(classFilter = null) {
-    let query = supabase.from(this.table).select('*');
+  async getAll(classFilter = null, reviewType = 'review1', limit = 50, offset = 0, searchQuery = '') {
+    // Determine which table to query based on review type
+    const tableName = reviewType === 'review2' ? 'pbl2' : 'pbl1';
+    
+    // First, get the total count
+    let countQuery = supabase
+      .from(tableName)
+      .select('*', { count: 'exact', head: true });
 
     if (classFilter) {
-      // Match both exact class and class- prefix
-      query = query.or(`class.eq.${classFilter},class.ilike.${classFilter}-%`);
+      countQuery = countQuery.or(`class.eq.${classFilter},class.ilike.${classFilter}-%`);
     }
 
-    // Ensure we get all records by setting a high range
-    query = query.range(0, 50000);
+    // Add search filter
+    if (searchQuery) {
+      countQuery = countQuery.or(`group_id.ilike.%${searchQuery}%,enrollement_no.ilike.%${searchQuery}%`);
+    }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    const { count, error: countError } = await countQuery;
+    if (countError) throw countError;
+
+    // Now get the paginated data
+    let dataQuery = supabase
+      .from(tableName)
+      .select('*')
+      .order('group_id', { ascending: true });
+
+    if (classFilter) {
+      dataQuery = dataQuery.or(`class.eq.${classFilter},class.ilike.${classFilter}-%`);
+    }
+
+    // Add search filter
+    if (searchQuery) {
+      dataQuery = dataQuery.or(`group_id.ilike.%${searchQuery}%,enrollement_no.ilike.%${searchQuery}%`);
+    }
+
+    // Apply range AFTER all filters
+    dataQuery = dataQuery.range(offset, offset + limit - 1);
+
+    const { data, error: dataError } = await dataQuery;
+    if (dataError) throw dataError;
+
+    const totalPages = Math.ceil(count / limit);
+
+    return {
+      data: data || [],
+      totalRecords: count || 0,
+      totalPages: totalPages
+    };
   }
 
   /**

@@ -273,7 +273,9 @@ class DashboardController {
    * Get dashboard data (comprehensive endpoint combining multiple data sources)
    */
   getDashboardData = asyncHandler(async (req, res) => {
-    const { year, class: classFilter } = req.query;
+    const { year, class: classFilter, review } = req.query;
+    const reviewType = review || 'review1'; // Default to review1
+    const tableName = reviewType === 'review2' ? 'pbl2' : 'pbl1';
     
     // Build filter conditions
     const filters = {};
@@ -290,9 +292,9 @@ class DashboardController {
       
     if (studentError) throw new ApiError(500, `Error counting students: ${studentError.message}`);
     
-    // Count distinct groups from pbl1 table (previously was pbl)
+    // Count distinct groups from selected table
     const { data: groupData, error: groupError } = await supabase
-      .from('pbl1')
+      .from(tableName)
       .select('group_id')
       .not('group_id', 'is', null);
       
@@ -309,7 +311,7 @@ class DashboardController {
     
     // Count mentors (internal guides)
     const { data: mentorData, error: mentorError } = await supabase
-      .from('pbl1')
+      .from(tableName)
       .select('guide_name')
       .not('guide_name', 'is', null);
       
@@ -333,13 +335,13 @@ class DashboardController {
     
     // ------------ ATTENDANCE DATA ------------
     
-    // Get group attendance data from pbl1 table
+    // Get group attendance data from selected table
     const { data: attendanceData, error: attendanceError } = await supabase
-      .from('pbl1')
+      .from(tableName)
       .select('group_id, total')
       .not('group_id', 'is', null);
       
-    if (attendanceError) throw new ApiError(500, `Error fetching attendance data from pbl1: ${attendanceError.message}`);
+    if (attendanceError) throw new ApiError(500, `Error fetching attendance data from ${tableName}: ${attendanceError.message}`);
     
     // Process attendance data for chart - "AB" indicates absent
     const attendanceChartData = [
@@ -357,91 +359,100 @@ class DashboardController {
       }
     ];
     
-    // ------------ APPROVAL DATA ------------
+    // ------------ APPROVAL DATA (Only for Review 1) ------------
     
-    // Get approvals data from pbl1 table (previously was pbl)
-    const { data: approvalsData, error: approvalsError } = await supabase
-      .from('pbl1')
-      .select('group_id, crieya, copyright, patent, aic, tech_transfer')
-      .not('group_id', 'is', null);
+    let criyaApprovalData = [];
+    let copyrightApprovalData = [];
+    let patentApprovalData = [];
+    let aicApprovalData = [];
+    let techTransferData = [];
+    
+    // Approval columns only exist in pbl1 table (Review 1)
+    if (reviewType === 'review1') {
+      // Get approvals data from pbl1 table
+      const { data: approvalsData, error: approvalsError } = await supabase
+        .from('pbl1')
+        .select('group_id, crieya, copyright, patent, aic, tech_transfer')
+        .not('group_id', 'is', null);
+        
+      if (approvalsError) throw new ApiError(500, `Error fetching approvals data from pbl1: ${approvalsError.message}`);
       
-    if (approvalsError) throw new ApiError(500, `Error fetching approvals data: ${approvalsError.message}`);
-    
-    // Process approvals data for charts - specifically handling "Yes"/"No" values
-    const criyaApprovalData = [
-      { 
-        name: 'Approved', 
-        value: approvalsData.filter(group => group.crieya === "Yes").length 
-      },
-      { 
-        name: 'Not Approved', 
-        value: approvalsData.filter(group => group.crieya === "No").length 
-      },
-      { 
-        name: 'Pending', 
-        value: approvalsData.filter(group => !group.crieya || (group.crieya !== "Yes" && group.crieya !== "No")).length 
-      }
-    ];
-    
-    const copyrightApprovalData = [
-      { 
-        name: 'Approved', 
-        value: approvalsData.filter(group => group.copyright === "Yes").length 
-      },
-      { 
-        name: 'Not Approved', 
-        value: approvalsData.filter(group => group.copyright === "No").length 
-      },
-      { 
-        name: 'Pending', 
-        value: approvalsData.filter(group => !group.copyright || (group.copyright !== "Yes" && group.copyright !== "No")).length 
-      }
-    ];
-    
-    const patentApprovalData = [
-      { 
-        name: 'Approved', 
-        value: approvalsData.filter(group => group.patent === "Yes").length 
-      },
-      { 
-        name: 'Not Approved', 
-        value: approvalsData.filter(group => group.patent === "No").length 
-      },
-      { 
-        name: 'Pending', 
-        value: approvalsData.filter(group => !group.patent || (group.patent !== "Yes" && group.patent !== "No")).length 
-      }
-    ];
+      // Process approvals data for charts - specifically handling "Yes"/"No" values
+      criyaApprovalData = [
+        { 
+          name: 'Approved', 
+          value: approvalsData.filter(group => group.crieya === "Yes").length 
+        },
+        { 
+          name: 'Not Approved', 
+          value: approvalsData.filter(group => group.crieya === "No").length 
+        },
+        { 
+          name: 'Pending', 
+          value: approvalsData.filter(group => !group.crieya || (group.crieya !== "Yes" && group.crieya !== "No")).length 
+        }
+      ];
+      
+      copyrightApprovalData = [
+        { 
+          name: 'Approved', 
+          value: approvalsData.filter(group => group.copyright === "Yes").length 
+        },
+        { 
+          name: 'Not Approved', 
+          value: approvalsData.filter(group => group.copyright === "No").length 
+        },
+        { 
+          name: 'Pending', 
+          value: approvalsData.filter(group => !group.copyright || (group.copyright !== "Yes" && group.copyright !== "No")).length 
+        }
+      ];
+      
+      patentApprovalData = [
+        { 
+          name: 'Approved', 
+          value: approvalsData.filter(group => group.patent === "Yes").length 
+        },
+        { 
+          name: 'Not Approved', 
+          value: approvalsData.filter(group => group.patent === "No").length 
+        },
+        { 
+          name: 'Pending', 
+          value: approvalsData.filter(group => !group.patent || (group.patent !== "Yes" && group.patent !== "No")).length 
+        }
+      ];
 
-    const aicApprovalData = [
-      { 
-        name: 'Approved', 
-        value: approvalsData.filter(group => group.aic === "Yes").length 
-      },
-      { 
-        name: 'Not Approved', 
-        value: approvalsData.filter(group => group.aic === "No").length 
-      },
-      { 
-        name: 'Pending', 
-        value: approvalsData.filter(group => !group.aic || (group.aic !== "Yes" && group.aic !== "No")).length 
-      }
-    ];
+      aicApprovalData = [
+        { 
+          name: 'Approved', 
+          value: approvalsData.filter(group => group.aic === "Yes").length 
+        },
+        { 
+          name: 'Not Approved', 
+          value: approvalsData.filter(group => group.aic === "No").length 
+        },
+        { 
+          name: 'Pending', 
+          value: approvalsData.filter(group => !group.aic || (group.aic !== "Yes" && group.aic !== "No")).length 
+        }
+      ];
 
-    const techTransferData = [
-      { 
-        name: 'Approved', 
-        value: approvalsData.filter(group => group.tech_transfer === "Yes").length 
-      },
-      { 
-        name: 'Not Approved', 
-        value: approvalsData.filter(group => group.tech_transfer === "No").length 
-      },
-      { 
-        name: 'Pending', 
-        value: approvalsData.filter(group => !group.tech_transfer || (group.tech_transfer !== "Yes" && group.tech_transfer !== "No")).length 
-      }
-    ];
+      techTransferData = [
+        { 
+          name: 'Approved', 
+          value: approvalsData.filter(group => group.tech_transfer === "Yes").length 
+        },
+        { 
+          name: 'Not Approved', 
+          value: approvalsData.filter(group => group.tech_transfer === "No").length 
+        },
+        { 
+          name: 'Pending', 
+          value: approvalsData.filter(group => !group.tech_transfer || (group.tech_transfer !== "Yes" && group.tech_transfer !== "No")).length 
+        }
+      ];
+    }
     
     // ------------ STUDENT DISTRIBUTION ------------
     
@@ -471,13 +482,13 @@ class DashboardController {
     
     // ------------ GROUP ASSIGNMENT STATUS ------------
     
-    // Use pbl1 table to get groups with/without students (previously was pbl)
+    // Use selected table to get groups with/without students
     const { data: allGroupsData, error: allGroupsError } = await supabase
-      .from('pbl1')
+      .from(tableName)
       .select('group_id')
       .not('group_id', 'is', null);
 
-    if (allGroupsError) throw new ApiError(500, `Error fetching group assignment data: ${allGroupsError.message}`);
+    if (allGroupsError) throw new ApiError(500, `Error fetching group assignment data from ${tableName}: ${allGroupsError.message}`);
 
     // For now, let's assume each group in pbl1 is "assigned"
     const assignedGroupCount = allGroupsData.length;
@@ -496,13 +507,13 @@ class DashboardController {
     
     // ------------ GUIDE ASSIGNMENT STATUS ------------
     
-    // Get groups with/without guides from pbl1 table (previously was pbl)
+    // Get groups with/without guides from selected table
     const { data: guideData, error: guideError } = await supabase
-      .from('pbl1')
+      .from(tableName)
       .select('guide_name')
       .not('group_id', 'is', null);
       
-    if (guideError) throw new ApiError(500, `Error fetching guide assignment data: ${guideError.message}`);
+    if (guideError) throw new ApiError(500, `Error fetching guide assignment data from ${tableName}: ${guideError.message}`);
     
     const guideAssignmentData = [
       { 

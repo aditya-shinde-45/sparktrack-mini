@@ -23,6 +23,7 @@ const AdminDashboard = () => {
   const [counts, setCounts] = useState({});
   const [charts, setCharts] = useState(defaultCharts);
   const [error, setError] = useState("");
+  const [reviewType, setReviewType] = useState("review1");
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -47,7 +48,7 @@ const AdminDashboard = () => {
       }
 
       console.log("Making dashboard request with token:", token ? token.substring(0, 20) + "..." : "NO TOKEN");
-      const res = await apiRequest("/api/dashboard/data", "GET", null, token);
+      const res = await apiRequest(`/api/dashboard/data?review=${reviewType}`, "GET", null, token);
       console.log("Dashboard response:", res);
 
       if (res?.success) {
@@ -75,7 +76,7 @@ const AdminDashboard = () => {
     };
 
     fetchDashboard();
-  }, []);
+  }, [reviewType]);
 
   const name = localStorage.getItem("name");
   const id = localStorage.getItem("id");
@@ -137,7 +138,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-indigo-50 to-blue-50">
       <Header name={name} id={id} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
         <Sidebar />
@@ -147,33 +148,33 @@ const AdminDashboard = () => {
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center space-x-4 mb-4">
-                  <div className="p-4 bg-gradient-to-br from-[#5D3FD3]/15 to-[#7B74EF]/15 rounded-2xl border border-[#5D3FD3]/20 shadow-xl">
-                    <TrendingUp className="w-10 h-10 text-[#5D3FD3]" />
+                  <div className="p-4 bg-gradient-to-br from-[#5D3FD3] to-[#7B74EF] rounded-2xl shadow-2xl transform hover:scale-105 transition-all duration-300">
+                    <TrendingUp className="w-10 h-10 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent">
+                    <h1 className="text-5xl font-bold bg-gradient-to-r from-[#5D3FD3] via-[#7B74EF] to-[#5D3FD3] bg-clip-text text-transparent animate-gradient">
                       Administrative Dashboard
                     </h1>
-                    <p className="text-gray-600 text-xl font-medium mt-2">Comprehensive System Analytics & Management Overview</p>
+                    <p className="text-gray-700 text-xl font-semibold mt-2">Comprehensive System Analytics & Management Overview</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-6 text-sm">
-                  <div className="flex items-center px-4 py-2 bg-green-50 rounded-full border border-green-200">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                    <span className="text-green-700 font-medium">System Status: Active</span>
+                <div className="flex items-center space-x-6 text-sm flex-wrap">
+                  <div className="flex items-center px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-full border border-green-300 shadow-md hover:shadow-lg transition-all">
+                    <div className="w-2.5 h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full mr-2 animate-pulse shadow-sm"></div>
+                    <span className="text-green-700 font-semibold">System Status: Active</span>
                   </div>
-                  <div className="flex items-center px-4 py-2 bg-blue-50 rounded-full border border-blue-200">
+                  <div className="flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-full border border-blue-300 shadow-md hover:shadow-lg transition-all">
                     <Activity className="w-4 h-4 text-blue-600 mr-2" />
-                    <span className="text-blue-700 font-medium">Last Updated: {new Date().toLocaleString()}</span>
+                    <span className="text-blue-700 font-semibold">Last Updated: {new Date().toLocaleString()}</span>
                   </div>
                 </div>
               </div>
               <div className="hidden lg:block">
-                <div className="bg-gradient-to-br from-[#5D3FD3] to-[#7B74EF] p-6 rounded-2xl text-white shadow-2xl border border-white/20">
+                <div className="bg-gradient-to-br from-[#5D3FD3] via-[#6B5DD3] to-[#7B74EF] p-7 rounded-2xl text-white shadow-2xl border border-white/30 hover:shadow-3xl transition-all duration-300 hover:scale-105">
                   <div className="text-center">
-                    <div className="text-3xl font-bold">{new Date().getDate()}</div>
-                    <div className="text-sm opacity-90 font-medium">{new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
-                    <div className="w-8 h-0.5 bg-white/40 mx-auto mt-2 rounded-full"></div>
+                    <div className="text-4xl font-bold mb-1">{new Date().getDate()}</div>
+                    <div className="text-sm opacity-95 font-semibold">{new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</div>
+                    <div className="w-10 h-1 bg-white/50 mx-auto mt-3 rounded-full"></div>
                   </div>
                 </div>
               </div>
@@ -181,8 +182,45 @@ const AdminDashboard = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="mb-10">
+          <div className="mb-8">
             <StatsCards statsData={counts} loading={loading} />
+          </div>
+
+          {/* Review Type Selection */}
+          <div className="mb-10">
+            <div className="bg-gradient-to-r from-white via-purple-50/30 to-white rounded-2xl shadow-xl border border-purple-200/50 p-6 hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
+                    <div className="w-1 h-6 bg-gradient-to-b from-[#5D3FD3] to-[#7B74EF] rounded-full"></div>
+                    Select Review Type
+                  </h3>
+                  <p className="text-sm text-gray-600 font-medium">Choose which PBL review data to display</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setReviewType("review1")}
+                    className={`px-7 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 ${
+                      reviewType === "review1"
+                        ? "bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] text-white shadow-lg hover:shadow-xl"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300 hover:border-purple-300"
+                    }`}
+                  >
+                    PBL Review 1
+                  </button>
+                  <button
+                    onClick={() => setReviewType("review2")}
+                    className={`px-7 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 ${
+                      reviewType === "review2"
+                        ? "bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] text-white shadow-lg hover:shadow-xl"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-300 hover:border-purple-300"
+                    }`}
+                  >
+                    PBL Review 2
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Main Analytics Grid */}
@@ -232,14 +270,15 @@ const AdminDashboard = () => {
               </div>
             </Section>
 
-            {/* Project Approval Management */}
-            <Section 
-              title="Project Approval Management System" 
-              subtitle="Comprehensive tracking of project approvals across multiple evaluation criteria"
-              icon={<CheckCircle className="w-8 h-8 text-[#5D3FD3]" />}
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
-                {Object.entries(charts.approvals).map(([key, data]) => (
+            {/* Project Approval Management - Only for Review 1 */}
+            {reviewType === "review1" && Object.keys(charts.approvals).length > 0 && (
+              <Section 
+                title="Project Approval Management System" 
+                subtitle="Comprehensive tracking of project approvals across multiple evaluation criteria"
+                icon={<CheckCircle className="w-8 h-8 text-[#5D3FD3]" />}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {Object.entries(charts.approvals).map(([key, data]) => (
                   <div 
                     key={key} 
                     className="bg-gradient-to-br from-white/95 to-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/40 p-7 hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:from-white/100 hover:to-white/90 group"
@@ -293,74 +332,6 @@ const AdminDashboard = () => {
                 ))}
               </div>
             </Section>
-
-            {/* Academic Distribution Analytics */}
-            {charts.distribution?.byClass?.length > 0 && (
-              <Section 
-                title="Academic Distribution Analytics" 
-                subtitle="Detailed breakdown of student enrollment across academic programs and specializations"
-                icon={<GraduationCap className="w-8 h-8 text-[#5D3FD3]" />}
-              >
-                <div className="bg-gradient-to-br from-white/95 to-white/85 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/40 p-8 hover:shadow-3xl transition-all duration-500">
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-4 h-4 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full"></div>
-                        <span className="text-lg font-semibold text-gray-700">Total Classes: {charts.distribution.byClass.length}</span>
-                      </div>
-                      <div className="text-sm text-gray-500 font-medium">
-                        Total Students: {charts.distribution.byClass.reduce((sum, item) => sum + item.value, 0)}
-                      </div>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart
-                      data={charts.distribution.byClass}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="name" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        fontSize={12}
-                        fontWeight={500}
-                        stroke="#666"
-                      />
-                      <YAxis 
-                        fontSize={12}
-                        fontWeight={500}
-                        stroke="#666"
-                      />
-                      <Tooltip 
-                        formatter={(value) => [value, 'Students']}
-                        labelFormatter={(label) => `Class: ${label}`}
-                        contentStyle={{
-                          backgroundColor: 'rgba(255,255,255,0.98)',
-                          border: 'none',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-                          fontSize: '14px'
-                        }}
-                      />
-                      <Bar 
-                        dataKey="value" 
-                        fill="url(#colorGradient)"
-                        radius={[8, 8, 0, 0]}
-                        stroke="#5D3FD3"
-                        strokeWidth={1}
-                      />
-                      <defs>
-                        <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#7B74EF" />
-                          <stop offset="100%" stopColor="#5D3FD3" />
-                        </linearGradient>
-                      </defs>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Section>
             )}
 
             {/* Resource Allocation Dashboard */}
@@ -469,25 +440,25 @@ const Section = ({ title, subtitle, icon, children }) => (
     <div className="mb-8">
       <div className="flex items-center space-x-4 mb-4">
         {icon && (
-          <div className="p-3 bg-gradient-to-br from-[#5D3FD3]/10 to-[#7B74EF]/10 rounded-xl border border-[#5D3FD3]/20 shadow-lg">
-            {icon}
+          <div className="p-4 bg-gradient-to-br from-[#5D3FD3] to-[#7B74EF] rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110">
+            {React.cloneElement(icon, { className: `${icon.props.className || ''} text-white`.trim() })}
           </div>
         )}
         <div className="flex-1">
-          <h3 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent">
+          <h3 className="text-3xl font-extrabold bg-gradient-to-r from-[#5D3FD3] via-[#6B5DD3] to-[#7B74EF] bg-clip-text text-transparent">
             {title}
           </h3>
           {subtitle && (
-            <p className="text-gray-600 text-lg font-medium leading-relaxed mt-2">
+            <p className="text-gray-700 text-lg font-semibold leading-relaxed mt-2">
               {subtitle}
             </p>
           )}
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <div className="w-24 h-1 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full"></div>
-        <div className="w-2 h-2 bg-[#7B74EF] rounded-full animate-pulse"></div>
-        <div className="w-12 h-0.5 bg-gradient-to-r from-[#7B74EF]/50 to-transparent rounded-full"></div>
+        <div className="w-32 h-1.5 bg-gradient-to-r from-[#5D3FD3] via-[#6B5DD3] to-[#7B74EF] rounded-full shadow-md"></div>
+        <div className="w-2.5 h-2.5 bg-gradient-to-r from-[#7B74EF] to-[#5D3FD3] rounded-full animate-pulse shadow-lg"></div>
+        <div className="w-16 h-1 bg-gradient-to-r from-[#7B74EF]/60 to-transparent rounded-full"></div>
       </div>
     </div>
     {children}

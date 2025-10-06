@@ -112,7 +112,8 @@ class EvaluationModel {
       .select(`
         enrollement_no,
         name_of_student,
-        guide_name
+        guide_name,
+        contact
       `)
       .eq('group_id', groupId);
 
@@ -355,6 +356,7 @@ class EvaluationModel {
         name_of_student,
         guide_name,
         ig,
+        contact,
         m1,
         m2,
         m3,
