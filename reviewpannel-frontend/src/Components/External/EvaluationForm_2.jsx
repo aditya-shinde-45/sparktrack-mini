@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { apiRequest } from "../../api.js";
+import { apiRequest, uploadFile } from "../../api.js";
 
-const EvaluationForm_2 = ({ groupId, role }) => {
+const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
   const [students, setStudents] = useState([]);
   const [facultyGuide, setFacultyGuide] = useState("");
   const [industryGuide, setIndustryGuide] = useState("");
@@ -16,6 +16,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
   const [googleMeetLink, setGoogleMeetLink] = useState("");
   const [meetScreenshot, setMeetScreenshot] = useState(null);
   const [screenshotUrl, setScreenshotUrl] = useState("");
+  const [screenshotPreview, setScreenshotPreview] = useState("");
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [copyrightStatus, setCopyrightStatus] = useState("NA"); // For SY groups: NA, In progress, Submitted, Granted
@@ -32,9 +33,20 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   useEffect(() => {
     setIsSubmitted(false);
-    setCopyrightStatus("NA"); // Reset to "NA" when group changes
-    setPatentStatus("NA"); // Reset to "NA" when group changes
-    setResearchPaperStatus("NA"); // Reset to "NA" when group changes
+    setCopyrightStatus("NA");
+    setPatentStatus("NA");
+    setResearchPaperStatus("NA");
+    // Reset ALL screenshot states when group changes
+    setMeetScreenshot(null);
+    setScreenshotPreview("");
+    setScreenshotUrl("");
+    setGoogleMeetLink("");
+    
+    // Clear the file input element
+    const fileInput = document.getElementById('screenshot-upload-eval');
+    if (fileInput) {
+      fileInput.value = '';
+    }
   }, [groupId]);
 
   useEffect(() => {
@@ -149,7 +161,13 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           setExternal1Email(firstRaw?.ext1_email || storedExt1Email);
           setExternal2Email(firstRaw?.ext2_email || storedExt2Email);
           setGoogleMeetLink(firstRaw?.gm_link || storedGmLink);
-          setScreenshotUrl(firstRaw?.screenshot || storedScreenshotUrl);
+          const screenshot = firstRaw?.screenshot || storedScreenshotUrl;
+          setScreenshotUrl(screenshot);
+          if (screenshot) {
+            // If there's an existing screenshot URL, show it as preview
+            // but don't set meetScreenshot (file object) since it's already uploaded
+            setScreenshotPreview(screenshot);
+          }
         }
       })
       .catch((err) => {
@@ -182,10 +200,12 @@ const EvaluationForm_2 = ({ groupId, role }) => {
   // Check if evaluation should be blocked based on copyright/patent/research paper status
   const isEvaluationBlocked = () => {
     if (isSecondYear) {
+      // Only Copyright is mandatory for SY
       return copyrightStatus === "NA";
     }
     if (isThirdOrLastYear) {
-      return patentStatus === "NA" || researchPaperStatus === "NA";
+      // Only Research Paper is mandatory for TY/LY (Patent is optional)
+      return researchPaperStatus === "NA";
     }
     return false;
   };
@@ -232,12 +252,33 @@ const EvaluationForm_2 = ({ groupId, role }) => {
 
   const handleSubmit = async () => {
     if (isReadOnly && role !== "Mentor") return;
-    if (isEvaluationBlocked()) return; // Block submission if copyright/patent/research is NA
+    if (isEvaluationBlocked()) return;
 
-    setIsSubmitting(true); // start loading
-    setIsSubmitted(false); // reset success state
+    setIsSubmitting(true);
+    setIsSubmitted(false);
 
     const token = localStorage.getItem("token");
+    let uploadedScreenshotUrl = screenshotUrl; // Use existing screenshot URL
+
+    // Only upload if there's a NEW file selected (meetScreenshot exists) AND no existing URL
+    if (meetScreenshot && meetScreenshot instanceof File) {
+      try {
+        const formData = new FormData();
+        formData.append('file', meetScreenshot);
+        formData.append('group_id', groupId);
+
+        const uploadResult = await uploadFile('/api/evaluation/upload-screenshot', formData, token);
+        
+        if (uploadResult.success && uploadResult.data?.url) {
+          uploadedScreenshotUrl = uploadResult.data.url;
+          setScreenshotUrl(uploadedScreenshotUrl);
+          console.log("Screenshot uploaded successfully:", uploadedScreenshotUrl);
+        }
+      } catch (uploadError) {
+        console.error("Screenshot upload failed:", uploadError);
+        alert("Warning: Screenshot upload failed. Continuing with evaluation submission.");
+      }
+    }
 
     const payload = {
       group_id: groupId,
@@ -252,9 +293,9 @@ const EvaluationForm_2 = ({ groupId, role }) => {
       ext1_email: external1Email,
       ext2_email: external2Email,
       google_meet_link: googleMeetLink,
-      screenshot: screenshotUrl || null,
+      screenshot: uploadedScreenshotUrl || null,
       copyright: isSecondYear ? copyrightStatus : null,
-      patent: isThirdOrLastYear ? patentStatus : null,
+      patent: patentStatus,
       research_paper: isThirdOrLastYear ? researchPaperStatus : null,
       feedback,
       evaluations: students.map((student) => ({
@@ -287,10 +328,15 @@ const EvaluationForm_2 = ({ groupId, role }) => {
       }
 
       setIsSubmitted(true);
+      
+      // Notify parent component about successful submission
+      if (typeof onSubmitSuccess === 'function') {
+        onSubmitSuccess(groupId);
+      }
     } catch (error) {
       alert(error.message || "Error submitting evaluation");
     } finally {
-      setIsSubmitting(false); // stop loading
+      setIsSubmitting(false);
     }
   };
 
@@ -320,11 +366,13 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           <span className="font-semibold">Project Title:</span>
         </div>
         
-        {/* Copyright Section - Only for Second Year (SY) Groups */}
+        {/* Copyright Section - Only for Second Year (SY) Groups - MANDATORY */}
         {isSecondYear && (
           <div className="border-b-2 border-black p-2 bg-gray-50">
             <div className="flex items-start justify-between flex-wrap gap-2">
-              <span className="font-semibold pt-1">Copyright:</span>
+              <span className="font-semibold pt-1">
+                Copyright: <span className="text-red-600">*</span>
+              </span>
               <div className="flex flex-wrap gap-3">
                 {["NA", "In progress", "Submitted", "Granted"].map((option) => (
                   <label key={option} className="flex items-center gap-1.5 cursor-pointer">
@@ -348,8 +396,8 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           </div>
         )}
         
-        {/* Patent Section - Only for Third Year (TY) and Last Year (LY) Groups */}
-        {isThirdOrLastYear && (
+        {/* Patent Section - For All Groups (SY, TY, LY) - OPTIONAL */}
+        {(isSecondYear || isThirdOrLastYear) && (
           <div className="border-b-2 border-black p-2 bg-gray-50">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <span className="font-semibold pt-1">Patent:</span>
@@ -376,11 +424,13 @@ const EvaluationForm_2 = ({ groupId, role }) => {
           </div>
         )}
         
-        {/* Research Paper Section - Only for Third Year (TY) and Last Year (LY) Groups */}
+        {/* Research Paper Section - Only for Third Year (TY) and Last Year (LY) Groups - MANDATORY */}
         {isThirdOrLastYear && (
           <div className="border-b-2 border-black p-2 bg-gray-50">
             <div className="flex items-start justify-between flex-wrap gap-2">
-              <span className="font-semibold pt-1">Research Paper:</span>
+              <span className="font-semibold pt-1">
+                Research Paper: <span className="text-red-600">*</span>
+              </span>
               <div className="flex flex-wrap gap-3">
                 {["NA", "Prepared", "Submitted", "Accepted", "Published"].map((option) => (
                   <label key={option} className="flex items-center gap-1.5 cursor-pointer">
@@ -411,6 +461,78 @@ const EvaluationForm_2 = ({ groupId, role }) => {
         <div className="p-2">
           <span className="font-semibold">Date:</span>
           <span className="ml-2">{getTodayDate()}</span>
+        </div>
+      </div>
+
+      {/* Google Meet Link and Screenshot Upload Section */}
+      <div className="border-2 border-black">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+          {/* Google Meet Link */}
+          <div className="border-b-2 lg:border-b-0 lg:border-r-2 border-black p-3">
+            <div className="font-semibold mb-2">Google Meet Link:</div>
+            <input
+              type="url"
+              value={googleMeetLink}
+              onChange={(e) => setGoogleMeetLink(e.target.value)}
+              disabled={isReadOnly && role !== "Mentor"}
+              className="w-full border border-gray-400 p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
+              placeholder="https://meet.google.com/xxx-xxxx-xxx"
+            />
+          </div>
+
+          {/* Screenshot Upload */}
+          <div className="p-3">
+            <div className="font-semibold mb-2">Meet Screenshot:</div>
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    // Only store the file and create preview, don't upload yet
+                    setMeetScreenshot(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setScreenshotPreview(reader.result);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                disabled={isReadOnly && role !== "Mentor"}
+                className="w-full border border-gray-400 p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 text-sm"
+                id="screenshot-upload-eval"
+              />
+              {screenshotPreview && (
+                <div className="relative mt-2">
+                  <img
+                    src={screenshotPreview}
+                    alt="Screenshot preview"
+                    className="w-full h-32 object-contain border border-gray-400 rounded bg-gray-50"
+                  />
+                  {!(isReadOnly && role !== "Mentor") && (
+                    <button
+                      onClick={() => {
+                        setMeetScreenshot(null);
+                        setScreenshotPreview("");
+                        setScreenshotUrl("");
+                        // Clear the file input element
+                        const fileInput = document.getElementById('screenshot-upload-eval');
+                        if (fileInput) {
+                          fileInput.value = '';
+                        }
+                      }}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-all shadow-md"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -591,7 +713,7 @@ const EvaluationForm_2 = ({ groupId, role }) => {
                 <p className="text-sm text-yellow-700">
                   {isSecondYear 
                     ? "Please select a Copyright status other than 'NA' to enable evaluation."
-                    : "Please select Patent and Research Paper status other than 'NA' to enable evaluation."}
+                    : "Please select a Research Paper status other than 'NA' to enable evaluation."}
                 </p>
               </div>
             </div>

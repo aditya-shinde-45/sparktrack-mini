@@ -5,31 +5,88 @@ import { apiRequest } from "../../api.js";
 const Sidebar = ({ onGroupSelect, role }) => {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [submittedGroups, setSubmittedGroups] = useState(new Set());
 
   useEffect(() => {
-    if (role === "Mentor") {
+    const fetchGroupsAndStatus = async () => {
       const token = localStorage.getItem("token");
-      apiRequest("/api/mentors/groups", "GET", null, token)
-        .then((data) => {
+      
+      if (role === "Mentor") {
+        try {
+          const data = await apiRequest("/api/mentors/groups", "GET", null, token);
           const fetchedGroups = data.group_ids || [];
           setGroups(fetchedGroups);
+
+          // Fetch submission status for each group
+          const submitted = new Set();
+          for (const groupId of fetchedGroups) {
+            try {
+              const response = await apiRequest(
+                `/api/mentor/students/${groupId}`,
+                "GET",
+                null,
+                token
+              );
+              // Check if any student has marks filled
+              const evaluations = response?.data?.evaluations || response?.evaluations || [];
+              const hasMarks = evaluations.some(student => 
+                student.A != null || student.B != null || student.C != null || 
+                student.D != null || student.E != null || student.F != null || student.G != null
+              );
+              if (hasMarks) {
+                submitted.add(groupId);
+              }
+            } catch (err) {
+              console.error(`Error checking status for group ${groupId}:`, err);
+            }
+          }
+          setSubmittedGroups(submitted);
 
           if (fetchedGroups.length > 0) {
             setSelectedGroup(fetchedGroups[0]);
             onGroupSelect(fetchedGroups[0]);
           }
-        })
-        .catch(() => setGroups([]));
-    } else {
-      const storedGroups = JSON.parse(localStorage.getItem("groups")) || [];
-      const uniqueGroups = [...new Set(storedGroups)];
-      setGroups(uniqueGroups);
+        } catch (err) {
+          setGroups([]);
+        }
+      } else {
+        const storedGroups = JSON.parse(localStorage.getItem("groups")) || [];
+        const uniqueGroups = [...new Set(storedGroups)];
+        setGroups(uniqueGroups);
 
-      if (uniqueGroups.length > 0) {
-        setSelectedGroup(uniqueGroups[0]);
-        onGroupSelect(uniqueGroups[0]);
+        // Fetch submission status for each group
+        const submitted = new Set();
+        for (const groupId of uniqueGroups) {
+          try {
+            const response = await apiRequest(
+              `/api/evaluation/review2/group/${groupId}`,
+              "GET",
+              null,
+              token
+            );
+            // Check if any student has marks filled
+            const evaluations = response?.data?.evaluations || response?.evaluations || [];
+            const hasMarks = evaluations.some(student => 
+              student.A != null || student.B != null || student.C != null || 
+              student.D != null || student.E != null || student.F != null || student.G != null
+            );
+            if (hasMarks) {
+              submitted.add(groupId);
+            }
+          } catch (err) {
+            console.error(`Error checking status for group ${groupId}:`, err);
+          }
+        }
+        setSubmittedGroups(submitted);
+
+        if (uniqueGroups.length > 0) {
+          setSelectedGroup(uniqueGroups[0]);
+          onGroupSelect(uniqueGroups[0]);
+        }
       }
-    }
+    };
+
+    fetchGroupsAndStatus();
   }, [role]);
 
   const handleSelectGroup = (group) => {
@@ -49,7 +106,6 @@ const Sidebar = ({ onGroupSelect, role }) => {
         className="text-white text-base sm:text-lg lg:text-xl font-semibold 
   mb-2 sm:mb-3 lg:mb-4 border-b border-white/30 pb-1 sm:pb-2"
       >
-
         Assigned Group
       </h2>
 
@@ -59,7 +115,7 @@ const Sidebar = ({ onGroupSelect, role }) => {
             <button
               key={idx}
               onClick={() => handleSelectGroup(group)}
-              className={`w-full flex items-center gap-2 sm:gap-3 
+              className={`w-full flex items-center justify-between gap-2 sm:gap-3 
                 py-1 px-2 sm:py-1.5 sm:px-3 lg:py-2 lg:px-4 
                 rounded-md sm:rounded-lg lg:rounded-xl 
                 font-normal text-xs sm:text-sm lg:text-base 
@@ -69,7 +125,25 @@ const Sidebar = ({ onGroupSelect, role }) => {
                   : "bg-white/20 text-white hover:bg-white/30"
                 }`}
             >
-              {group}
+              <span>{group}</span>
+              {submittedGroups.has(group) && (
+                <svg 
+                  className="w-5 h-5 flex-shrink-0" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ 
+                    color: group === selectedGroup ? '#10b981' : '#86efac',
+                    strokeWidth: 3 
+                  }}
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              )}
             </button>
           ))
         ) : (

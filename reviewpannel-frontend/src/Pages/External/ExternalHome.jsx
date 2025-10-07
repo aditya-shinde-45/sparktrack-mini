@@ -11,6 +11,7 @@ const ExternalHome = () => {
   const [activeTab, setActiveTab] = useState("standard"); // "standard" or "pbl"
   const [deadlineControls, setDeadlineControls] = useState({});
   const [loading, setLoading] = useState(true);
+  const [sidebarKey, setSidebarKey] = useState(0);
   const role = localStorage.getItem("role"); // "Mentor" or "External"
   const name = localStorage.getItem("name") || ""; // Get name from localStorage
   const externalId = localStorage.getItem("external_id") || "";
@@ -53,11 +54,21 @@ const ExternalHome = () => {
 
   const activeEvaluationForm = getActiveEvaluationForm();
 
+  // Handle successful form submission
+  const handleSubmitSuccess = (groupId) => {
+    // Force sidebar to refresh by updating key
+    setSidebarKey(prev => prev + 1);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#f0edf1]">
       <Header name={name} id="" />
       <div className="flex flex-1 flex-col lg:flex-row">
-        <Sidebar onGroupSelect={setSelectedGroupId} role={role} />
+        <Sidebar 
+          key={sidebarKey} 
+          onGroupSelect={setSelectedGroupId} 
+          role={role} 
+        />
         
         {/* Tab Selector */}
         {!loading && (
@@ -126,7 +137,11 @@ const ExternalHome = () => {
               <EvaluationForm_1 groupId={selectedGroupId} role={role} />
             )}
             {activeEvaluationForm === "pbl_review_2" && (
-              <EvaluationForm_2 groupId={selectedGroupId} role={role} />
+              <EvaluationForm_2 
+                groupId={selectedGroupId} 
+                role={role} 
+                onSubmitSuccess={handleSubmitSuccess}
+              />
             )}
             {activeEvaluationForm === "standard" && (
               <>
