@@ -26,6 +26,9 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
   // ✅ new states for button behavior
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // ✅ NEW: State for validation errors
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Check if group is Second Year (SY) or Third/Last Year (TY/LY)
   const isSecondYear = groupId?.startsWith("SY");
@@ -41,6 +44,7 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
     setScreenshotPreview("");
     setScreenshotUrl("");
     setGoogleMeetLink("");
+    setValidationErrors({}); // Clear validation errors
     
     // Clear the file input element
     const fileInput = document.getElementById('screenshot-upload-eval');
@@ -48,6 +52,34 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
       fileInput.value = '';
     }
   }, [groupId]);
+
+  // ✅ NEW: Validation function for mandatory fields - removed Google Meet URL restriction
+  const validateMandatoryFields = () => {
+    const errors = {};
+    
+    // Meeting Link validation - now accepts any URL format
+    if (!googleMeetLink || googleMeetLink.trim() === "") {
+      errors.googleMeetLink = "Meeting link is required";
+    }
+    
+    // Screenshot validation
+    if (!meetScreenshot && !screenshotUrl) {
+      errors.screenshot = "Meet screenshot is required";
+    }
+    
+    return errors;
+  };
+
+  // ✅ NEW: Clear specific validation error
+  const clearValidationError = (field) => {
+    if (validationErrors[field]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
 
   useEffect(() => {
     if (!groupId) return;
@@ -254,6 +286,22 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
     if (isReadOnly && role !== "Mentor") return;
     if (isEvaluationBlocked()) return;
 
+    // ✅ NEW: Validate mandatory fields before submission
+    const errors = validateMandatoryFields();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      
+      // Scroll to the first error field
+      const firstErrorField = Object.keys(errors)[0];
+      const errorElement = document.getElementById(firstErrorField === 'googleMeetLink' ? 'google-meet-input' : 'screenshot-upload-eval');
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        errorElement.focus();
+      }
+      
+      return;
+    }
+
     setIsSubmitting(true);
     setIsSubmitted(false);
 
@@ -273,10 +321,14 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
           uploadedScreenshotUrl = uploadResult.data.url;
           setScreenshotUrl(uploadedScreenshotUrl);
           console.log("Screenshot uploaded successfully:", uploadedScreenshotUrl);
+        } else {
+          throw new Error(uploadResult.message || 'Screenshot upload failed');
         }
       } catch (uploadError) {
         console.error("Screenshot upload failed:", uploadError);
-        alert("Warning: Screenshot upload failed. Continuing with evaluation submission.");
+        alert("Error: Screenshot upload failed. Please try again.");
+        setIsSubmitting(false);
+        return;
       }
     }
 
@@ -328,6 +380,7 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
       }
 
       setIsSubmitted(true);
+      setValidationErrors({}); // Clear any validation errors on success
       
       // Notify parent component about successful submission
       if (typeof onSubmitSuccess === 'function') {
@@ -464,25 +517,49 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         </div>
       </div>
 
-      {/* Google Meet Link and Screenshot Upload Section */}
+      {/* ✅ UPDATED: Meeting Link and Screenshot Upload Section - NOW ACCEPTS ANY MEETING PLATFORM */}
       <div className="border-2 border-black">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-          {/* Google Meet Link */}
+          {/* Meeting Link - MANDATORY (Any platform) */}
           <div className="border-b-2 lg:border-b-0 lg:border-r-2 border-black p-3">
-            <div className="font-semibold mb-2">Google Meet Link:</div>
+            <div className="font-semibold mb-2">
+              Meeting Link: <span className="text-red-600">*</span>
+            </div>
             <input
               type="url"
+              id="google-meet-input"
               value={googleMeetLink}
-              onChange={(e) => setGoogleMeetLink(e.target.value)}
+              onChange={(e) => {
+                setGoogleMeetLink(e.target.value);
+                clearValidationError('googleMeetLink'); // Clear error when user types
+              }}
               disabled={isReadOnly && role !== "Mentor"}
-              className="w-full border border-gray-400 p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
-              placeholder="https://meet.google.com/xxx-xxxx-xxx"
+              className={`w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 ${
+                validationErrors.googleMeetLink 
+                  ? 'border-red-500 focus:ring-red-400' 
+                  : 'border-gray-400'
+              }`}
+              placeholder="e.g., Google Meet, Zoom, Teams, or any meeting platform link"
+              required
             />
+            {validationErrors.googleMeetLink && (
+              <p className="text-red-600 text-sm mt-1 flex items-center gap-1">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {validationErrors.googleMeetLink}
+              </p>
+            )}
+            <div className="text-xs text-gray-500 mt-1">
+              Supports: Google Meet, Zoom, Microsoft Teams, WebEx, or any meeting platform
+            </div>
           </div>
 
-          {/* Screenshot Upload */}
+          {/* Screenshot Upload - MANDATORY */}
           <div className="p-3">
-            <div className="font-semibold mb-2">Meet Screenshot:</div>
+            <div className="font-semibold mb-2">
+              Meeting Screenshot: <span className="text-red-600">*</span>
+            </div>
             <div className="space-y-2">
               <input
                 type="file"
@@ -497,12 +574,29 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
                       setScreenshotPreview(reader.result);
                     };
                     reader.readAsDataURL(file);
+                    clearValidationError('screenshot'); // Clear error when file is selected
                   }
                 }}
                 disabled={isReadOnly && role !== "Mentor"}
-                className="w-full border border-gray-400 p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 text-sm"
+                className={`w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 text-sm ${
+                  validationErrors.screenshot 
+                    ? 'border-red-500 focus:ring-red-400' 
+                    : 'border-gray-400'
+                }`}
                 id="screenshot-upload-eval"
+                required
               />
+              {validationErrors.screenshot && (
+                <p className="text-red-600 text-sm flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {validationErrors.screenshot}
+                </p>
+              )}
+              <div className="text-xs text-gray-500">
+                Upload a screenshot from your meeting session (any format)
+              </div>
               {screenshotPreview && (
                 <div className="relative mt-2">
                   <img
@@ -702,6 +796,25 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
 
       {/* Submit Button / Success State */}
       <div className="pt-4 flex flex-col items-center gap-3">
+        {/* ✅ NEW: Show validation errors summary */}
+        {Object.keys(validationErrors).length > 0 && (
+          <div className="bg-red-50 border-2 border-red-400 rounded-lg p-4 max-w-2xl w-full">
+            <div className="flex items-start gap-3">
+              <svg className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="font-semibold text-red-800 mb-1">Please fix the following errors:</p>
+                <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                  {Object.values(validationErrors).map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isEvaluationBlocked() && (
           <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 max-w-2xl">
             <div className="flex items-start gap-3">
@@ -736,7 +849,7 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         ) : (
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || isEvaluationBlocked()}
+            disabled={isSubmitting || isEvaluationBlocked() || Object.keys(validationErrors).length > 0}
             className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (
