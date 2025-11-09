@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api.js";
 
-const Sidebar = ({ onGroupSelect, role }) => {
+const Sidebar = ({ onGroupSelect, role, activeEvaluationForm = "pbl_review_2" }) => {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [submittedGroups, setSubmittedGroups] = useState(new Set());
@@ -11,28 +11,47 @@ const Sidebar = ({ onGroupSelect, role }) => {
     const fetchGroupsAndStatus = async () => {
       const token = localStorage.getItem("token");
       
-      if (role === "Mentor") {
+      // Determine the correct API endpoint based on active evaluation form
+      const getEvaluationEndpoint = (groupId) => {
+        if (activeEvaluationForm === "pbl_review_3") {
+          return `/api/pbl3/evaluation/${groupId}`;
+        } else if (activeEvaluationForm === "pbl_review_2") {
+          return `/api/evaluation/review2/group/${groupId}`;
+        } else if (activeEvaluationForm === "pbl_review_1") {
+          return `/api/evaluation/review1/group/${groupId}`;
+        }
+        // Default to review2 for backward compatibility
+        return `/api/evaluation/review2/group/${groupId}`;
+      };
+
+      // Determine which fields to check based on evaluation form
+      const checkMarksFields = (student) => {
+        if (activeEvaluationForm === "pbl_review_3") {
+          // PBL3 uses m1-m6
+          return student.m1 != null || student.m2 != null || student.m3 != null || 
+                 student.m4 != null || student.m5 != null || student.m6 != null;
+        } else {
+          // PBL1 and PBL2 use A-G
+          return student.A != null || student.B != null || student.C != null || 
+                 student.D != null || student.E != null || student.F != null || student.G != null;
+        }
+      };
+      
+      if (role === "Mentor" || role === "mentor") {
         try {
           const data = await apiRequest("/api/mentors/groups", "GET", null, token);
-          const fetchedGroups = data.group_ids || [];
+          const fetchedGroups = data.data?.groups || data.groups || [];
           setGroups(fetchedGroups);
 
           // Fetch submission status for each group
           const submitted = new Set();
           for (const groupId of fetchedGroups) {
             try {
-              const response = await apiRequest(
-                `/api/mentor/students/${groupId}`,
-                "GET",
-                null,
-                token
-              );
+              const endpoint = getEvaluationEndpoint(groupId);
+              const response = await apiRequest(endpoint, "GET", null, token);
               // Check if any student has marks filled
               const evaluations = response?.data?.evaluations || response?.evaluations || [];
-              const hasMarks = evaluations.some(student => 
-                student.A != null || student.B != null || student.C != null || 
-                student.D != null || student.E != null || student.F != null || student.G != null
-              );
+              const hasMarks = evaluations.some(student => checkMarksFields(student));
               if (hasMarks) {
                 submitted.add(groupId);
               }
@@ -58,18 +77,11 @@ const Sidebar = ({ onGroupSelect, role }) => {
         const submitted = new Set();
         for (const groupId of uniqueGroups) {
           try {
-            const response = await apiRequest(
-              `/api/evaluation/review2/group/${groupId}`,
-              "GET",
-              null,
-              token
-            );
+            const endpoint = getEvaluationEndpoint(groupId);
+            const response = await apiRequest(endpoint, "GET", null, token);
             // Check if any student has marks filled
             const evaluations = response?.data?.evaluations || response?.evaluations || [];
-            const hasMarks = evaluations.some(student => 
-              student.A != null || student.B != null || student.C != null || 
-              student.D != null || student.E != null || student.F != null || student.G != null
-            );
+            const hasMarks = evaluations.some(student => checkMarksFields(student));
             if (hasMarks) {
               submitted.add(groupId);
             }
@@ -87,7 +99,7 @@ const Sidebar = ({ onGroupSelect, role }) => {
     };
 
     fetchGroupsAndStatus();
-  }, [role]);
+  }, [role, activeEvaluationForm]);
 
   const handleSelectGroup = (group) => {
     setSelectedGroup(group);

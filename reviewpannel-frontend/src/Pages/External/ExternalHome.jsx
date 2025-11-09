@@ -4,6 +4,7 @@ import Header from "../../Components/Common/Header";
 import Sidebar from "../../Components/External/Sidebar";
 import EvaluationForm_1 from "../../Components/External/EvaluationForm_1";
 import EvaluationForm_2 from "../../Components/External/EvaluationForm_2";
+import EvaluationForm_3 from "../../Components/External/EvaluationForm_3";
 import { apiRequest } from "../../api";
 
 const ExternalHome = () => {
@@ -44,7 +45,9 @@ const ExternalHome = () => {
 
   // Determine which evaluation form to show based on deadline controls
   const getActiveEvaluationForm = () => {
-    if (deadlineControls.pbl_review_2) {
+    if (deadlineControls.pbl_review_3) {
+      return "pbl_review_3";
+    } else if (deadlineControls.pbl_review_2) {
       return "pbl_review_2";
     } else if (deadlineControls.pbl_review_1) {
       return "pbl_review_1";
@@ -67,7 +70,8 @@ const ExternalHome = () => {
         <Sidebar 
           key={sidebarKey} 
           onGroupSelect={setSelectedGroupId} 
-          role={role} 
+          role={role}
+          activeEvaluationForm={activeEvaluationForm}
         />
         
         {/* Tab Selector */}
@@ -84,6 +88,11 @@ const ExternalHome = () => {
                   {activeEvaluationForm === "pbl_review_2" && (
                     <div className="px-4 py-2 bg-purple-600 text-white font-medium">
                       PBL Review 2 - Active
+                    </div>
+                  )}
+                  {activeEvaluationForm === "pbl_review_3" && (
+                    <div className="px-4 py-2 bg-purple-600 text-white font-medium">
+                      PBL Review 3 - Active
                     </div>
                   )}
                   {activeEvaluationForm === "standard" && (
@@ -107,6 +116,11 @@ const ExternalHome = () => {
                   {activeEvaluationForm === "pbl_review_2" && (
                     <div className="px-4 py-2 bg-purple-600 text-white font-medium">
                       PBL Review 2 - Active
+                    </div>
+                  )}
+                  {activeEvaluationForm === "pbl_review_3" && (
+                    <div className="px-4 py-2 bg-purple-600 text-white font-medium">
+                      PBL Review 3 - Active
                     </div>
                   )}
                   {activeEvaluationForm === "standard" && (
@@ -138,6 +152,13 @@ const ExternalHome = () => {
             )}
             {activeEvaluationForm === "pbl_review_2" && (
               <EvaluationForm_2 
+                groupId={selectedGroupId} 
+                role={role} 
+                onSubmitSuccess={handleSubmitSuccess}
+              />
+            )}
+            {activeEvaluationForm === "pbl_review_3" && (
+              <EvaluationForm_3 
                 groupId={selectedGroupId} 
                 role={role} 
                 onSubmitSuccess={handleSubmitSuccess}

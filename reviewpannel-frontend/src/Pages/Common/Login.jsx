@@ -13,6 +13,21 @@ const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isExternalEnabled, setIsExternalEnabled] = useState(false);
+  const [savedExternals, setSavedExternals] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Load saved external credentials on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("saved_external_logins");
+    if (saved) {
+      try {
+        const parsedSaved = JSON.parse(saved);
+        setSavedExternals(parsedSaved || []);
+      } catch (e) {
+        console.error("Error parsing saved logins:", e);
+      }
+    }
+  }, []);
 
   // Check if external login should be enabled based on deadline controls
   useEffect(() => {
@@ -108,15 +123,30 @@ const Login = () => {
       }
 
       if (role === "Mentor") {
-        localStorage.setItem("name", data.mentor_name || data.user?.name || username);
-        const groupData = await apiRequest(
-          "/api/mentors/groups",
-          "GET",
-          null,
-          data.token
-        );
-        localStorage.setItem("groups", JSON.stringify(groupData.group_ids || []));
-        navigate("/external-home");
+        // Store mentor data from response
+        const mentorData = data.data || data;
+        localStorage.setItem("name", mentorData.mentor_name || username);
+        localStorage.setItem("mentor_id", mentorData.mentor_id || "");
+        localStorage.setItem("contact_number", mentorData.contact_number || username);
+        
+        // Fetch mentor's assigned groups
+        try {
+          const groupData = await apiRequest(
+            "/api/mentors/groups",
+            "GET",
+            null,
+            token
+          );
+          
+          if (groupData && groupData.data) {
+            localStorage.setItem("groups", JSON.stringify(groupData.data.groups || []));
+          }
+        } catch (error) {
+          console.error("Error fetching groups:", error);
+        }
+        
+        // Redirect to register externals page for PBL3
+        navigate("/register-externals");
       }
 
       if (role === "External") {
@@ -127,6 +157,17 @@ const Login = () => {
         // Store BOTH the name (for display) and external_id (for identification)
         localStorage.setItem("name", externalName);
         localStorage.setItem("external_id", externalId);
+        
+        // Save this external login for future hints (max 5 entries)
+        const newEntry = { 
+          email: username, 
+          name: externalName, 
+          lastLogin: new Date().toISOString() 
+        };
+        const existingSaved = JSON.parse(localStorage.getItem("saved_external_logins") || "[]");
+        const filtered = existingSaved.filter(e => e.email !== username);
+        const updated = [newEntry, ...filtered].slice(0, 5);
+        localStorage.setItem("saved_external_logins", JSON.stringify(updated));
         
         // Check if this is MITADT external login using external_id
         const isMITADT = externalId.toUpperCase() === "MITADT";
@@ -217,10 +258,18 @@ const Login = () => {
                   className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
                            text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
                            focus:border-white/60 transition-all duration-300 shadow-lg"
-                  placeholder={role === "External" ? "External ID" : "Username"}
+                  placeholder={
+                    role === "External" 
+                      ? "Email (e.g., john@example.com)" 
+                      : role === "Mentor"
+                      ? "Phone Number (10 digits)"
+                      : "Username"
+                  }
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  onFocus={() => role === "External" && savedExternals.length > 0 && setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   required
                 />
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -228,7 +277,71 @@ const Login = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
+                
+                {/* Suggestions Dropdown */}
+                {role === "External" && showSuggestions && savedExternals.length > 0 && (
+                  <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-2xl border-2 border-purple-200 overflow-hidden">
+                    <div className="px-4 py-2 bg-purple-50 border-b border-purple-200">
+                      <p className="text-xs font-semibold text-purple-700">💡 Recently used accounts</p>
+                    </div>
+                    {savedExternals.map((saved, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setUsername(saved.email);
+                          setShowSuggestions(false);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{saved.name}</p>
+                            <p className="text-xs text-gray-500">{saved.email}</p>
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(saved.lastLogin).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Hint for External Login */}
+              {role === "External" && (
+                <div className="bg-blue-500/20 border border-blue-400/50 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-300 text-lg">ℹ️</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-100 font-semibold mb-1">External Login Hint</p>
+                      <p className="text-xs text-blue-200">
+                        Use the <strong>email address</strong> registered by your mentor.
+                        <br/>
+                        Default OTP: <span className="bg-blue-400/30 px-2 py-0.5 rounded font-mono">123456</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Hint for Mentor Login */}
+              {role === "Mentor" && (
+                <div className="bg-green-500/20 border border-green-400/50 rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-300 text-lg">ℹ️</span>
+                    <div className="flex-1">
+                      <p className="text-xs text-green-100 font-semibold mb-1">Mentor Login Hint</p>
+                      <p className="text-xs text-green-200">
+                        Username: <strong>Your 10-digit phone number</strong>
+                        <br/>
+                        Password: <span className="bg-green-400/30 px-2 py-0.5 rounded font-mono">MITADT1230</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Password Input */}
               <div className="relative">

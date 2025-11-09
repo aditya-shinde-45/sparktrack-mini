@@ -1,8 +1,27 @@
 import express from 'express';
 import mentorController from '../../controllers/mentor/mentorController.js';
+import pbl3Controller from '../../controllers/pbl3/pbl3Controller.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+/**
+ * @route   POST /api/mentors/login
+ * @desc    Mentor login with phone number and password
+ * @access  Public
+ */
+router.post('/login', pbl3Controller.mentorLogin);
+
+/**
+ * @route   GET /api/mentors/groups
+ * @desc    Get groups assigned to logged-in mentor
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/groups',
+  authMiddleware.verifyToken,
+  pbl3Controller.getMentorGroups
+);
 
 /**
  * @route   GET /api/admin/mentors

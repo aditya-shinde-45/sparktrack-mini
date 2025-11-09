@@ -89,8 +89,19 @@ class AuthController {
             role: decoded.role
           };
         }
+      } else if (decoded.role === 'mentor') {
+        // Mentor token should have mentor_id, mentor_name, role
+        if (decoded.mentor_id && decoded.mentor_name && decoded.role) {
+          isValid = true;
+          userInfo = {
+            mentor_id: decoded.mentor_id,
+            mentor_name: decoded.mentor_name,
+            contact_number: decoded.contact_number,
+            role: decoded.role
+          };
+        }
       } else {
-        // Admin/Mentor token should have id, username, role
+        // Admin token should have id, username, role
         if (decoded.id && decoded.username && decoded.role) {
           isValid = true;
           userInfo = {
