@@ -28,12 +28,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       setLoading(true);
+      setError("");
 
       const token = localStorage.getItem("token");
       const role = localStorage.getItem("role");
-      
-      console.log("Current user role:", role);
-      console.log("Current user token exists:", !!token);
       
       if (!token) {
         setError("No authentication token found. Please log in again.");
@@ -47,29 +45,54 @@ const AdminDashboard = () => {
         return;
       }
 
-      console.log("Making dashboard request with token:", token ? token.substring(0, 20) + "..." : "NO TOKEN");
-      const res = await apiRequest(`/api/dashboard/data?review=${reviewType}`, "GET", null, token);
-      console.log("Dashboard response:", res);
+      try {
+        const res = await apiRequest(`/api/dashboard/data?review=${reviewType}`, "GET", null, token);
 
-      if (res?.success) {
-        const dashboardData = res?.data || {};
+        if (res?.success) {
+          const dashboardData = res?.data || {};
 
-        setCounts(dashboardData?.counts || {});
-        setCharts({
-          attendance: dashboardData?.charts?.attendance || [],
-          approvals: dashboardData?.charts?.approvals || {},
-          distribution: dashboardData?.charts?.distribution || { byClass: [] },
-          groupAssignment: dashboardData?.charts?.groupAssignment || [],
-          guideAssignment: dashboardData?.charts?.guideAssignment || []
-        });
-        setError("");
-      } else {
-        console.error("Dashboard API error:", res);
-        if (res?.status === 403) {
-          setError("Access denied. Please ensure you have admin privileges and try logging in again.");
+          setCounts(dashboardData?.counts || {});
+          setCharts({
+            attendance: dashboardData?.charts?.attendance || [],
+            approvals: dashboardData?.charts?.approvals || {},
+            distribution: dashboardData?.charts?.distribution || { byClass: [] },
+            groupAssignment: dashboardData?.charts?.groupAssignment || [],
+            guideAssignment: dashboardData?.charts?.guideAssignment || []
+          });
+          setError("");
         } else {
-          setError(res?.message || "Failed to load dashboard");
+          console.error("Dashboard API error:", res);
+          
+          // Handle different error scenarios
+          if (res?.status === 403 || res?.message?.includes('Access denied')) {
+            setError("Access denied. Please ensure you have admin privileges.");
+          } else if (res?.status === 500 || res?.message?.includes('server error')) {
+            setError("Server error occurred. The system is currently having issues processing dashboard data. Please try again later or contact support.");
+          } else if (res?.message?.includes('fetch failed')) {
+            setError("Network error: Unable to connect to the server. Please check your connection and try again.");
+          } else {
+            setError(res?.message || "Failed to load dashboard. Please try refreshing the page.");
+          }
+          
+          // Set default/empty data on error
+          setCounts({});
+          setCharts(defaultCharts);
         }
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+        
+        // Handle network or unexpected errors
+        if (err.message?.includes('fetch') || err.message?.includes('network')) {
+          setError("Network error: Unable to connect to the server. Please check your internet connection.");
+        } else if (err.message?.includes('timeout')) {
+          setError("Request timeout: The server is taking too long to respond. Please try again.");
+        } else {
+          setError("An unexpected error occurred while loading the dashboard. Please try again or contact support.");
+        }
+        
+        // Set default/empty data on error
+        setCounts({});
+        setCharts(defaultCharts);
       }
 
       setLoading(false);
@@ -117,21 +140,49 @@ const AdminDashboard = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md mx-auto text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-4 bg-red-100 rounded-full">
-              <TrendingUp className="w-8 h-8 text-red-500 transform rotate-180" />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+        <Header name={name} id={id} />
+        <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
+          <Sidebar />
+          <main className="flex-1 lg:ml-72 px-4 sm:px-8 py-6">
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl mx-auto border border-red-200">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 bg-red-100 rounded-full">
+                    <TrendingUp className="w-12 h-12 text-red-500 transform rotate-180" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold text-red-600 mb-4 text-center">Dashboard Error</h2>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+                  <p className="text-gray-700 text-center leading-relaxed">{error}</p>
+                </div>
+                <div className="flex justify-center gap-4">
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg font-semibold flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reload Dashboard
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setError("");
+                      setLoading(true);
+                      window.location.reload();
+                    }} 
+                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold border border-gray-300"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 text-center">
+                    If this issue persists, please contact your system administrator or check the server logs for more details.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-          <h2 className="text-xl font-bold text-red-600 mb-2">Dashboard Error</h2>
-          <p className="text-gray-600">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-          >
-            Reload Page
-          </button>
+          </main>
         </div>
       </div>
     );

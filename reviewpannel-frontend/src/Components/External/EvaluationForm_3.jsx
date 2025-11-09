@@ -95,9 +95,7 @@ const EvaluationForm_3 = ({ groupId, role, onSubmitSuccess }) => {
           
           setFacultyGuide(firstRaw?.guide_name || "");
           setFeedback(firstRaw?.feedback || "");
-          
-          const industryGuideValue = firstRaw?.industry_guide || "";
-          setIndustryGuide(industryGuideValue);
+          setIndustryGuide(firstRaw?.industry_guide || "");
           
           const copyrightValue = firstRaw?.copyright || "NA";
           const patentValue = firstRaw?.patent || "NA";
@@ -105,19 +103,48 @@ const EvaluationForm_3 = ({ groupId, role, onSubmitSuccess }) => {
           setCopyrightStatus(copyrightValue);
           setPatentStatus(patentValue);
           setResearchPaperStatus(researchPaperValue);
-          
-          setExternalName(firstRaw?.external1_name || "");
-          setExternal2Name(firstRaw?.external2_name || "");
-          setOrganization1Name(firstRaw?.external1_org || "");
-          setOrganization2Name(firstRaw?.external2_org || "");
-          setExternal1Contact(firstRaw?.external1_phone || "");
-          setExternal2Contact(firstRaw?.external2_phone || "");
-          setExternal1Email(firstRaw?.external1_email || "");
-          setExternal2Email(firstRaw?.external2_email || "");
         }
+        
+        // Load external evaluator details from localStorage
+        const storedExternal1 = localStorage.getItem("external1_name") || "";
+        const storedExternal2 = localStorage.getItem("external2_name") || "";
+        const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+        const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+        const storedExt1Contact = localStorage.getItem("external1_contact") || "";
+        const storedExt2Contact = localStorage.getItem("external2_contact") || "";
+        const storedExt1Email = localStorage.getItem("external1_email") || "";
+        const storedExt2Email = localStorage.getItem("external2_email") || "";
+        
+        setExternalName(storedExternal1);
+        setExternal2Name(storedExternal2);
+        setOrganization1Name(storedOrganization1);
+        setOrganization2Name(storedOrganization2);
+        setExternal1Contact(storedExt1Contact);
+        setExternal2Contact(storedExt2Contact);
+        setExternal1Email(storedExt1Email);
+        setExternal2Email(storedExt2Email);
       })
       .catch((err) => {
         console.error("Error loading evaluation data:", err);
+        
+        // On error, also load from localStorage
+        const storedExternal1 = localStorage.getItem("external1_name") || "";
+        const storedExternal2 = localStorage.getItem("external2_name") || "";
+        const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+        const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+        const storedExt1Contact = localStorage.getItem("external1_contact") || "";
+        const storedExt2Contact = localStorage.getItem("external2_contact") || "";
+        const storedExt1Email = localStorage.getItem("external1_email") || "";
+        const storedExt2Email = localStorage.getItem("external2_email") || "";
+        
+        setExternalName(storedExternal1);
+        setExternal2Name(storedExternal2);
+        setOrganization1Name(storedOrganization1);
+        setOrganization2Name(storedOrganization2);
+        setExternal1Contact(storedExt1Contact);
+        setExternal2Contact(storedExt2Contact);
+        setExternal1Email(storedExt1Email);
+        setExternal2Email(storedExt2Email);
       });
   }, [groupId, role]);
 
@@ -162,18 +189,28 @@ const EvaluationForm_3 = ({ groupId, role, onSubmitSuccess }) => {
 
     const token = localStorage.getItem("token");
 
+    // Get external evaluator data from localStorage when submitting
+    const ext1Name = localStorage.getItem("external1_name") || "";
+    const ext2Name = localStorage.getItem("external2_name") || "";
+    const org1Name = localStorage.getItem("organization1_name") || "";
+    const org2Name = localStorage.getItem("organization2_name") || "";
+    const ext1Contact = localStorage.getItem("external1_contact") || "";
+    const ext2Contact = localStorage.getItem("external2_contact") || "";
+    const ext1Email = localStorage.getItem("external1_email") || "";
+    const ext2Email = localStorage.getItem("external2_email") || "";
+
     const payload = {
       group_id: groupId,
       faculty_guide: facultyGuide,
       industry_guide: industryGuide,
-      external1_name: externalName,
-      external2_name: external2Name,
-      organization1_name: organization1Name,
-      organization2_name: organization2Name,
-      ext1_contact: external1Contact,
-      ext2_contact: external2Contact,
-      ext1_email: external1Email,
-      ext2_email: external2Email,
+      external1_name: ext1Name,
+      external2_name: ext2Name,
+      organization1_name: org1Name,
+      organization2_name: org2Name,
+      ext1_contact: ext1Contact,
+      ext2_contact: ext2Contact,
+      ext1_email: ext1Email,
+      ext2_email: ext2Email,
       copyright: copyrightStatus,
       patent: patentStatus,
       research_paper: researchPaperStatus,

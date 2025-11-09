@@ -33,6 +33,11 @@ const DEADLINE_TASKS = [
         label: "PBL Review 2",
         icon: <BadgeCheck className="w-6 h-6 text-indigo-500" />,
     },
+    {
+        key: "pbl_review_3",
+        label: "PBL Review 3",
+        icon: <BadgeCheck className="w-6 h-6 text-teal-500" />,
+    },
 ];
 
 const DeadlineAdmin = () => {
@@ -73,10 +78,11 @@ const DeadlineAdmin = () => {
         const token = localStorage.getItem("admin_token");
         const newStatus = !activeTasks[key];
         
-        // Block toggle if trying to enable PBL review when the other is already enabled
-        if ((key === "pbl_review_1" || key === "pbl_review_2") && newStatus) {
-            const otherReviewKey = key === "pbl_review_1" ? "pbl_review_2" : "pbl_review_1";
-            if (activeTasks[otherReviewKey]) {
+        // Block toggle if trying to enable PBL review when another review is already enabled
+        if ((key === "pbl_review_1" || key === "pbl_review_2" || key === "pbl_review_3") && newStatus) {
+            const otherReviewKeys = ["pbl_review_1", "pbl_review_2", "pbl_review_3"].filter(k => k !== key);
+            const isAnyOtherEnabled = otherReviewKeys.some(k => activeTasks[k]);
+            if (isAnyOtherEnabled) {
                 return; // Block the toggle
             }
         }

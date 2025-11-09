@@ -9,7 +9,6 @@ import AboutPBL from '../Pages/Common/AboutPBL';
 import ProblemStatementSih from '../Pages/Common/ProblemStatement';
 import Download from '../Pages/Common/Download';
 import Students from '../Pages/Common/students';
-import TokenDebugger from '../Pages/Common/TokenDebugger';
 
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
@@ -29,6 +28,8 @@ import EditGroup from '../Components/Admin/editGroup';
 import DeadlineAdmin from '../Components/Admin/deadline';
 import AnnouncementAdmin from '../Components/Admin/announcement';
 import AdminPost from '../Components/Admin/post';
+import RolePermissionManager from '../Components/Admin/role';
+import ClassLead from '../Components/Admin/assignclasslead';
 // You can import other admin tool subpages here
 
 // Students page
@@ -56,7 +57,6 @@ const AppRoutes = () => {
       <Route path="/studentdashboard" element={<StudentDashboard />} />
       <Route path="/student/problem-statement" element={<ProblemStatement />} />
       <Route path="/student/student-profile" element={<StudentProfile />} />
-      <Route path="/debug-token" element={<TokenDebugger />} />
       <Route path="/team-workspace" element={<TeamWorkspace />} />
       <Route path="/project-planning" element={<ProjectPlanning />} />
       <Route path="/project-review" element={<ProjectReview />} />
@@ -116,12 +116,11 @@ const AppRoutes = () => {
       }>
         {/* Nested routes under /admintools */}
         <Route path="edit-group" element={<EditGroup />} />
-        {/* Add other admin tool subpages here, e.g.: */}
-        {/* <Route path="role-permission" element={<RolePermission />} /> */}
+        <Route path="role-permission" element={<RolePermissionManager />} />
         <Route path="deadline" element={<DeadlineAdmin />} />
         <Route path="announcement" element={<AnnouncementAdmin />} />
         <Route path="post" element={<AdminPost />} />
-        {/* <Route path="classlead" element={<ClassLead />} /> */}
+        <Route path="classlead" element={<ClassLead />} />
       </Route>
     </Routes>
   );

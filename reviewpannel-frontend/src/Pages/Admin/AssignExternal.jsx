@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import Header from "../../Components/Common/Header";
 import Sidebar from "../../Components/Admin/Sidebar";
-import AssignedExternalForm from "../../Components/Admin/AssignedExternalForm";
 import AssignedExternalTable from "../../Components/Admin/AssignedExternalTable";
 
 const AssignExternal = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}

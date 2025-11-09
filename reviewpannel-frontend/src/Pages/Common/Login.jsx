@@ -309,40 +309,6 @@ const Login = () => {
                 )}
               </div>
 
-              {/* Hint for External Login */}
-              {role === "External" && (
-                <div className="bg-blue-500/20 border border-blue-400/50 rounded-xl p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-blue-300 text-lg">ℹ️</span>
-                    <div className="flex-1">
-                      <p className="text-xs text-blue-100 font-semibold mb-1">External Login Hint</p>
-                      <p className="text-xs text-blue-200">
-                        Use the <strong>email address</strong> registered by your mentor.
-                        <br/>
-                        Default OTP: <span className="bg-blue-400/30 px-2 py-0.5 rounded font-mono">123456</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Hint for Mentor Login */}
-              {role === "Mentor" && (
-                <div className="bg-green-500/20 border border-green-400/50 rounded-xl p-3">
-                  <div className="flex items-start gap-2">
-                    <span className="text-green-300 text-lg">ℹ️</span>
-                    <div className="flex-1">
-                      <p className="text-xs text-green-100 font-semibold mb-1">Mentor Login Hint</p>
-                      <p className="text-xs text-green-200">
-                        Username: <strong>Your 10-digit phone number</strong>
-                        <br/>
-                        Password: <span className="bg-green-400/30 px-2 py-0.5 rounded font-mono">MITADT1230</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Password Input */}
               <div className="relative">
                 <input
@@ -430,18 +396,6 @@ const Login = () => {
                   <span>Login</span>
                 )}
               </button>
-              
-              {/* Debug link - only visible in development */}
-              {import.meta.env.MODE === "development" && (
-                <div className="mt-4 text-center">
-                  <a 
-                    href="/debug-token" 
-                    className="text-white/70 text-xs hover:text-white transition-colors"
-                  >
-                    Debug Token
-                  </a>
-                </div>
-              )}
             </form>
           </div>
         </div>

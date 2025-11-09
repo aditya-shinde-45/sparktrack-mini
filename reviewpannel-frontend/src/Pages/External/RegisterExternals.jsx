@@ -209,6 +209,13 @@ const RegisterExternals = () => {
       if (response && response.success) {
         setExternal1OtpVerified(true);
         setOtp1("");
+        
+        // Save External 1 details to localStorage immediately after verification
+        localStorage.setItem("external1_name", external1Name.trim());
+        localStorage.setItem("organization1_name", external1Org.trim());
+        localStorage.setItem("external1_contact", external1Phone.trim());
+        localStorage.setItem("external1_email", external1Email.trim());
+        
         setSuccess("Primary External Evaluator verified successfully!");
         setTimeout(() => setSuccess(""), 3000);
       } else {
@@ -300,6 +307,13 @@ const RegisterExternals = () => {
       if (response && response.success) {
         setExternal2OtpVerified(true);
         setOtp2("");
+        
+        // Save External 2 details to localStorage immediately after verification
+        localStorage.setItem("external2_name", external2Name.trim());
+        localStorage.setItem("organization2_name", external2Org.trim());
+        localStorage.setItem("external2_contact", external2Phone.trim());
+        localStorage.setItem("external2_email", external2Email.trim());
+        
         setSuccess("Secondary External Evaluator verified successfully!");
         setTimeout(() => setSuccess(""), 3000);
       } else {
@@ -367,28 +381,27 @@ const RegisterExternals = () => {
     }
   };
 
-  // Final registration submission
+  // Final registration submission - SIMPLIFIED (no database save needed)
   const handleProceed = async () => {
     setError("");
     
-    // Check if at least External 1 is verified
     if (!external1OtpVerified) {
       setError("Please verify Primary External Evaluator first");
       return;
     }
 
-    // If External 2 is added, check if it's verified
     if (addSecondExternal && !external2OtpVerified) {
       setError("Please verify Secondary External Evaluator or remove it");
       return;
     }
 
-    setSuccess("External evaluators registered successfully! Redirecting...");
     localStorage.setItem("groups", JSON.stringify(groups));
+    
+    setSuccess("External evaluators registered successfully! Redirecting...");
     
     setTimeout(() => {
       navigate("/external-home");
-    }, 2000);
+    }, 1500);
   };
 
   const formatTime = (seconds) => {
@@ -965,11 +978,23 @@ const RegisterExternals = () => {
               <button
                 type="button"
                 onClick={handleProceed}
-                disabled={!external1OtpVerified || (addSecondExternal && !external2OtpVerified)}
+                disabled={!external1OtpVerified || (addSecondExternal && !external2OtpVerified) || submitting}
                 className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all disabled:cursor-not-allowed text-base"
               >
-                <CheckCircle className="w-6 h-6" />
-                <span>Complete Registration</span>
+                {submitting ? (
+                  <>
+                    <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-6 h-6" />
+                    <span>Proceed to evaluation</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

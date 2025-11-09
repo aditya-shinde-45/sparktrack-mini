@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { 
   Users, 
@@ -56,6 +56,13 @@ const AdminToolTabs = () => {
   const [activeTab, setActiveTab] = useState(
     tabs.find(tab => location.pathname.includes(tab.path))?.label || tabs[0].label
   );
+
+  // Redirect to first tab if on root admintools path
+  useEffect(() => {
+    if (location.pathname === '/admintools' || location.pathname === '/admintools/') {
+      navigate(tabs[0].path, { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const handleTabClick = (tab) => {
     setActiveTab(tab.label);

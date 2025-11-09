@@ -108,7 +108,6 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         const fieldsToCalculate = isSY ? ["A", "B", "C", "D", "F", "G"] : ["A", "B", "C", "D", "E", "F", "G"];
 
         const formatted = evaluationsData.map((student) => {
-          // Check if student is absent - either from absent field or if total is "AB"
           const isAbsent = student.absent || student.total === "AB";
           
           return {
@@ -145,66 +144,28 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         setIsReadOnly(role !== "Mentor" && anyMarksFilled);
         
         if (formatted.length > 0) {
-          // Use the raw evaluationsData instead of formatted to get DB fields
           const firstRaw = evaluationsData[0];
-          const first = formatted[0];
           
-          console.log("Loading evaluation data from DB:", firstRaw);
-          
-          // Get localStorage values as fallback
-          const storedExternal1 = localStorage.getItem("external1_name") || "";
-          const storedExternal2 = localStorage.getItem("external2_name") || "";
-          const storedOrganization1 = localStorage.getItem("organization1_name") || "";
-          const storedOrganization2 = localStorage.getItem("organization2_name") || "";
-          const storedExt1Contact = localStorage.getItem("external1_contact") || "";
-          const storedExt2Contact = localStorage.getItem("external2_contact") || "";
-          const storedExt1Email = localStorage.getItem("external1_email") || "";
-          const storedExt2Email = localStorage.getItem("external2_email") || "";
-          const storedGmLink = localStorage.getItem("google_meet_link") || "";
-          const storedScreenshotUrl = localStorage.getItem("meet_screenshot_url") || "";
-          
-          // Set basic fields
           setFacultyGuide(firstRaw?.guide_name || "");
           setFeedback(firstRaw?.feedback || "");
+          setIndustryGuide(firstRaw?.ig || firstRaw?.industry_guide || "");
           
-          // Prioritize database values over localStorage for industry guide
-          const industryGuideValue = firstRaw?.ig || firstRaw?.industry_guide || "";
-          console.log("Setting industry guide to:", industryGuideValue);
-          setIndustryGuide(industryGuideValue);
-          
-          // Prioritize database values over localStorage for copyright/patent/research paper
           const copyrightValue = firstRaw?.copyright || "NA";
           const patentValue = firstRaw?.patent || "NA";
           const researchPaperValue = firstRaw?.research_paper || "NA";
-          console.log("Setting copyright to:", copyrightValue);
-          console.log("Setting patent to:", patentValue);
-          console.log("Setting research_paper to:", researchPaperValue);
           setCopyrightStatus(copyrightValue);
           setPatentStatus(patentValue);
           setResearchPaperStatus(researchPaperValue);
           
-          // Prioritize database values over localStorage for external evaluator details
-          setExternalName(firstRaw?.external1 || firstRaw?.external1_name || storedExternal1);
-          setExternal2Name(firstRaw?.external2 || firstRaw?.external2_name || storedExternal2);
-          setOrganization1Name(firstRaw?.ext1_org || firstRaw?.organization1_name || storedOrganization1);
-          setOrganization2Name(firstRaw?.ext2_org || firstRaw?.organization2_name || storedOrganization2);
-          setExternal1Contact(firstRaw?.ext1_contact || storedExt1Contact);
-          setExternal2Contact(firstRaw?.ext2_contact || storedExt2Contact);
-          setExternal1Email(firstRaw?.ext1_email || storedExt1Email);
-          setExternal2Email(firstRaw?.ext2_email || storedExt2Email);
-          setGoogleMeetLink(firstRaw?.gm_link || storedGmLink);
-          const screenshot = firstRaw?.screenshot || storedScreenshotUrl;
+          setGoogleMeetLink(firstRaw?.gm_link || "");
+          const screenshot = firstRaw?.screenshot || "";
           setScreenshotUrl(screenshot);
           if (screenshot) {
-            // If there's an existing screenshot URL, show it as preview
-            // but don't set meetScreenshot (file object) since it's already uploaded
             setScreenshotPreview(screenshot);
           }
         }
-      })
-      .catch((err) => {
-        console.error("Error loading evaluation data:", err);
-        // If API fails, fall back to localStorage
+        
+        // Load external evaluator details from localStorage
         const storedExternal1 = localStorage.getItem("external1_name") || "";
         const storedExternal2 = localStorage.getItem("external2_name") || "";
         const storedOrganization1 = localStorage.getItem("organization1_name") || "";
@@ -213,8 +174,6 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         const storedExt2Contact = localStorage.getItem("external2_contact") || "";
         const storedExt1Email = localStorage.getItem("external1_email") || "";
         const storedExt2Email = localStorage.getItem("external2_email") || "";
-        const storedGmLink = localStorage.getItem("google_meet_link") || "";
-        const storedScreenshotUrl = localStorage.getItem("meet_screenshot_url") || "";
         
         setExternalName(storedExternal1);
         setExternal2Name(storedExternal2);
@@ -224,8 +183,28 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         setExternal2Contact(storedExt2Contact);
         setExternal1Email(storedExt1Email);
         setExternal2Email(storedExt2Email);
-        setGoogleMeetLink(storedGmLink);
-        setScreenshotUrl(storedScreenshotUrl);
+      })
+      .catch((err) => {
+        console.error("Error loading evaluation data:", err);
+        
+        // On error, also load from localStorage
+        const storedExternal1 = localStorage.getItem("external1_name") || "";
+        const storedExternal2 = localStorage.getItem("external2_name") || "";
+        const storedOrganization1 = localStorage.getItem("organization1_name") || "";
+        const storedOrganization2 = localStorage.getItem("organization2_name") || "";
+        const storedExt1Contact = localStorage.getItem("external1_contact") || "";
+        const storedExt2Contact = localStorage.getItem("external2_contact") || "";
+        const storedExt1Email = localStorage.getItem("external1_email") || "";
+        const storedExt2Email = localStorage.getItem("external2_email") || "";
+        
+        setExternalName(storedExternal1);
+        setExternal2Name(storedExternal2);
+        setOrganization1Name(storedOrganization1);
+        setOrganization2Name(storedOrganization2);
+        setExternal1Contact(storedExt1Contact);
+        setExternal2Contact(storedExt2Contact);
+        setExternal1Email(storedExt1Email);
+        setExternal2Email(storedExt2Email);
       });
   }, [groupId, role]);
 
@@ -286,12 +265,10 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
     if (isReadOnly && role !== "Mentor") return;
     if (isEvaluationBlocked()) return;
 
-    // ✅ NEW: Validate mandatory fields before submission
     const errors = validateMandatoryFields();
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
       
-      // Scroll to the first error field
       const firstErrorField = Object.keys(errors)[0];
       const errorElement = document.getElementById(firstErrorField === 'googleMeetLink' ? 'google-meet-input' : 'screenshot-upload-eval');
       if (errorElement) {
@@ -306,9 +283,8 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
     setIsSubmitted(false);
 
     const token = localStorage.getItem("token");
-    let uploadedScreenshotUrl = screenshotUrl; // Use existing screenshot URL
+    let uploadedScreenshotUrl = screenshotUrl;
 
-    // Only upload if there's a NEW file selected (meetScreenshot exists) AND no existing URL
     if (meetScreenshot && meetScreenshot instanceof File) {
       try {
         const formData = new FormData();
@@ -320,7 +296,6 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
         if (uploadResult.success && uploadResult.data?.url) {
           uploadedScreenshotUrl = uploadResult.data.url;
           setScreenshotUrl(uploadedScreenshotUrl);
-          console.log("Screenshot uploaded successfully:", uploadedScreenshotUrl);
         } else {
           throw new Error(uploadResult.message || 'Screenshot upload failed');
         }
@@ -332,18 +307,28 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
       }
     }
 
+    // Get external evaluator data from localStorage when submitting
+    const ext1Name = localStorage.getItem("external1_name") || "";
+    const ext2Name = localStorage.getItem("external2_name") || "";
+    const org1Name = localStorage.getItem("organization1_name") || "";
+    const org2Name = localStorage.getItem("organization2_name") || "";
+    const ext1Contact = localStorage.getItem("external1_contact") || "";
+    const ext2Contact = localStorage.getItem("external2_contact") || "";
+    const ext1Email = localStorage.getItem("external1_email") || "";
+    const ext2Email = localStorage.getItem("external2_email") || "";
+
     const payload = {
       group_id: groupId,
       faculty_guide: facultyGuide,
       industry_guide: industryGuide,
-      external1_name: externalName,
-      external2_name: external2Name,
-      organization1_name: organization1Name,
-      organization2_name: organization2Name,
-      ext1_contact: external1Contact,
-      ext2_contact: external2Contact,
-      ext1_email: external1Email,
-      ext2_email: external2Email,
+      external1_name: ext1Name,
+      external2_name: ext2Name,
+      organization1_name: org1Name,
+      organization2_name: org2Name,
+      ext1_contact: ext1Contact,
+      ext2_contact: ext2Contact,
+      ext1_email: ext1Email,
+      ext2_email: ext2Email,
       google_meet_link: googleMeetLink,
       screenshot: uploadedScreenshotUrl || null,
       copyright: isSecondYear ? copyrightStatus : null,
@@ -380,7 +365,7 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
       }
 
       setIsSubmitted(true);
-      setValidationErrors({}); // Clear any validation errors on success
+      setValidationErrors({});
       
       // Notify parent component about successful submission
       if (typeof onSubmitSuccess === 'function') {
