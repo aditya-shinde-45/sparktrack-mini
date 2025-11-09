@@ -1,6 +1,6 @@
 import express from 'express';
 import mentorController from '../../controllers/mentor/mentorController.js';
-import pbl3Controller from '../../controllers/pbl3/pbl3Controller.js';
+import pbl3Controller from '../../controllers/mentor/pbl3Controller.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();

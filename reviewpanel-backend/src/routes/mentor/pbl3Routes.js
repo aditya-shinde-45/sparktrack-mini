@@ -1,5 +1,5 @@
 import express from 'express';
-import pbl3Controller from '../../controllers/pbl3/pbl3Controller.js';
+import pbl3Controller from '../../controllers/mentor/pbl3Controller.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 import { deadlineBlocker } from '../../middleware/deadlineMiddleware.js';
 
@@ -34,9 +34,50 @@ router.get(
   pbl3Controller.getPreviousExternals
 );
 
+// ============================================
+// OTP-BASED EXTERNAL REGISTRATION
+// ============================================
+
+/**
+ * @route   POST /api/pbl3/send-external-otp
+ * @desc    Send OTP to external evaluators
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/send-external-otp',
+  authMiddleware.verifyToken,
+  pbl3Controller.sendExternalOTP
+);
+
+/**
+ * @route   POST /api/pbl3/verify-external-otp
+ * @desc    Verify OTP and register external evaluators
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/verify-external-otp',
+  authMiddleware.verifyToken,
+  pbl3Controller.verifyExternalOTP
+);
+
+/**
+ * @route   POST /api/pbl3/resend-external-otp
+ * @desc    Resend OTP to external evaluator
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/resend-external-otp',
+  authMiddleware.verifyToken,
+  pbl3Controller.resendExternalOTP
+);
+
+// ============================================
+// LEGACY ROUTES
+// ============================================
+
 /**
  * @route   POST /api/pbl3/register-externals
- * @desc    Register external evaluators for a group (by mentor)
+ * @desc    Register external evaluators for a group (by mentor) - LEGACY
  * @access  Private (Mentor)
  */
 router.post(
@@ -48,13 +89,17 @@ router.post(
 
 /**
  * @route   POST /api/pbl3/verify-otp
- * @desc    Verify OTP for external evaluator
+ * @desc    Verify OTP for external evaluator - LEGACY
  * @access  Public
  */
 router.post(
   '/verify-otp',
   pbl3Controller.verifyExternalOTP
 );
+
+// ============================================
+// EVALUATION ROUTES
+// ============================================
 
 /**
  * @route   GET /api/pbl3/evaluation/:groupId
@@ -79,6 +124,10 @@ router.post(
   deadlineBlocker('pbl_review_3'),
   pbl3Controller.saveEvaluation
 );
+
+// ============================================
+// ADMIN ROUTES
+// ============================================
 
 /**
  * @route   GET /api/pbl3/all

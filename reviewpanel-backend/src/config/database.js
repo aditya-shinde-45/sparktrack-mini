@@ -4,28 +4,29 @@ import { createClient } from '@supabase/supabase-js';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl) {
-  throw new Error('Missing SUPABASE_URL in environment variables');
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Missing Supabase credentials in environment variables');
+  throw new Error('Supabase configuration is incomplete');
 }
 
-if (!supabaseServiceKey) {
-  console.warn('SUPABASE_SERVICE_ROLE_KEY not found, falling back to SUPABASE_ANON_KEY');
-  if (!supabaseAnonKey) {
-    throw new Error('Missing both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_ANON_KEY in environment variables');
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-application-name': 'sparktrack-backend'
+    }
   }
-}
+});
 
-// Use service role key for backend operations (admin access)
-// Falls back to anon key if service role key is not available
-const supabase = createClient(
-  supabaseUrl, 
-  supabaseServiceKey || supabaseAnonKey
-);
-
-console.log(`Supabase client initialized with ${supabaseServiceKey ? 'Service Role' : 'Anon'} key`);
+console.log('✅ Supabase client initialized');
 
 /**
  * Database configuration and utilities

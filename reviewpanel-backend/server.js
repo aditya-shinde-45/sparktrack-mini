@@ -27,7 +27,7 @@ import adminRoutes from "./src/routes/admin/adminRoutes.js";
 import studentRoutes from "./src/routes/students/studentRoutes.js";
 import dashboardRoutes from "./src/routes/admin/dashboardRoutes.js";
 import pblReviewRoutes from "./src/routes/admin/pblReviewRoutes.js";
-import pbl3Routes from "./src/routes/pbl3/pbl3Routes.js";
+import pbl3Routes from "./src/routes/mentor/pbl3Routes.js";
 
 // New routes from recent migration
 import externalAuthRoutes from "./src/routes/external/externalAuthRoutes.js";
