@@ -14,20 +14,20 @@ class MentorModel {
   async getAll() {
     const { data, error } = await supabase
       .from(this.table)
-      .select('mentor_name, contact_number, group_id');
+      .select('mentor_id, mentor_name, contact_number, group_id');
 
     if (error) throw error;
     return data || [];
   }
 
   /**
-   * Get a mentor by name
+   * Get a mentor by name (includes password for authentication)
    * @param {string} mentorName - Mentor name
    */
   async getByName(mentorName) {
     const { data, error } = await supabase
       .from(this.table)
-      .select('*')
+      .select('mentor_id, mentor_name, contact_number, password, group_id')
       .eq('mentor_name', mentorName);
 
     if (error) throw error;

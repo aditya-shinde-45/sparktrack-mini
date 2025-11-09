@@ -92,8 +92,12 @@ class AuthMiddleware {
               // Fall back to token data
               req.user = { ...decoded };
             }
+          } else if (decoded.role === 'mentor') {
+            // Mentor - token contains mentor_id, mentor_name, contact_number
+            // No need to fetch from DB, all data is in token
+            req.user = { ...decoded };
           } else {
-            // Admin or mentor
+            // Admin
             try {
               const user = await userModel.findById(decoded.id);
               if (!user) {

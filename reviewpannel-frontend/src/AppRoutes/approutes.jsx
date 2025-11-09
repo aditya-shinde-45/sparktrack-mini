@@ -14,6 +14,7 @@ import TokenDebugger from '../Pages/Common/TokenDebugger';
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
 import MentorSelection from '../Pages/External/MentorSelection';
+import RegisterExternals from '../Pages/External/RegisterExternals';
 
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
@@ -57,6 +58,11 @@ const AppRoutes = () => {
       <Route path="/mentor-selection" element={
         <ProtectedRoute allowedRoles={['External']}>
           <MentorSelection />
+        </ProtectedRoute>
+      } />
+      <Route path="/register-externals" element={
+        <ProtectedRoute allowedRoles={['Mentor']}>
+          <RegisterExternals />
         </ProtectedRoute>
       } />
       <Route path="/external-home" element={
