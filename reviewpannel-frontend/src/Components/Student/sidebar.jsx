@@ -14,7 +14,7 @@ import mitLogo from '../../assets/mitlogo.png';
 
 const routes = [
   { name: "Dashboard", path: "/studentdashboard", icon: LayoutDashboard },
-  { name: "Team Workspace", path: "/teamwork-space", icon: PlusSquare },
+  { name: "Team Workspace", path: "/team-workspace", icon: PlusSquare },
   { name: "Project Planning", path: "/project-planning", icon: Edit },
   { name: "Project Review", path: "/project-review", icon: FileSpreadsheet },
   { name: "Documentation", path: "/documentation", icon: GraduationCap },

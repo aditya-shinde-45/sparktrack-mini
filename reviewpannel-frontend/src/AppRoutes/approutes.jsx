@@ -36,6 +36,11 @@ import StudentLogin from '../Pages/students/login';
 import StudentDashboard from '../Pages/students/studentDashboard';
 import ProblemStatement from '../Pages/students/problemstatement';
 import StudentProfile from '../Pages/students/StudentProfile';
+import TeamWorkspace from '../Pages/students/teamworkspace';
+import ProjectPlanning from '../Pages/students/projectplanning';
+import ProjectReview from '../Pages/students/projectreview';
+import Documentation from '../Pages/students/documentation';
+import Tools from '../Pages/students/tools';
 
 const AppRoutes = () => {
   return (
@@ -52,6 +57,11 @@ const AppRoutes = () => {
       <Route path="/student/problem-statement" element={<ProblemStatement />} />
       <Route path="/student/student-profile" element={<StudentProfile />} />
       <Route path="/debug-token" element={<TokenDebugger />} />
+      <Route path="/team-workspace" element={<TeamWorkspace />} />
+      <Route path="/project-planning" element={<ProjectPlanning />} />
+      <Route path="/project-review" element={<ProjectReview />} />
+      <Route path="/documentation" element={<Documentation />} />
+      <Route path="/studenttools" element={<Tools />} />
 
 
       {/* External/Mentor Routes */}

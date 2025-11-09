@@ -319,9 +319,12 @@ const StudentDashboard = () => {
                     {review1Marks ? (
                       <>
                         <p className="text-gray-700">
-                          <span className="font-bold">Marks:</span> {review1Marks.total}
+                          <span className="font-bold">Marks:</span> {review1Marks.total}/50
                         </p>
-                        <p className="text-gray-700">
+                        <p className="text-gray-700 text-sm mt-1">
+                          <span className="font-bold">Date:</span> August 11, 2024
+                        </p>
+                        <p className="text-gray-700 mt-2">
                           <span className="font-bold">Feedback:</span> {review1Marks.feedback}
                         </p>
                       </>
@@ -334,9 +337,12 @@ const StudentDashboard = () => {
                     {review2Marks ? (
                       <>
                         <p className="text-gray-700">
-                          <span className="font-bold">Marks:</span> {review2Marks.total}
+                          <span className="font-bold">Marks:</span> {review2Marks.total}/50
                         </p>
-                        <p className="text-gray-700">
+                        <p className="text-gray-700 text-sm mt-1">
+                          <span className="font-bold">Date:</span> November 6, 2024
+                        </p>
+                        <p className="text-gray-700 mt-2">
                           <span className="font-bold">Feedback:</span> {review2Marks.feedback}
                         </p>
                       </>
