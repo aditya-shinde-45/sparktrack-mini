@@ -8,6 +8,7 @@ import emailService from '../../services/emailService.js';
 import supabase from '../../config/database.js';
 import jwt from 'jsonwebtoken';
 import config from '../../config/index.js';
+import crypto from 'crypto';
 
 /**
  * Controller for PBL3 Review operations
@@ -239,6 +240,7 @@ class Pbl3Controller {
   /**
    * Send OTP to external evaluators
    * POST /api/pbl3/send-external-otp
+   * NOTE: Email verification is disabled - this endpoint now bypasses OTP
    */
   sendExternalOTP = asyncHandler(async (req, res) => {
     const { externals, group_ids } = req.body;
@@ -289,102 +291,53 @@ class Pbl3Controller {
     }
 
     const sessions = [];
-    const failedEmails = [];
 
-    // Generate OTP and send email for each external
+    // EMAIL VERIFICATION DISABLED - Generate dummy sessions without sending OTP
     for (const external of externals) {
-      try {
-        // Validate external data
-        if (!external.name || !external.email || !external.organization || !external.phone) {
-          failedEmails.push({
-            email: external.email || 'unknown',
-            reason: 'Missing required fields'
-          });
-          continue;
-        }
-
-        // Create OTP session
-        const otpResult = externalOTPService.createOTP(external.email, {
-          name: external.name,
-          organization: external.organization,
-          phone: external.phone,
-          groupIds: group_ids,
-          mentorId: mentorData[0].mentor_id
-        });
-
-        // Get the actual OTP for sending email
-        const otpData = externalOTPService.otpStore.get(otpResult.sessionToken);
-        const otp = otpData ? otpData.otp : '123456';
-
-        // Send OTP email
-        await emailService.sendExternalOtpEmail(
-          external.email,
-          otp,
-          external.name,
-          external.organization,
-          otpResult.expiresInMinutes
-        );
-
-        sessions.push(otpResult.sessionToken);
-
-        console.log(`✅ OTP sent successfully to ${external.email}: ${otp}`);
-      } catch (error) {
-        console.error(`❌ Failed to send OTP to ${external.email}:`, error);
-        failedEmails.push({
-          email: external.email,
-          reason: error.message
-        });
+      // Validate external data
+      if (!external.name || !external.email || !external.organization || !external.phone) {
+        continue;
       }
+
+      // Create a dummy session token without OTP
+      const sessionToken = crypto.randomBytes(16).toString('hex');
+      sessions.push(sessionToken);
+
+      console.log(`✅ External evaluator registered without OTP: ${external.email}`);
     }
 
     if (sessions.length === 0) {
-      throw ApiError.badRequest('Failed to send OTP to any external evaluator');
+      throw ApiError.badRequest('No valid external evaluators provided');
     }
 
-    return ApiResponse.success(res, `OTP sent to ${sessions.length} external evaluator(s)`, {
+    return ApiResponse.success(res, `${sessions.length} external evaluator(s) ready for registration (email verification disabled)`, {
       sessions,
-      expiresInMinutes: 10,
-      ...(failedEmails.length > 0 && { failedEmails })
+      emailVerificationDisabled: true
     });
   });
 
   /**
    * Verify OTP and register external evaluators
    * POST /api/pbl3/verify-external-otp
+   * NOTE: Email verification is disabled - this endpoint now bypasses OTP verification
    */
   verifyExternalOTP = asyncHandler(async (req, res) => {
-    const { verifications, group_ids } = req.body;
+    const { verifications, group_ids, externals } = req.body;
     const { contact_number, mentor_name } = req.user;
 
     // Validation
-    if (!verifications || !Array.isArray(verifications) || verifications.length === 0) {
-      throw ApiError.badRequest('Verification data is required');
+    if ((!verifications || !Array.isArray(verifications) || verifications.length === 0) &&
+        (!externals || !Array.isArray(externals) || externals.length === 0)) {
+      throw ApiError.badRequest('External evaluator data is required');
     }
 
-    const verifiedExternals = [];
-    const failedVerifications = [];
-
-    // Verify each OTP
-    for (const verification of verifications) {
-      const { sessionToken, otp } = verification;
-
-      const result = externalOTPService.verifyOTP(sessionToken, otp);
-
-      if (!result.success) {
-        failedVerifications.push({
-          sessionToken,
-          error: result.error
-        });
-        continue;
-      }
-
-      verifiedExternals.push(result.data);
-    }
-
-    // If any verification failed, return error
-    if (failedVerifications.length > 0) {
-      throw ApiError.badRequest('OTP verification failed', { failedVerifications });
-    }
+    // EMAIL VERIFICATION DISABLED - Use externals data directly without OTP verification
+    const verifiedExternals = externals || verifications.map(v => ({
+      email: v.email,
+      name: v.name,
+      phone: v.phone,
+      organization: v.organization
+    }));
 
     // Register all verified externals to all groups
     const registeredExternals = [];
@@ -454,7 +407,7 @@ class Pbl3Controller {
         name: external.name
       });
 
-      // Send welcome email
+      // Send welcome email (optional - can be disabled if not needed)
       try {
         await emailService.sendExternalWelcomeEmail(
           external.email,
@@ -464,54 +417,23 @@ class Pbl3Controller {
       } catch (emailError) {
         console.error('Failed to send welcome email:', emailError);
       }
-
-      // Invalidate the session token
-      externalOTPService.invalidateSession(external.sessionToken);
     }
 
-    return ApiResponse.success(res, `Successfully registered ${registeredExternals.length} external evaluator(s)`, {
+    return ApiResponse.success(res, `Successfully registered ${registeredExternals.length} external evaluator(s) (email verification disabled)`, {
       registeredExternals,
-      groups: group_ids
+      groups: group_ids,
+      emailVerificationDisabled: true
     });
   });
 
   /**
    * Resend OTP to an external evaluator
    * POST /api/pbl3/resend-external-otp
+   * NOTE: Email verification is disabled - this endpoint is deprecated
    */
   resendExternalOTP = asyncHandler(async (req, res) => {
-    const { sessionToken } = req.body;
-
-    if (!sessionToken) {
-      throw ApiError.badRequest('Session token is required');
-    }
-
-    // Get external data before resending
-    const otpDataBefore = externalOTPService.getOTPData(sessionToken);
-
-    if (!otpDataBefore) {
-      throw ApiError.notFound('Invalid or expired session');
-    }
-
-    // Resend OTP
-    const result = externalOTPService.resendOTP(sessionToken);
-    
-    // Get the new OTP for sending email
-    const otpDataAfter = externalOTPService.otpStore.get(sessionToken);
-    const otp = otpDataAfter ? otpDataAfter.otp : '123456';
-
-    // Send new OTP email
-    await emailService.sendExternalOtpEmail(
-      otpDataBefore.email,
-      otp,
-      otpDataBefore.name,
-      otpDataBefore.organization,
-      result.expiresInMinutes
-    );
-
-    return ApiResponse.success(res, 'OTP resent successfully', {
-      sessionToken: result.sessionToken,
-      expiresInMinutes: result.expiresInMinutes
+    return ApiResponse.success(res, 'Email verification is disabled. OTP resend is not required.', {
+      emailVerificationDisabled: true
     });
   });
 
