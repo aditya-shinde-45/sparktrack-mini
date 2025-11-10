@@ -65,16 +65,8 @@ app.use(cors({
 app.use(express.json());
 app.use(morgan("dev"));
 
-// Security middleware
-
-// Only apply general rate limiting in production
-if (config.server.env === 'production') {
-  app.use(securityMiddleware.rateLimiter());
-  logger.info('Rate limiting enabled for production environment');
-}
 
 
-// Serve uploaded files statically with security headers
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes - New MVC Structure
