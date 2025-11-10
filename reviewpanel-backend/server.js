@@ -10,7 +10,6 @@ import { databaseConfig as dbConfig } from './src/config/database.js';
 import logger from './src/utils/logger.js';
 
 // Import middleware
-import securityMiddleware from './src/middleware/securityMiddleware.js';
 
 // Route imports - New MVC Structure
 import authRoutes from "./src/routes/admin/authRoutes.js";
@@ -61,14 +60,12 @@ app.use(cors({
 }));
 
 // Add CORS error handling
-app.use(securityMiddleware.handleCorsError);
 
 // Basic middleware
 app.use(express.json());
 app.use(morgan("dev"));
 
 // Security middleware
-app.use(securityMiddleware.applyHelmet());
 
 // Only apply general rate limiting in production
 if (config.server.env === 'production') {
@@ -76,14 +73,9 @@ if (config.server.env === 'production') {
   logger.info('Rate limiting enabled for production environment');
 }
 
-// Always apply stricter rate limits on authentication endpoints
-app.use('/api/auth/login', securityMiddleware.authLimiter());
-app.use('/api/auth/register', securityMiddleware.authLimiter());
-app.use('/api/student-auth/login', securityMiddleware.authLimiter());
-app.use('/api/external-auth/login', securityMiddleware.authLimiter());
 
 // Serve uploaded files statically with security headers
-app.use('/uploads', securityMiddleware.secureUploads, express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes - New MVC Structure
 app.use("/api/auth", authRoutes);
