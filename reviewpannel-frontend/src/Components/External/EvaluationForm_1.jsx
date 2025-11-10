@@ -18,6 +18,8 @@ const EvaluationForm = ({ groupId, role }) => {
   // ✅ new states for button behavior
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
 
      useEffect(() => {
     setIsSubmitted(false);
@@ -99,9 +101,86 @@ const EvaluationForm = ({ groupId, role }) => {
             tech_transfer: first?.tech_transfer ?? "No",
           });
         }
+        
+        // Load draft after initial data is loaded
+        loadDraft();
       })
-      .catch((err) => console.error("Error fetching student data:", err));
+      .catch((err) => {
+        console.error("Error fetching student data:", err);
+        // Load draft even on error
+        loadDraft();
+      });
   }, [groupId, role]);
+
+  // Function to load draft from localStorage
+  const loadDraft = () => {
+    if (!groupId) return;
+    
+    const draftKey = `pbl1_draft_${groupId}`;
+    const savedDraft = localStorage.getItem(draftKey);
+    
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        console.log("Loading draft for group:", groupId);
+        
+        // Load all form fields from draft
+        if (draft.students && draft.students.length > 0) {
+          setStudents(draft.students);
+        }
+        if (draft.facultyGuide !== undefined) setFacultyGuide(draft.facultyGuide);
+        if (draft.externalName !== undefined) setExternalName(draft.externalName);
+        if (draft.feedback !== undefined) setFeedback(draft.feedback);
+        if (draft.extraEval !== undefined) setExtraEval(draft.extraEval);
+        
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 3000);
+      } catch (error) {
+        console.error("Error loading draft:", error);
+      }
+    }
+  };
+
+  // Function to save draft to localStorage
+  const handleSaveDraft = () => {
+    if (!groupId) {
+      alert("Please select a group first");
+      return;
+    }
+
+    setIsSavingDraft(true);
+    
+    const draftKey = `pbl1_draft_${groupId}`;
+    const draftData = {
+      groupId,
+      students,
+      facultyGuide,
+      externalName,
+      feedback,
+      extraEval,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 3000);
+      console.log("Draft saved for group:", groupId);
+    } catch (error) {
+      console.error("Error saving draft:", error);
+      alert("Failed to save draft. Please try again.");
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Function to clear draft after successful submission
+  const clearDraft = () => {
+    if (!groupId) return;
+    const draftKey = `pbl1_draft_${groupId}`;
+    localStorage.removeItem(draftKey);
+    console.log("Draft cleared for group:", groupId);
+  };
 
   const handleMarkChange = (index, field, value) => {
     if (isReadOnly && role !== "Mentor") return;
@@ -191,6 +270,9 @@ const EvaluationForm = ({ groupId, role }) => {
       }
 
       setIsSubmitted(true); // ✅ show success
+      
+      // Clear draft after successful submission
+      clearDraft();
     } catch (error) {
       console.error("🚨 Error submitting evaluation:", error);
       alert(error.message || "Error submitting evaluation");
@@ -348,7 +430,7 @@ const EvaluationForm = ({ groupId, role }) => {
         </div>
       </div>
       {/* Submit Button / Success State */}
-      <div className="pt-4 flex justify-center">
+      <div className="pt-4 flex flex-col items-center gap-3">
         {isSubmitted ? (
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
@@ -363,41 +445,102 @@ const EvaluationForm = ({ groupId, role }) => {
             </div>
           </div>
         ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 mx-auto"
-          >
-            {isSubmitting ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  ></path>
+          <>
+            {/* Draft Saved Message */}
+            {draftSaved && (
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-lg mb-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                 </svg>
-                Submitting PBL Review 1...
-              </>
-            ) : role === "Mentor" ? (
-              "Update PBL Review 1"
-            ) : (
-              "Submit PBL Review 1"
+                <span className="font-medium">Draft saved successfully!</span>
+              </div>
             )}
-          </button>
+            
+            {/* Buttons Container */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-center w-full max-w-md">
+              {/* Save Draft Button */}
+              <button
+                onClick={handleSaveDraft}
+                disabled={isSavingDraft || isSubmitting || !groupId}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isSavingDraft ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    Saving Draft...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    Save Draft
+                  </>
+                )}
+              </button>
+
+              {/* Submit Button */}
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || isSavingDraft || !groupId}
+                className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    Submitting PBL Review 1...
+                  </>
+                ) : role === "Mentor" ? (
+                  "Update PBL Review 1"
+                ) : (
+                  "Submit PBL Review 1"
+                )}
+              </button>
+            </div>
+            
+            {/* Help Text */}
+            <p className="text-sm text-gray-500 text-center mt-2">
+              Save your progress as a draft or submit the final evaluation
+            </p>
+          </>
         )}
       </div>
 
