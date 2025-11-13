@@ -17,6 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       // Log initial check state
       console.log(`ProtectedRoute: Checking auth for path ${window.location.pathname}`);
       console.log(`Token exists: ${!!token}, Role: ${userRole}`);
+      console.log(`Allowed roles: ${allowedRoles.join(', ')}`);
       
       if (!token) {
         console.warn("No token found in localStorage");
@@ -36,10 +37,11 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       try {
         // Client-side token validation
         let isValid = false;
+        let decoded = null;
         
         try {
           // Decode token to check expiration and role
-          const decoded = jwtDecode(token);
+          decoded = jwtDecode(token);
           console.log("Token decoded:", decoded);
           const currentTime = Date.now() / 1000;
           
@@ -54,11 +56,12 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
           } else {
             // Token has role and is not expired
             isValid = true;
-            console.log("Token is valid");
+            console.log("Token is valid, role:", decoded.role);
             
             // Store role from token if not already in localStorage
             if (!localStorage.getItem('role') && decoded.role) {
-              localStorage.setItem('role', decoded.role.toLowerCase());
+              console.log("Storing role in localStorage:", decoded.role);
+              localStorage.setItem('role', decoded.role);
             }
           }
         } catch (decodeError) {
@@ -69,8 +72,8 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         // Set initial authentication state based on client-side validation
         setIsAuthenticated(isValid);
         
-        // Then validate with server if possible
-        if (isValid) {
+        // Then validate with server if possible (skip for reviewerAdmin as it has separate auth)
+        if (isValid && decoded && decoded.role !== 'reviewerAdmin') {
           try {
             const result = await apiRequest('/api/auth/validate', 'POST', { token });
             
@@ -85,6 +88,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
             // Don't fail UI on API errors, but log them
             console.error('Token validation API error:', apiError);
           }
+        } else if (isValid && decoded && decoded.role === 'reviewerAdmin') {
+          console.log("ReviewerAdmin token - skipping server validation");
+          setIsAuthenticated(true);
         }
       } catch (error) {
         console.error('Error in token validation:', error);
