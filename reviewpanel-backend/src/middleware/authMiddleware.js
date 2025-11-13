@@ -46,7 +46,7 @@ class AuthMiddleware {
   };
 
   /**
-   * Authenticate user (admin/mentor/student/external)
+   * Authenticate user (admin/mentor/student/external/reviewerAdmin)
    */
   authenticateUser = async (req, res, next) => {
     try {
@@ -94,6 +94,10 @@ class AuthMiddleware {
             }
           } else if (decoded.role === 'mentor') {
             // Mentor - token contains mentor_id, mentor_name, contact_number
+            // No need to fetch from DB, all data is in token
+            req.user = { ...decoded };
+          } else if (decoded.role === 'reviewerAdmin') {
+            // ReviewerAdmin - token contains username and role
             // No need to fetch from DB, all data is in token
             req.user = { ...decoded };
           } else {
@@ -330,6 +334,29 @@ class AuthMiddleware {
         return next(ApiError.forbidden('You do not have permission to perform this action'));
       }
       next();
+    };
+  };
+
+  /**
+   * Check if user has one of the allowed roles
+   */
+  checkRole = (allowedRoles) => {
+    return (req, res, next) => {
+      try {
+        if (!req.user) {
+          throw ApiError.unauthorized('Authentication required');
+        }
+
+        const userRole = req.user.role;
+        
+        if (!allowedRoles.includes(userRole)) {
+          throw ApiError.forbidden(`Access denied. Required role: ${allowedRoles.join(' or ')}`);
+        }
+
+        next();
+      } catch (error) {
+        next(error);
+      }
     };
   };
 

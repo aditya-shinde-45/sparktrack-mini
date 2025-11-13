@@ -27,6 +27,7 @@ import studentRoutes from "./src/routes/students/studentRoutes.js";
 import dashboardRoutes from "./src/routes/admin/dashboardRoutes.js";
 import pblReviewRoutes from "./src/routes/admin/pblReviewRoutes.js";
 import pbl3Routes from "./src/routes/mentor/pbl3Routes.js";
+import reviewerAdminRoutes from "./src/routes/reviewerAdmin/reviewerAdminRoutes.js";
 
 // New routes from recent migration
 import externalAuthRoutes from "./src/routes/external/externalAuthRoutes.js";
@@ -104,6 +105,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reviews", pblReviewRoutes);
 app.use("/api/evaluation", pblEvaluationRoutes); // Added PBL evaluation routes
 app.use("/api/pbl3", pbl3Routes); // Added PBL3 routes
+app.use("/api/reviewer-admin", reviewerAdminRoutes); // Added ReviewerAdmin routes
 
 // Newly migrated routes
 app.use("/api/external-auth", externalAuthRoutes);

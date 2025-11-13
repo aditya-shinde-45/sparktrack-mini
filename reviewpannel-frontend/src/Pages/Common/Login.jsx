@@ -479,6 +479,44 @@ const Login = () => {
                   <span>Login</span>
                 )}
               </button>
+
+              {/* Login Hints */}
+              {role && (
+                <div className="mt-6 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                  <p className="text-xs font-semibold text-white mb-2">💡 Login Hints:</p>
+                  {role === "External" && (
+                    <div className="text-xs text-white/90 space-y-1">
+                      <p>• Use your email address</p>
+                      <p>• OTP: <span className="font-mono font-bold text-yellow-300">123456</span></p>
+                    </div>
+                  )}
+                  {role === "Mentor" && (
+                    <div className="text-xs text-white/90 space-y-1">
+                      <p>• Use your 10-digit phone number</p>
+                      <p>• Password: <span className="font-mono font-bold text-yellow-300">MITADT1230</span></p>
+                    </div>
+                  )}
+                  {role === "Admin" && (
+                    <div className="text-xs text-white/90">
+                      <p>• Contact administrator for credentials</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Reviewer Admin Link */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/reviewer-admin/login')}
+                  className="text-white/90 hover:text-white text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2 mx-auto"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Reviewer Admin Login
+                </button>
+              </div>
             </form>
           </div>
         </div>

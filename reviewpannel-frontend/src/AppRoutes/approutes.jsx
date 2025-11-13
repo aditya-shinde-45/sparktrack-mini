@@ -47,6 +47,10 @@ import InternshipDetails from '../Pages/students/InternshipDetails';
 // Mentor Pages
 import MentorDashboard from '../Pages/Mentor/MentorDashboard';
 
+// Reviewer Admin Pages
+import ReviewerAdminLogin from '../Pages/ReviewerAdmin/ReviewerAdminLogin';
+import ReviewerAdminDashboard from '../Pages/ReviewerAdmin/ReviewerAdminDashboard';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -130,6 +134,14 @@ const AppRoutes = () => {
         <Route path="post" element={<AdminPost />} />
         <Route path="classlead" element={<ClassLead />} />
       </Route>
+
+      {/* Reviewer Admin Routes */}
+      <Route path="/reviewer-admin/login" element={<ReviewerAdminLogin />} />
+      <Route path="/reviewer-admin/dashboard" element={
+        <ProtectedRoute allowedRoles={['reviewerAdmin']}>
+          <ReviewerAdminDashboard />
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 };
