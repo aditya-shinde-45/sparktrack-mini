@@ -193,21 +193,8 @@ const ReviewerAdminLogin = () => {
             </button>
           </form>
 
-          {/* Hint */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-xs text-blue-800 mb-1">
-              <span className="font-semibold">💡 Credentials:</span>
-            </p>
-            <p className="text-xs text-blue-700 font-mono">
-              Username: <span className="font-bold">revieweradmin</span>
-            </p>
-            <p className="text-xs text-blue-700 font-mono">
-              Password: <span className="font-bold">MITADT@2024</span>
-            </p>
-          </div>
-
           {/* Back to Login */}
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
               onClick={() => navigate('/login')}
               className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
