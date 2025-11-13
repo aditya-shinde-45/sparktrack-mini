@@ -116,9 +116,25 @@ class ReviewerAdminModel {
    */
   async updatePbl2Marks(groupId, studentId, marks) {
     try {
+      // Calculate total from m1-m7
+      const total = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7'].reduce((sum, field) => {
+        const value = marks[field];
+        // Only add if value is not null, undefined, or empty string
+        if (value !== null && value !== undefined && value !== '') {
+          return sum + (parseInt(value) || 0);
+        }
+        return sum;
+      }, 0);
+
+      // Add calculated total to the marks object
+      const marksWithTotal = {
+        ...marks,
+        total: total > 0 ? total : null
+      };
+
       const { data, error} = await supabase
         .from('pbl2')
-        .update(marks)
+        .update(marksWithTotal)
         .eq('group_id', groupId)
         .eq('enrollement_no', studentId);
 
@@ -139,9 +155,25 @@ class ReviewerAdminModel {
    */
   async updatePbl3Marks(groupId, studentId, marks) {
     try {
+      // Calculate total from m1-m6 only (PBL3 doesn't have m7)
+      const total = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].reduce((sum, field) => {
+        const value = marks[field];
+        // Only add if value is not null, undefined, or empty string
+        if (value !== null && value !== undefined && value !== '') {
+          return sum + (parseInt(value) || 0);
+        }
+        return sum;
+      }, 0);
+
+      // Add calculated total to the marks object
+      const marksWithTotal = {
+        ...marks,
+        total: total > 0 ? total : null
+      };
+
       const { data, error } = await supabase
         .from('pbl3')
-        .update(marks)
+        .update(marksWithTotal)
         .eq('group_id', groupId)
         .eq('enrollement_no', studentId);
 

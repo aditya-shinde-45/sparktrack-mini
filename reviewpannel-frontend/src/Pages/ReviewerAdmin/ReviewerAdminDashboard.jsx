@@ -14,6 +14,7 @@ const ReviewerAdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(null); // student_id being edited
   const [editData, setEditData] = useState({});
+  const [activeMarkColumns, setActiveMarkColumns] = useState([]); // Dynamic mark columns
   const navigate = useNavigate();
 
   const token = localStorage.getItem('token');
@@ -83,6 +84,45 @@ const ReviewerAdminDashboard = () => {
       }));
       
       setEvaluationData(data);
+      
+      // Detect which mark columns have data across all students
+      if (data.length > 0) {
+        // Determine mark fields based on PBL type and group
+        let markFields;
+        if (activeTab === 'pbl3') {
+          // PBL3 always uses m1-m6 (6 marks)
+          markFields = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'];
+        } else {
+          // PBL2: Check if it's SY group
+          const isSYGroup = selectedGroup && selectedGroup.toUpperCase().startsWith('SY');
+          if (isSYGroup) {
+            // SY groups in PBL2: m1, m2, m3, m4, m6, m7 (no m5)
+            markFields = ['m1', 'm2', 'm3', 'm4', 'm6', 'm7'];
+          } else {
+            // TY/LY groups in PBL2: all m1-m7
+            markFields = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7'];
+          }
+        }
+        
+        const columnsWithData = markFields.filter(field => {
+          // Check if ANY student has a non-null value for this field
+          return data.some(student => student[field] !== null && student[field] !== undefined);
+        });
+        // If no columns have data, show all columns anyway (based on PBL type and group)
+        setActiveMarkColumns(columnsWithData.length > 0 ? columnsWithData : markFields);
+      } else {
+        // Default to all columns based on PBL type and group
+        let defaultFields;
+        if (activeTab === 'pbl3') {
+          defaultFields = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6'];
+        } else {
+          const isSYGroup = selectedGroup && selectedGroup.toUpperCase().startsWith('SY');
+          defaultFields = isSYGroup 
+            ? ['m1', 'm2', 'm3', 'm4', 'm6', 'm7']
+            : ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7'];
+        }
+        setActiveMarkColumns(defaultFields);
+      }
     } catch (error) {
       console.error('Error fetching evaluation data:', error);
     } finally {
@@ -124,14 +164,11 @@ const ReviewerAdminDashboard = () => {
 
   const handleEditClick = (student) => {
     setEditMode(student.student_id);
-    setEditData({
-      m1: student.m1 || '',
-      m2: student.m2 || '',
-      m3: student.m3 || '',
-      m4: student.m4 || '',
-      m5: student.m5 || '',
-      m6: student.m6 || ''
+    const editFields = {};
+    activeMarkColumns.forEach(field => {
+      editFields[field] = student[field] || '';
     });
+    setEditData(editFields);
   };
 
   const handleEditChange = (field, value) => {
@@ -148,12 +185,23 @@ const ReviewerAdminDashboard = () => {
         ? 'http://localhost:5000/api/reviewer-admin/edit-pbl2'
         : 'http://localhost:5000/api/reviewer-admin/edit-pbl3';
 
+      // Prepare marks object - include all possible fields to avoid empty string issues
+      const marks = {
+        m1: editData.m1 === '' ? null : editData.m1,
+        m2: editData.m2 === '' ? null : editData.m2,
+        m3: editData.m3 === '' ? null : editData.m3,
+        m4: editData.m4 === '' ? null : editData.m4,
+        m5: editData.m5 === '' ? null : editData.m5,
+        m6: editData.m6 === '' ? null : editData.m6,
+        m7: editData.m7 === '' ? null : editData.m7
+      };
+
       const response = await axios.put(
         endpoint,
         {
           groupId: selectedGroup,
           studentId: studentId,
-          marks: editData
+          marks: marks
         },
         axiosConfig
       );
@@ -381,23 +429,13 @@ const ReviewerAdminDashboard = () => {
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M1
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M2
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M3
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M4
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M5
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
-                        M6
+                      {activeMarkColumns.map((field) => (
+                        <th key={field} className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
+                          {field.toUpperCase()}
+                        </th>
+                      ))}
+                      <th className="px-4 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider bg-blue-50">
+                        Total
                       </th>
                       <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
                         Actions
@@ -405,78 +443,99 @@ const ReviewerAdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {evaluationData.map((student) => (
-                      <tr key={student.student_id} className="hover:bg-purple-50/50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {student.student_id}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          {student.student_name}
-                        </td>
-                        {editMode === student.student_id ? (
-                          <>
-                            {['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((field) => (
-                              <td key={field} className="px-4 py-4">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="10"
-                                  value={editData[field]}
-                                  onChange={(e) => handleEditChange(field, e.target.value)}
-                                  className="w-16 px-2 py-2 border-2 border-purple-300 rounded-lg text-center 
-                                           focus:ring-2 focus:ring-purple-500 focus:border-transparent font-semibold
-                                           text-gray-900 bg-white"
-                                />
-                              </td>
-                            ))}
-                            <td className="px-6 py-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => handleSaveEdit(student.student_id)}
-                                  className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all"
-                                  title="Save"
-                                >
-                                  <Save size={16} />
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all"
-                                  title="Cancel"
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            {['m1', 'm2', 'm3', 'm4', 'm5', 'm6'].map((field) => (
-                              <td key={field} className="px-4 py-4 text-center">
-                                <span className={`inline-block px-3 py-1 rounded-lg font-semibold ${
-                                  student[field] !== null && student[field] !== undefined
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-400'
-                                }`}>
-                                  {student[field] !== null && student[field] !== undefined
-                                    ? student[field]
-                                    : '-'}
+                    {evaluationData.map((student) => {
+                      // Calculate total dynamically
+                      const currentTotal = activeMarkColumns.reduce((sum, field) => {
+                        const value = editMode === student.student_id ? editData[field] : student[field];
+                        if (value !== null && value !== undefined && value !== '') {
+                          return sum + (parseInt(value) || 0);
+                        }
+                        return sum;
+                      }, 0);
+
+                      return (
+                        <tr key={student.student_id} className="hover:bg-purple-50/50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                            {student.student_id}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {student.student_name}
+                          </td>
+                          {editMode === student.student_id ? (
+                            <>
+                              {activeMarkColumns.map((field) => (
+                                <td key={field} className="px-4 py-4">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="20"
+                                    value={editData[field]}
+                                    onChange={(e) => handleEditChange(field, e.target.value)}
+                                    className="w-16 px-2 py-2 border-2 border-purple-300 rounded-lg text-center 
+                                             focus:ring-2 focus:ring-purple-500 focus:border-transparent font-semibold
+                                             text-gray-900 bg-white"
+                                  />
+                                </td>
+                              ))}
+                              <td className="px-4 py-4 text-center bg-blue-50">
+                                <span className="inline-block px-4 py-2 rounded-lg font-bold text-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md">
+                                  {currentTotal}
                                 </span>
                               </td>
-                            ))}
-                            <td className="px-6 py-4 text-center">
-                              <button
-                                onClick={() => handleEditClick(student)}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#7B74EF] to-[#5D3FD3] 
-                                         text-white rounded-lg hover:shadow-lg transition-all font-medium"
-                              >
-                                <Edit2 size={14} />
-                                Edit
-                              </button>
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ))}
+                              <td className="px-6 py-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleSaveEdit(student.student_id)}
+                                    className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all"
+                                    title="Save"
+                                  >
+                                    <Save size={16} />
+                                  </button>
+                                  <button
+                                    onClick={handleCancelEdit}
+                                    className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all"
+                                    title="Cancel"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              {activeMarkColumns.map((field) => (
+                                <td key={field} className="px-4 py-4 text-center">
+                                  <span className={`inline-block px-3 py-1 rounded-lg font-semibold border-2 ${
+                                    student[field] !== null && student[field] !== undefined
+                                      ? 'bg-green-100 text-green-700 border-green-200'
+                                      : 'bg-white text-gray-400 border-gray-300 border-dashed'
+                                  }`}>
+                                    {student[field] !== null && student[field] !== undefined
+                                      ? student[field]
+                                      : '-'}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="px-4 py-4 text-center bg-blue-50">
+                                <span className="inline-block px-4 py-2 rounded-lg font-bold text-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md">
+                                  {student.total || currentTotal || 0}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <button
+                                  onClick={() => handleEditClick(student)}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#7B74EF] to-[#5D3FD3] 
+                                           text-white rounded-lg hover:shadow-lg transition-all font-medium"
+                                >
+                                  <Edit2 size={14} />
+                                  Edit
+                                </button>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
