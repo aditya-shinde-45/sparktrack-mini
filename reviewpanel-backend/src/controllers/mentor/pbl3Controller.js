@@ -16,37 +16,34 @@ import crypto from 'crypto';
 class Pbl3Controller {
   /**
    * Mentor login with phone number and fixed password
-   * Username: contact_number (phone)
-   * Password: MITADT1230 (fixed)
+   * Username: contact_number (phone/mobile number)
+   * Password: MITADT1230 (fixed for all mentors)
    */
   mentorLogin = asyncHandler(async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      throw ApiError.badRequest('Phone number and password are required');
+      throw ApiError.badRequest('Mobile number and password are required');
     }
 
-    // Fixed password for all mentors
-    const MENTOR_PASSWORD = 'MITADT1230';
+    // Validate credentials using mentor model
+    const mentor = await mentorModel.validateCredentials(username, password);
 
-    // Check if password matches
-    if (password !== MENTOR_PASSWORD) {
-      throw ApiError.unauthorized('Invalid credentials');
+    if (!mentor) {
+      throw ApiError.unauthorized('Invalid mobile number or password');
     }
 
-    // Find mentor by contact_number (phone)
-    const { data: mentors, error } = await supabase.from('mentors')
-      .select('mentor_id, mentor_name, contact_number, group_id')
+    // Get all groups for this mentor
+    const { data: mentorGroups, error: groupError } = await supabase
+      .from('mentors')
+      .select('group_id')
       .eq('contact_number', username);
 
-    if (error) throw error;
-
-    if (!mentors || mentors.length === 0) {
-      throw ApiError.unauthorized('Invalid phone number');
+    if (groupError) {
+      console.error('Error fetching mentor groups:', groupError);
     }
 
-    // Get the first mentor record (should have at least one group)
-    const mentor = mentors[0];
+    const groups = mentorGroups ? mentorGroups.map(m => m.group_id) : [];
 
     // Generate JWT token
     const token = jwt.sign(
@@ -57,15 +54,18 @@ class Pbl3Controller {
         role: 'mentor'
       },
       config.jwt.secret,
-      { expiresIn: '1d' }
+      { expiresIn: '7d' }
     );
 
     return ApiResponse.success(res, 'Mentor login successful', {
       token,
-      mentor_id: mentor.mentor_id,
-      mentor_name: mentor.mentor_name,
-      contact_number: mentor.contact_number,
-      role: 'mentor'
+      mentor: {
+        mentor_id: mentor.mentor_id,
+        mentor_name: mentor.mentor_name,
+        contact_number: mentor.contact_number,
+        groups: groups,
+        role: 'mentor'
+      }
     });
   });
 

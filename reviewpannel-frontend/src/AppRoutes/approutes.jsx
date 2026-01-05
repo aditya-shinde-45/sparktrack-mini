@@ -13,7 +13,6 @@ import Students from '../Pages/Common/students';
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
 import MentorSelection from '../Pages/External/MentorSelection';
-import RegisterExternals from '../Pages/External/RegisterExternals';
 
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
@@ -44,6 +43,9 @@ import Documentation from '../Pages/students/documentation';
 import Tools from '../Pages/students/tools';
 import InternshipDetails from '../Pages/students/InternshipDetails';
 
+// Mentor Pages
+import MentorDashboard from '../Pages/Mentor/MentorDashboard';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -65,20 +67,22 @@ const AppRoutes = () => {
       <Route path="/documentation" element={<Documentation />} />
       <Route path="/studenttools" element={<Tools />} />
 
+      {/* Mentor Routes */}
+      <Route path="/mentor/dashboard" element={<MentorDashboard />} />
+      <Route path="/mentor/groups" element={<MentorDashboard />} />
+      <Route path="/mentor/reviews" element={<MentorDashboard />} />
+      <Route path="/mentor/schedule" element={<MentorDashboard />} />
+      <Route path="/mentor/settings" element={<MentorDashboard />} />
 
-      {/* External/Mentor Routes */}
+
+      {/* External Routes */}
       <Route path="/mentor-selection" element={
         <ProtectedRoute allowedRoles={['External']}>
           <MentorSelection />
         </ProtectedRoute>
       } />
-      <Route path="/register-externals" element={
-        <ProtectedRoute allowedRoles={['Mentor']}>
-          <RegisterExternals />
-        </ProtectedRoute>
-      } />
       <Route path="/external-home" element={
-        <ProtectedRoute allowedRoles={['External', 'Mentor']}>
+        <ProtectedRoute allowedRoles={['External']}>
           <ExternalHome />
         </ProtectedRoute>
       } />
