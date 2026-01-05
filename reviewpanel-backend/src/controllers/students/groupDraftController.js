@@ -1,0 +1,402 @@
+import supabase from "../../config/database.js";
+import GroupDraft from "../../models/groupDraftModel.js";
+import GroupRequest from "../../models/groupRequestModel.js";
+import ApiResponse from "../../utils/apiResponse.js";
+import { randomUUID } from "crypto";
+
+/**
+ * Generate unique group ID (UUID)
+ */
+const generateGroupId = () => {
+  return randomUUID();
+};
+
+/**
+ * Create a draft group (Step 1)
+ */
+export const createDraft = async (req, res) => {
+  try {
+    const {
+      leader_enrollment,
+      team_name,
+      previous_ps_id,
+      guide_name,
+      guide_contact,
+      guide_email,
+    } = req.body;
+
+    // Validation
+    if (!leader_enrollment || !team_name) {
+      return ApiResponse.error(res, "Missing required fields", 400);
+    }
+
+    // Check if leader already has an active draft
+    const hasActiveDraft = await GroupDraft.hasActiveDraft(leader_enrollment);
+    if (hasActiveDraft) {
+      return ApiResponse.error(res, "You already have an active draft group", 409);
+    }
+
+    // Check if leader already exists in pbl table (finalized group)
+    const { data: existingGroup } = await supabase
+      .from("pbl")
+      .select("enrollment_no")
+      .eq("enrollment_no", leader_enrollment);
+
+    if (existingGroup && existingGroup.length > 0) {
+      return ApiResponse.error(res, "You are already part of a finalized group", 409);
+    }
+
+    // Generate unique group ID
+    const group_id = generateGroupId();
+
+    // Create draft
+    const draft = await GroupDraft.createDraft({
+      group_id,
+      leader_id: leader_enrollment,
+      team_name,
+    });
+
+    return ApiResponse.success(res, "Draft group created successfully", draft, 201);
+  } catch (error) {
+    console.error("Error creating draft:", error);
+    return ApiResponse.error(res, error.message || "Failed to create draft", 500);
+  }
+};
+
+/**
+ * Get leader's draft groups
+ */
+export const getLeaderDrafts = async (req, res) => {
+  try {
+    const { enrollmentNo } = req.params;
+
+    const drafts = await GroupDraft.getDraftByLeader(enrollmentNo);
+
+    // Get invitations for each draft
+    const draftsWithInvitations = await Promise.all(
+      drafts.map(async (draft) => {
+        const invitations = await GroupRequest.getRequestsByGroup(draft.group_id);
+        const allAccepted = invitations.length > 0 && invitations.every(inv => inv.status === "ACCEPTED");
+        
+        return { 
+          ...draft, 
+          invitations: invitations.map(inv => ({
+            request_id: inv.request_id,
+            enrollment_no: inv.student_id,
+            status: inv.status.toLowerCase()
+          })),
+          all_accepted: allAccepted
+        };
+      })
+    );
+
+    return ApiResponse.success(res, "Draft groups retrieved", { drafts: draftsWithInvitations });
+  } catch (error) {
+    console.error("Error fetching drafts:", error);
+    return ApiResponse.error(res, error.message || "Failed to fetch drafts", 500);
+  }
+};
+
+/**
+ * Send invitations to members (Step 2)
+ */
+export const sendInvitations = async (req, res) => {
+  try {
+    const { group_id, enrollments } = req.body;
+
+    // Validation
+    if (!group_id || !enrollments || !Array.isArray(enrollments) || enrollments.length === 0) {
+      return ApiResponse.error(res, "Invalid request data", 400);
+    }
+
+    // Verify draft exists and is in draft status
+    const draft = await GroupDraft.getDraftById(group_id);
+    if (!draft) {
+      return ApiResponse.error(res, "Draft group not found", 404);
+    }
+    if (draft.status !== "draft") {
+      return ApiResponse.error(res, "Group is not in draft status", 400);
+    }
+
+    // Validate enrollments exist in pbl_2025
+    const { data: students } = await supabase
+      .from("pbl_2025")
+      .select("enrollement_no")
+      .in("enrollement_no", enrollments);
+
+    if (!students || students.length !== enrollments.length) {
+      return ApiResponse.error(res, "Some enrollment numbers are invalid", 400);
+    }
+
+    // Check if any student already has active requests or is in a finalized group
+    const validationPromises = enrollments.map(async (enrollment) => {
+      // Check active requests
+      const activeRequests = await GroupRequest.hasActiveRequest(enrollment);
+      if (activeRequests.length > 0) {
+        return { enrollment, error: "Already has pending/accepted invitation" };
+      }
+
+      // Check finalized groups
+      const { data: finalizedGroup } = await supabase
+        .from("pbl")
+        .select("enrollment_no")
+        .eq("enrollment_no", enrollment);
+
+      if (finalizedGroup && finalizedGroup.length > 0) {
+        return { enrollment, error: "Already in a finalized group" };
+      }
+
+      return { enrollment, error: null };
+    });
+
+    const validationResults = await Promise.all(validationPromises);
+    const errors = validationResults.filter((r) => r.error);
+
+    if (errors.length > 0) {
+      return ApiResponse.error(
+        res,
+        "Some enrollments are invalid",
+        400,
+        { invalid_enrollments: errors }
+      );
+    }
+
+    // Create requests
+    const requests = enrollments.map((enrollment) => ({
+      group_id,
+      student_id: enrollment,
+    }));
+
+    const createdRequests = await GroupRequest.createRequests(requests);
+
+    return ApiResponse.success(
+      res,
+      "Invitations sent successfully",
+      { sent: createdRequests.length, requests: createdRequests },
+      201
+    );
+  } catch (error) {
+    console.error("Error sending invitations:", error);
+    return ApiResponse.error(res, error.message || "Failed to send invitations", 500);
+  }
+};
+
+/**
+ * Get invitations for a student
+ */
+export const getStudentInvitations = async (req, res) => {
+  try {
+    const { enrollmentNo } = req.params;
+
+    const invitations = await GroupRequest.getPendingRequestsByStudent(enrollmentNo);
+
+    // Format invitations with group details
+    const formattedInvitations = invitations.map(inv => ({
+      request_id: inv.request_id,
+      group_id: inv.group_id,
+      team_name: inv.groups_draft?.group_name,
+      leader_enrollment: inv.groups_draft?.leader_id,
+      status: inv.status.toLowerCase(),
+      invited_at: inv.groups_draft?.created_at
+    }));
+
+    return ApiResponse.success(res, "Invitations retrieved", { invitations: formattedInvitations });
+  } catch (error) {
+    console.error("Error fetching invitations:", error);
+    return ApiResponse.error(res, error.message || "Failed to fetch invitations", 500);
+  }
+};
+
+/**
+ * Respond to invitation (accept/reject)
+ */
+export const respondToInvitation = async (req, res) => {
+  try {
+    const { request_id, status } = req.body;
+
+    // Validation
+    if (!request_id || !["accepted", "rejected"].includes(status)) {
+      return ApiResponse.error(res, "Invalid request data", 400);
+    }
+
+    // Convert to uppercase for database
+    const dbStatus = status.toUpperCase();
+
+    // Update request status
+    const updatedRequest = await GroupRequest.updateRequestStatus(request_id, dbStatus);
+
+    return ApiResponse.success(res, `Invitation ${status} successfully`, updatedRequest);
+  } catch (error) {
+    console.error("Error responding to invitation:", error);
+    return ApiResponse.error(res, error.message || "Failed to respond to invitation", 500);
+  }
+};
+
+/**
+ * Get group details with invitation status
+ */
+export const getGroupDetails = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Get draft details
+    const draft = await GroupDraft.getDraftById(groupId);
+    if (!draft) {
+      return ApiResponse.error(res, "Group not found", 404);
+    }
+
+    // Get all requests
+    const requests = await GroupRequest.getRequestsByGroup(groupId);
+
+    // Fetch student details for each request
+    const requestsWithDetails = await Promise.all(
+      requests.map(async (request) => {
+        const { data: student } = await supabase
+          .from("pbl_2025")
+          .select("enrollement_no, name_of_student, class, contact")
+          .eq("enrollement_no", request.enrollment_no)
+          .single();
+
+        return {
+          ...request,
+          student_details: student
+            ? {
+                enrollment_no: student.enrollement_no,
+                student_name: student.name_of_student,
+                class: student.class,
+                contact: student.contact,
+              }
+            : null,
+        };
+      })
+    );
+
+    // Get request stats
+    const stats = await GroupRequest.getGroupRequestStats(groupId);
+
+    return ApiResponse.success(res, "Group details retrieved", {
+      draft,
+      requests: requestsWithDetails,
+      stats,
+    });
+  } catch (error) {
+    console.error("Error fetching group details:", error);
+    return ApiResponse.error(res, error.message || "Failed to fetch group details", 500);
+  }
+};
+
+/**
+ * Confirm and finalize group (Step 3) - with atomic transaction
+ */
+export const confirmGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Get draft and validate
+    const draft = await GroupDraft.getDraftById(groupId);
+    if (!draft) {
+      return ApiResponse.error(res, "Draft group not found", 404);
+    }
+    if (draft.status !== "draft") {
+      return ApiResponse.error(res, "Group is not in draft status", 400);
+    }
+
+    // Get all requests and validate
+    const requests = await GroupRequest.getRequestsByGroup(groupId);
+    if (requests.length === 0) {
+      return ApiResponse.error(res, "No invitations sent yet", 400);
+    }
+
+    // Check if all requests are accepted
+    const allAccepted = requests.every((r) => r.status === "accepted");
+    if (!allAccepted) {
+      const pending = requests.filter((r) => r.status === "pending").length;
+      const rejected = requests.filter((r) => r.status === "rejected").length;
+      return ApiResponse.error(
+        res,
+        "Cannot confirm: not all invitations accepted",
+        400,
+        { pending, rejected }
+      );
+    }
+
+    // Prepare all enrollment numbers (leader + accepted members)
+    const allEnrollments = [
+      draft.leader_enrollment,
+      ...requests.map((r) => r.enrollment_no),
+    ];
+
+    // Fetch all student details from pbl_2025
+    const { data: students } = await supabase
+      .from("pbl_2025")
+      .select("enrollement_no, name_of_student, class, contact")
+      .in("enrollement_no", allEnrollments);
+
+    if (!students || students.length !== allEnrollments.length) {
+      return ApiResponse.error(res, "Some student details not found", 400);
+    }
+
+    // Prepare pbl table entries
+    const pblEntries = students.map((student) => ({
+      enrollment_no: student.enrollement_no,
+      student_name: student.name_of_student,
+      class: student.class,
+      contact: student.contact,
+      guide_name: draft.guide_name,
+      guide_contact: draft.guide_contact,
+      guide_email: draft.guide_email,
+      group_id: draft.group_id,
+      ps_id: draft.previous_ps_id || null,
+    }));
+
+    // ATOMIC TRANSACTION: Insert into pbl and update draft status
+    const { data: insertedData, error: insertError } = await supabase
+      .from("pbl")
+      .insert(pblEntries)
+      .select();
+
+    if (insertError) {
+      console.error("Error inserting into pbl:", insertError);
+      return ApiResponse.error(res, "Failed to finalize group", 500);
+    }
+
+    // Update draft status to finalized
+    await GroupDraft.updateStatus(groupId, "finalized");
+
+    return ApiResponse.success(res, "Group confirmed and finalized successfully", {
+      group_id: draft.group_id,
+      team_name: draft.team_name,
+      members_count: allEnrollments.length,
+      finalized_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error confirming group:", error);
+    return ApiResponse.error(res, error.message || "Failed to confirm group", 500);
+  }
+};
+
+/**
+ * Cancel draft group
+ */
+export const cancelDraft = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify draft exists
+    const draft = await GroupDraft.getDraftById(groupId);
+    if (!draft) {
+      return ApiResponse.error(res, "Draft group not found", 404);
+    }
+
+    // Delete all requests
+    await GroupRequest.deleteRequestsByGroup(groupId);
+
+    // Update draft status to cancelled
+    await GroupDraft.updateStatus(groupId, "cancelled");
+
+    return ApiResponse.success(res, "Draft group cancelled successfully");
+  } catch (error) {
+    console.error("Error cancelling draft:", error);
+    return ApiResponse.error(res, error.message || "Failed to cancel draft", 500);
+  }
+};

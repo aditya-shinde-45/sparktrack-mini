@@ -41,6 +41,7 @@ import ProjectPlanning from '../Pages/students/projectplanning';
 import ProjectReview from '../Pages/students/projectreview';
 import Documentation from '../Pages/students/documentation';
 import Tools from '../Pages/students/tools';
+import CreateGroup from '../Pages/students/creategroup';
 import InternshipDetails from '../Pages/students/InternshipDetails';
 
 // Mentor Pages
@@ -66,6 +67,7 @@ const AppRoutes = () => {
       <Route path="/project-review" element={<ProjectReview />} />
       <Route path="/documentation" element={<Documentation />} />
       <Route path="/studenttools" element={<Tools />} />
+      <Route path="/create-group" element={<CreateGroup />} />
 
       {/* Mentor Routes */}
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />
