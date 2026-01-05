@@ -35,6 +35,8 @@ import studentAuthRoutes from "./src/routes/students/studentAuthRoutes.js";
 import problemStatementRoutes from "./src/routes/students/problemStatementRoutes.js";
 import studentProfileRoutes from "./src/routes/students/studentProfileRoutes.js";
 import externalAssignmentRoutes from "./src/routes/external/externalAssignmentRoutes.js";
+import creategroupRoutes from "./src/routes/students/creategroupRoutes.js";
+import groupDraftRoutes from "./src/routes/students/groupDraftRoutes.js";
 
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
@@ -92,6 +94,8 @@ app.use("/api/pbl3", pbl3Routes); // Added PBL3 routes
 app.use("/api/external-auth", externalAuthRoutes);
 app.use("/api/evaluation", evaluationRoutes);
 app.use("/api/student-auth", studentAuthRoutes);
+app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
+app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
 
 // Basic route
 app.get("/", (req, res) => {

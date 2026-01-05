@@ -42,6 +42,7 @@ import ProjectPlanning from '../Pages/students/projectplanning';
 import ProjectReview from '../Pages/students/projectreview';
 import Documentation from '../Pages/students/documentation';
 import Tools from '../Pages/students/tools';
+import CreateGroup from '../Pages/students/creategroup';
 
 const AppRoutes = () => {
   return (
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/project-review" element={<ProjectReview />} />
       <Route path="/documentation" element={<Documentation />} />
       <Route path="/studenttools" element={<Tools />} />
+      <Route path="/create-group" element={<CreateGroup />} />
 
 
       {/* External/Mentor Routes */}
