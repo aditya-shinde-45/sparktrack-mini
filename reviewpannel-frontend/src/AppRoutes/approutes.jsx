@@ -42,6 +42,7 @@ import ProjectPlanning from '../Pages/students/projectplanning';
 import ProjectReview from '../Pages/students/projectreview';
 import Documentation from '../Pages/students/documentation';
 import Tools from '../Pages/students/tools';
+import InternshipDetails from '../Pages/students/InternshipDetails';
 
 const AppRoutes = () => {
   return (
@@ -57,6 +58,7 @@ const AppRoutes = () => {
       <Route path="/studentdashboard" element={<StudentDashboard />} />
       <Route path="/student/problem-statement" element={<ProblemStatement />} />
       <Route path="/student/student-profile" element={<StudentProfile />} />
+      <Route path="/student/InternshipDetails" element={<InternshipDetails />} />
       <Route path="/team-workspace" element={<TeamWorkspace />} />
       <Route path="/project-planning" element={<ProjectPlanning />} />
       <Route path="/project-review" element={<ProjectReview />} />

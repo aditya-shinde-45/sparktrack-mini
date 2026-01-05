@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
 import GroupDetails from "../../Components/Student/GroupDetails";
@@ -9,6 +10,7 @@ import StudentPosts from "../../Components/Student/posts";
 import { Download, FileText, Image, File, ExternalLink } from "lucide-react";
 
 const StudentDashboard = () => {
+  const navigate = useNavigate();
   const [student, setStudent] = useState(null);
   const [problem, setProblem] = useState(null);
   const [review1Marks, setReview1Marks] = useState(null);
@@ -201,6 +203,10 @@ const StudentDashboard = () => {
           message =
             "💬 After group creation and Mentor Allocation, Team Chat will be available!";
           break;
+
+        case "Internship Details":
+          navigate("/student/InternshipDetails");
+          return;
 
         default:
           return;
