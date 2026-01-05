@@ -32,12 +32,17 @@ const isTokenExpired = (token) => {
   }
 };
 
-export const apiRequest = async (endpoint, method = "GET", body = null, token = null) => {
+export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false) => {
   // Skip authentication check for login and public endpoints
   const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password');
   const isDashboardEndpoint = endpoint.includes('/dashboard');
   
-  const headers = { "Content-Type": "application/json" };
+  const headers = {};
+  
+  // Only set Content-Type for JSON, let browser set it for FormData
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   // Use token from parameter first, then try localStorage
   if (!token) {
@@ -89,7 +94,8 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
 
   const options = { method, headers };
   if (body) {
-    options.body = JSON.stringify(body);
+    // If it's FormData, send it directly without JSON.stringify
+    options.body = isFormData ? body : JSON.stringify(body);
   }
 
   try {

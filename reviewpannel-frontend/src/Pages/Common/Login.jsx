@@ -125,6 +125,9 @@ const Login = () => {
       if (role === "Mentor") {
         // Store mentor data from response
         const mentorData = data.data || data;
+        
+        // Store mentor token separately for mentor routes
+        localStorage.setItem("mentor_token", token);
         localStorage.setItem("name", mentorData.mentor_name || username);
         localStorage.setItem("mentor_id", mentorData.mentor_id || "");
         localStorage.setItem("contact_number", mentorData.contact_number || username);
@@ -145,8 +148,9 @@ const Login = () => {
           console.error("Error fetching groups:", error);
         }
         
-        // Redirect to register externals page for PBL3
-        navigate("/register-externals");
+        // Redirect to mentor dashboard
+        window.location.href = "/mentor/dashboard";
+        return;
       }
 
       if (role === "External") {
