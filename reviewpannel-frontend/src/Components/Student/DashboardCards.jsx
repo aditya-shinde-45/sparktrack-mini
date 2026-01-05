@@ -69,6 +69,12 @@ export const DashboardCards = ({ onCardClick }) => {
       subtitle: "Communicate with team",
       icon: "chat",
     },
+    {
+      color: "yellow",
+      title: "Internship Details",
+      subtitle: "Submit internship information",
+      icon: "work",
+    },
   ];
 
   return (

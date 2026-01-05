@@ -35,6 +35,7 @@ import studentAuthRoutes from "./src/routes/students/studentAuthRoutes.js";
 import problemStatementRoutes from "./src/routes/students/problemStatementRoutes.js";
 import studentProfileRoutes from "./src/routes/students/studentProfileRoutes.js";
 import externalAssignmentRoutes from "./src/routes/external/externalAssignmentRoutes.js";
+import internshipRoutes from "./src/routes/students/internshipRoutes.js";
 
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
@@ -78,6 +79,8 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/pbl", pblRoutes);
 app.use("/api/external", externalRoutes);
+// IMPORTANT: Register more specific routes BEFORE generic ones
+app.use("/api/students/internship", internshipRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/students", studentProfileRoutes);
 app.use("/api/students", problemStatementRoutes);
