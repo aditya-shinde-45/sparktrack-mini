@@ -35,6 +35,41 @@ class MentorModel {
   }
 
   /**
+   * Get mentor by contact number (mobile number)
+   * @param {string} contactNumber - Mentor contact number
+   */
+  async getByContactNumber(contactNumber) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('mentor_id, mentor_name, contact_number, group_id')
+      .eq('contact_number', contactNumber);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Validate mentor credentials
+   * @param {string} contactNumber - Mobile number
+   * @param {string} password - Password
+   */
+  async validateCredentials(contactNumber, password) {
+    const MENTOR_PASSWORD = 'MITADT1230'; // Fixed password for all mentors
+    
+    if (password !== MENTOR_PASSWORD) {
+      return null;
+    }
+
+    const mentors = await this.getByContactNumber(contactNumber);
+    
+    if (!mentors || mentors.length === 0) {
+      return null;
+    }
+
+    return mentors[0]; // Return first mentor record
+  }
+
+  /**
    * Create a new mentor assignment
    * @param {object} mentorData - Mentor data including group assignment
    */
