@@ -188,7 +188,7 @@ const AdminPost = () => {
         formData.append("image", newPost.image);
       }
 
-      const data = await apiRequestMultipart("/api/admin/posts", "POST", formData, token);
+      const data = await apiRequestMultipart("/api/posts", "POST", formData, token);
       
       if (data.needsLogin) {
         setMessage("Session expired. Please login again.");
@@ -237,7 +237,7 @@ const AdminPost = () => {
         return;
       }
 
-      const data = await apiRequest(`/api/admin/posts/${postId}`, "DELETE", null, token);
+      const data = await apiRequest(`/api/posts/${postId}`, "DELETE", null, token);
       
       if (data.needsLogin) {
         setMessage("Session expired. Please login again.");

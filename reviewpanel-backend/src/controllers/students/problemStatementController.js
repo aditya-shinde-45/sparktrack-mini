@@ -20,10 +20,15 @@ class ProblemStatementController {
       group_id,
       title,
       type: type || null,
-      technologyBucket: technologyBucket || null,
+      technologybucket: technologyBucket || null,
       domain: domain || null,
       description: description || null,
     });
+
+    // Update ps_id in pbl table for all group members
+    if (problemStatement && problemStatement.ps_id) {
+      await problemStatementModel.updatePsIdInPbl(group_id, problemStatement.ps_id);
+    }
 
     return ApiResponse.success(
       res,
@@ -71,7 +76,7 @@ class ProblemStatementController {
     const updates = {
       title: title ?? existing.title,
       type: type ?? existing.type,
-      technologyBucket: technologyBucket ?? existing.technologyBucket,
+      technologybucket: technologyBucket ?? existing.technologybucket,
       domain: domain ?? existing.domain,
       description: description ?? existing.description,
     };
@@ -97,6 +102,9 @@ class ProblemStatementController {
     }
 
     await problemStatementModel.delete(group_id);
+
+    // Clear ps_id in pbl table
+    await problemStatementModel.updatePsIdInPbl(group_id, null);
 
     return ApiResponse.success(res, 'Problem statement deleted successfully.');
   });

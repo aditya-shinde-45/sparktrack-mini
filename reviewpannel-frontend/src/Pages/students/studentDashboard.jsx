@@ -7,7 +7,7 @@ import GroupDetails from "../../Components/Student/GroupDetails";
 import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
 import StudentPosts from "../../Components/Student/posts";
-import { Download, FileText, Image, File, ExternalLink } from "lucide-react";
+import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus } from "lucide-react";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -30,43 +30,58 @@ const StudentDashboard = () => {
       return;
     }
 
-    const fetchStudent = async () => {
-      const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
-      const profileData = profileRes?.data?.profile || profileRes?.profile;
-
-      if (!profileData) {
-        setStudent(null);
-        return;
-      }
-      setStudent(profileData);
-
-      // Fetch group details
-      fetchGroup(profileData.enrollment_no, token);
-
-      // Fetch problem statement using group_id
-      if (profileData.group_id) {
-        fetchProblemStatement(profileData.group_id, token);
-      }
-
-      // Fetch PBL Review 1 marks (pass enrollement_no as query param)
-      fetchReview1Marks(profileData.enrollment_no, token);
-
-      // Fetch PBL Review 2 marks (pass enrollement_no as query param)
-      fetchReview2Marks(profileData.enrollment_no, token);
-    };
-
-    const fetchGroup = async (enrollment, token) => {
-      await apiRequest(`/api/students/pbl/gp/${enrollment}`, "GET", null, token);
-    };
-
     const fetchProblemStatement = async (groupId, token) => {
-      const psRes = await apiRequest(`/api/students/student/problem-statement/${groupId}`, "GET", null, token);
-      const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement;
+      try {
+        console.log('Fetching problem statement for group_id:', groupId);
+        const psRes = await apiRequest(`/api/students/student/problem-statement/${groupId}`, "GET", null, token);
+        console.log('Problem statement response:', psRes);
+        const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement;
 
-      if (problemStatement) {
-        setProblem(problemStatement);
-      } else {
+        if (problemStatement) {
+          console.log('Setting problem statement:', problemStatement);
+          setProblem(problemStatement);
+        } else {
+          console.log('No problem statement found');
+          setProblem(null);
+        }
+      } catch (error) {
+        console.error('Error fetching problem statement:', error);
         setProblem(null);
+      }
+    };
+
+    const fetchStudent = async () => {
+      try {
+        const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
+        const profileData = profileRes?.data?.profile || profileRes?.profile;
+
+        if (!profileData) {
+          setStudent(null);
+          return;
+        }
+        setStudent(profileData);
+
+        // Fetch group details and problem statement
+        console.log('Fetching group details for enrollment:', profileData.enrollment_no);
+        const groupDetailsRes = await apiRequest(`/api/students/student/group-details/${profileData.enrollment_no}`, "GET", null, token);
+        console.log('Group details response:', groupDetailsRes);
+        const groupDetails = groupDetailsRes?.data?.group || groupDetailsRes?.group;
+        
+        // If group_id exists, fetch problem statement
+        if (groupDetails?.group_id) {
+          console.log('Found group_id:', groupDetails.group_id);
+          await fetchProblemStatement(groupDetails.group_id, token);
+        } else {
+          console.log('No group_id found in group details');
+        }
+
+        // Fetch PBL Review 1 marks (pass enrollement_no as query param)
+        fetchReview1Marks(profileData.enrollment_no, token);
+
+        // Fetch PBL Review 2 marks (pass enrollement_no as query param)
+        fetchReview2Marks(profileData.enrollment_no, token);
+      } catch (error) {
+        console.error('Error in fetchStudent:', error);
       }
     };
 
@@ -156,7 +171,7 @@ const StudentDashboard = () => {
   const fetchAnnouncements = async () => {
     try {
       const token = localStorage.getItem("student_token");
-      const res = await apiRequest("/api/announcements/announcement", "GET", null, token);
+      const res = await apiRequest("/api/announcements/", "GET", null, token);
       const announcementData = res?.data?.announcements || res?.announcements;
 
       if (announcementData) {
@@ -232,61 +247,99 @@ const StudentDashboard = () => {
   // Custom announcement drawer content
   const AnnouncementsContent = () => {
     if (announcements.length === 0) {
-      return <div className="text-center text-gray-500">No announcements available.</div>;
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="p-4 bg-gray-100 rounded-full mb-4">
+            <Megaphone className="w-12 h-12 text-gray-400" />
+          </div>
+          <p className="text-gray-500 font-medium">No announcements available</p>
+          <p className="text-gray-400 text-sm mt-1">Check back later for updates</p>
+        </div>
+      );
     }
     
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {announcements.map((announcement) => (
           <div 
             key={announcement.id} 
-            className="p-4 bg-white rounded-lg border border-purple-100 shadow-sm"
+            className="group bg-gradient-to-br from-white to-purple-50 rounded-lg border border-purple-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
           >
-            <h3 className="font-bold text-purple-700 text-lg mb-2">
-              📢 {announcement.title}
-            </h3>
-            <p className="text-gray-700 mb-4 whitespace-pre-wrap">
-              {announcement.message}
-            </p>
-            
-            {/* File attachment section */}
-            {announcement.file_url && (
-              <div className="mt-3 border-t pt-3">
-                <div className="flex items-center gap-3">
-                  {getFileIcon(announcement.file_type)}
-                  <span className="text-sm text-gray-600 font-medium">
-                    {announcement.file_name || 'Attachment'}
-                  </span>
-                  
-                  <div className="ml-auto flex gap-2">
-                    {/* Preview button for supported files */}
-                    {canPreviewFile(announcement.file_type) && (
-                      <button
-                        onClick={() => openFilePreview(announcement.file_url, announcement.file_type)}
-                        className="p-1 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
-                        title="Preview file"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
-                    )}
+            {/* Header Section */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 px-4 py-3 flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg">
+                <Megaphone className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="font-semibold text-white text-base flex-1">
+                {announcement.title}
+              </h3>
+              <div className="flex items-center gap-1 text-white/80 text-xs">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{new Date(announcement.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="p-4">
+              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                {announcement.message}
+              </p>
+              
+              {/* File attachment section */}
+              {announcement.file_url && (
+                <div className="mt-4 pt-4 border-t border-purple-100">
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-shrink-0">
+                        {getFileIcon(announcement.file_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Paperclip className="w-3.5 h-3.5 text-gray-400" />
+                          <span className="text-sm text-gray-700 font-medium truncate">
+                            {announcement.file_name || 'Attachment'}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {announcement.file_type?.split('/')[1]?.toUpperCase() || 'File'}
+                        </span>
+                      </div>
+                    </div>
                     
-                    {/* Download button for all files */}
-                    <button
-                      onClick={() => handleDownloadFile(announcement.id, announcement.file_name)}
-                      className="p-1 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition"
-                      title="Download file"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-2 ml-3">
+                      {/* Preview button for supported files */}
+                      {canPreviewFile(announcement.file_type) && (
+                        <button
+                          onClick={() => openFilePreview(announcement.file_url, announcement.file_type)}
+                          className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                          title="Preview file"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      )}
+                      
+                      {/* Download button for all files */}
+                      <button
+                        onClick={() => handleDownloadFile(announcement.id, announcement.file_name)}
+                        className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
+                        title="Download file"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
+              )}
+              
+              {/* Timestamp */}
+              <div className="mt-3 flex items-center justify-end">
+                <span className="text-xs text-gray-400">
+                  {new Date(announcement.created_at).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
               </div>
-            )}
-            
-            <div className="mt-2 text-right">
-              <span className="text-xs text-gray-400">
-                {new Date(announcement.created_at).toLocaleString()}
-              </span>
             </div>
           </div>
         ))}
@@ -360,32 +413,107 @@ const StudentDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-md flex flex-col items-center text-center">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Problem Statement
-              </h2>
-              {problem ? (
-                <div className="max-w-xl text-left">
-                  <h3 className="text-lg font-bold text-purple-700 mb-2">
-                    {problem.title}
-                  </h3>
-                  <p className="text-gray-700 whitespace-pre-line leading-relaxed text-justify">
-                    {problem.description}
-                  </p>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <Lightbulb className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Problem Statement
+                  </h2>
                 </div>
-              ) : (
-                <>
-                  <p className="text-gray-500 mb-4">
-                    No problem statement has been selected yet.
-                  </p>
-                  <a
-                    href="/student/problem-statement"
-                    className="text-white font-medium py-2 px-6 rounded-lg transition duration-300 bg-purple-600 hover:bg-purple-700"
-                  >
-                    Choose Problem Statement
-                  </a>
-                </>
-              )}
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {problem ? (
+                  <div className="space-y-4">
+                    {/* Title */}
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-3 leading-tight">
+                        {problem.title}
+                      </h3>
+                    </div>
+
+                    {/* Metadata Grid */}
+                    {(problem.type || problem.technologybucket || problem.domain) && (
+                      <div className="grid grid-cols-1 gap-3">
+                        {problem.type && (
+                          <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3 border border-blue-100">
+                            <Target className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-blue-600 font-medium">Type</p>
+                              <p className="text-sm text-gray-900 font-semibold">{problem.type}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {problem.technologybucket && (
+                          <div className="flex items-center gap-3 bg-green-50 rounded-lg p-3 border border-green-100">
+                            <Code className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-green-600 font-medium">Technology</p>
+                              <p className="text-sm text-gray-900 font-semibold">{problem.technologybucket}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {problem.domain && (
+                          <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-3 border border-orange-100">
+                            <Globe className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs text-orange-600 font-medium">Domain</p>
+                              <p className="text-sm text-gray-900 font-semibold">{problem.domain}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    {problem.description && (
+                      <div className="mt-4 pt-4 border-t border-purple-100">
+                        <div className="flex items-center gap-2 mb-3">
+                          <BookOpen className="w-5 h-5 text-purple-600" />
+                          <h4 className="font-semibold text-gray-900">Description</h4>
+                        </div>
+                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+                          {problem.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Edit Button */}
+                    <div className="pt-4 border-t border-purple-100">
+                      <a
+                        href="/student/problem-statement"
+                        className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium text-sm transition-colors"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Edit Problem Statement
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="p-4 bg-gray-100 rounded-full mb-4">
+                      <Lightbulb className="w-12 h-12 text-gray-400" />
+                    </div>
+                    <p className="text-gray-600 font-medium mb-4 text-center">
+                      No problem statement submitted yet
+                    </p>
+                    <a
+                      href="/student/problem-statement"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Add Problem Statement
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </main>

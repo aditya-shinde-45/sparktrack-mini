@@ -245,12 +245,6 @@ const Students = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="flex items-center">
-                        <Phone className="h-4 w-4 mr-2" />
-                        Contact
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center">
                         <Mail className="h-4 w-4 mr-2" />
                         Email
                       </div>
@@ -269,7 +263,7 @@ const Students = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentStudents.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center">
+                      <td colSpan="6" className="px-6 py-12 text-center">
                         <div className="text-gray-500">
                           <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                           <p className="text-lg font-medium">No students found</p>
@@ -296,18 +290,6 @@ const Students = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {student.name || student.name_of_students || 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {student.contact ? (
-                              <a 
-                                href={`tel:${student.contact}`}
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                {student.contact}
-                              </a>
-                            ) : 'N/A'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -438,7 +420,7 @@ const Students = () => {
 
       {/* Profile Modal - Full Width */}
       {showModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-md bg-white/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">

@@ -3,7 +3,7 @@ import supabase from "../config/database.js";
 /**
  * Groups Draft Model
  * Stores draft groups before finalization
- * Status: draft | finalized | cancelled
+ * Status: DRAFT | CONFIRMED
  */
 
 const GroupDraft = {
@@ -18,7 +18,7 @@ const GroupDraft = {
           group_id: draftData.group_id,
           leader_id: draftData.leader_id,
           group_name: draftData.team_name,
-          status: "draft",
+          status: "DRAFT",
           created_at: new Date().toISOString(),
         },
       ])
@@ -36,7 +36,7 @@ const GroupDraft = {
       .from("groups_draft")
       .select("*")
       .eq("leader_id", leaderEnrollment)
-      .in("status", ["draft"])
+      .eq("status", "DRAFT")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -63,7 +63,7 @@ const GroupDraft = {
   async updateStatus(groupId, status) {
     const { data, error } = await supabase
       .from("groups_draft")
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ status })
       .eq("group_id", groupId)
       .select();
 
@@ -92,7 +92,7 @@ const GroupDraft = {
       .from("groups_draft")
       .select("group_id")
       .eq("leader_id", leaderEnrollment)
-      .eq("status", "draft");
+      .eq("status", "DRAFT");
 
     if (error) throw error;
     return data.length > 0;
