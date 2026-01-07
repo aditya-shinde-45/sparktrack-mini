@@ -31,39 +31,80 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     setEnrollmentNo(storedEnrollment);
 
     const fetchData = async () => {
+      const token = localStorage.getItem("student_token");
+      let hasGroup = false;
+
+      // First, check if finalized group exists
       try {
-        const token = localStorage.getItem("student_token");
         const groupRes = await apiRequest(`/api/students/pbl/gp/${storedEnrollment}`, "GET", null, token);
         const details = groupRes?.data?.groupDetails || groupRes?.groupDetails;
 
         if (details) {
           setGroupDetails(details);
+          hasGroup = true;
+          setLoading(false);
+          return; // Stop here if group exists
         }
       } catch (err) {
         console.warn('No finalized group found:', err?.message);
       }
 
-      // Fetch draft groups (if leader)
-      try {
-        const token = localStorage.getItem("student_token");
-        const draftRes = await apiRequest(`/api/groups-draft/draft/leader/${storedEnrollment}`, "GET", null, token);
-        const drafts = draftRes?.data?.drafts || draftRes?.drafts || [];
-        setDraftGroups(drafts);
-      } catch (err) {
-        console.warn('No draft groups found:', err?.message);
-      }
+      // Only fetch drafts and invitations if no finalized group exists
+      if (!hasGroup) {
+        // Fetch draft groups (if leader)
+        let leaderDrafts = [];
+        try {
+          const draftRes = await apiRequest(`/api/groups-draft/draft/leader/${storedEnrollment}`, "GET", null, token);
+          leaderDrafts = draftRes?.data?.drafts || draftRes?.drafts || [];
+        } catch (err) {
+          console.warn('No draft groups found as leader:', err?.message);
+        }
 
-      // Fetch pending invitations (if member)
-      try {
-        const token = localStorage.getItem("student_token");
-        const invitationsRes = await apiRequest(`/api/groups-draft/invitations/${storedEnrollment}`, "GET", null, token);
-        const invitations = invitationsRes?.data?.invitations || invitationsRes?.invitations || [];
-        setRequests(invitations);
-      } catch (err) {
-        console.warn('No pending invitations:', err?.message);
-      } finally {
-        setLoading(false);
+        // Fetch pending invitations (if member)
+        let memberDrafts = [];
+        try {
+          const invitationsRes = await apiRequest(`/api/groups-draft/invitations/${storedEnrollment}`, "GET", null, token);
+          const invitations = invitationsRes?.data?.invitations || invitationsRes?.invitations || [];
+          
+          // Separate pending invitations from accepted ones
+          const pendingInvites = invitations.filter(inv => inv.status === 'pending');
+          const acceptedInvites = invitations.filter(inv => inv.status === 'accepted');
+          
+          setRequests(pendingInvites);
+          
+          // If member has accepted invitations, fetch those draft groups too
+          if (acceptedInvites.length > 0) {
+            // Fetch all accepted group drafts
+            const draftPromises = acceptedInvites.map(async (invite) => {
+              try {
+                const draftDetailsRes = await apiRequest(`/api/groups-draft/draft/${invite.group_id}`, "GET", null, token);
+                const draftData = draftDetailsRes?.data?.draft || draftDetailsRes?.draft;
+                return draftData ? { ...draftData, is_member: true } : null;
+              } catch (err) {
+                console.warn(`Failed to fetch draft ${invite.group_id}:`, err?.message);
+                return null;
+              }
+            });
+            
+            const fetchedDrafts = await Promise.all(draftPromises);
+            memberDrafts = fetchedDrafts.filter(d => d !== null);
+          }
+        } catch (err) {
+          console.warn('No pending invitations:', err?.message);
+        }
+
+        // Combine and deduplicate drafts (leader drafts take precedence)
+        const allDrafts = [...leaderDrafts];
+        memberDrafts.forEach(memberDraft => {
+          if (!allDrafts.find(d => d.group_id === memberDraft.group_id)) {
+            allDrafts.push(memberDraft);
+          }
+        });
+        
+        setDraftGroups(allDrafts);
       }
+      
+      setLoading(false);
     };
 
     fetchData();
@@ -73,6 +114,10 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     setActionLoading(true);
     try {
       const token = localStorage.getItem("student_token");
+      
+      // Find the request to get group_id before removing it
+      const currentRequest = requests.find(req => req.request_id === requestId);
+      
       await apiRequest(`/api/groups-draft/respond`, "POST", { 
         request_id: requestId, 
         status: response 
@@ -81,6 +126,19 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       setSelectedRequest(null);
       setRequests(prev => prev.filter(req => req.request_id !== requestId));
       setMessage(`✅ Invitation ${response} successfully!`);
+      
+      // If accepted, fetch the draft group details and show it
+      if (response === 'accepted' && currentRequest?.group_id) {
+        try {
+          const draftDetailsRes = await apiRequest(`/api/groups-draft/draft/${currentRequest.group_id}`, "GET", null, token);
+          const draftData = draftDetailsRes?.data?.draft || draftDetailsRes?.draft;
+          if (draftData) {
+            setDraftGroups(prev => [...prev, { ...draftData, is_member: true }]);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch draft details after acceptance:', err?.message);
+        }
+      }
     } catch (err) {
       setError(`Error handling ${response}: ${err.response?.data?.message || err.message}`);
     } finally {
@@ -89,12 +147,18 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   };
 
   const handleConfirmGroup = async (groupId) => {
+    if (!window.confirm('Are you sure you want to confirm and finalize this group? This action cannot be undone.')) return;
+    
     setActionLoading(true);
     try {
       const token = localStorage.getItem("student_token");
-      await apiRequest(`/api/groups-draft/confirm/${groupId}`, "POST", {}, token);
+      const response = await apiRequest(`/api/groups-draft/confirm/${groupId}`, "POST", {}, token);
       
-      setMessage('✅ Group confirmed and finalized!');
+      const finalizedData = response?.data || response;
+      const finalGroupId = finalizedData?.group_id;
+      
+      // Show the generated group ID
+      setMessage(`✅ Group confirmed and finalized successfully! Your Group ID is: ${finalGroupId}`);
       
       // Refresh data
       const groupRes = await apiRequest(`/api/students/pbl/gp/${enrollmentNo}`, "GET", null, token);
@@ -161,91 +225,14 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     </div>
   );
 
-  // ✅ 1. Show draft groups (for leaders)
-  if (draftGroups.length > 0) {
-    return (
-      <div className="card col-span-1 p-6 bg-white rounded-xl shadow space-y-6">
-        <MessageAlert />
-        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-orange-500" />
-          Pending Group Invitations
-        </h2>
-        
-        {draftGroups.map((draft) => (
-          <div key={draft.group_id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{draft.group_name}</h3>
-                <p className="text-sm text-gray-600">Group ID: {draft.group_id}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Created {new Date(draft.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-700">
-                Waiting for Responses
-              </span>
-            </div>
-
-            {/* Invitation Statistics */}
-            <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
-              <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Member Responses
-              </h4>
-              <div className="space-y-2">
-                {draft.invitations && draft.invitations.map((inv, idx) => (
-                  <div key={inv.request_id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 font-mono">{inv.enrollment_no}</span>
-                    <span className={`flex items-center gap-1 ${
-                      inv.status === 'accepted' ? 'text-green-600' :
-                      inv.status === 'rejected' ? 'text-red-600' :
-                      'text-orange-600'
-                    }`}>
-                      {inv.status === 'accepted' && <CheckCircle className="w-4 h-4" />}
-                      {inv.status === 'rejected' && <XCircle className="w-4 h-4" />}
-                      {inv.status === 'pending' && <Clock className="w-4 h-4" />}
-                      <span className="capitalize">{inv.status}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              {draft.all_accepted ? (
-                <button
-                  onClick={() => handleConfirmGroup(draft.group_id)}
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium disabled:opacity-50 flex items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm & Finalize Group
-                </button>
-              ) : (
-                <div className="text-sm text-orange-700 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Waiting for all members to accept...
-                </div>
-              )}
-              <button
-                onClick={() => handleCancelDraft(draft.group_id)}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium disabled:opacity-50"
-              >
-                Cancel Draft
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  // ✅ 2. If group already exists (updated to use full-width rows)
+  // ✅ 1. If group already exists (finalized), show it first - highest priority
   if (groupDetails) {
     return (
       <div className="card col-span-1 p-6 bg-white rounded-xl shadow">
+        <MessageAlert />
+        {groupDetails.team_name && (
+          <h1 className="text-2xl font-bold mb-2 text-gray-900">{groupDetails.team_name}</h1>
+        )}
         <h2 className="text-xl font-semibold mb-4 text-gray-900">Group: {groupDetails.group_id}</h2>
         <p className="text-base text-gray-800 mb-6">
           <strong>Guide Name:</strong> 
@@ -299,7 +286,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
                           
                           {/* Badges */}
                           <div className="flex items-center gap-2">
-                            {idx === 0 && (
+                            {member.is_leader && (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                 Group Leader
                               </span>
@@ -342,7 +329,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
         </div>
 
         {/* Edit Group button (only for group leader) */}
-        {groupDetails.members && groupDetails.members[0]?.enrollement_no === enrollmentNo && (
+        {groupDetails.members && groupDetails.members.find(m => m.is_leader)?.enrollement_no === enrollmentNo && (
           <div className="mt-6 pt-6 border-t border-gray-200">
             <button
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
@@ -543,6 +530,98 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // ✅ 2. Show draft groups (for leaders/members) - only if no finalized group
+  if (draftGroups.length > 0) {
+    return (
+      <div className="card col-span-1 p-6 bg-white rounded-xl shadow space-y-6">
+        <MessageAlert />
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-orange-500" />
+          Pending Group Invitations
+        </h2>
+        
+        {draftGroups.map((draft) => (
+          <div key={draft.group_id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{draft.group_name}</h3>
+                <p className="text-sm text-gray-600">Group ID: {draft.group_id}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Created {new Date(draft.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-700">
+                Waiting for Responses
+              </span>
+            </div>
+
+            {/* Invitation Statistics - Only visible to group leader */}
+            {!draft.is_member && (
+              <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Member Responses
+                </h4>
+                <div className="space-y-2">
+                  {draft.invitations && draft.invitations.map((inv, idx) => (
+                    <div key={inv.request_id} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700 font-mono">{inv.enrollment_no}</span>
+                      <span className={`flex items-center gap-1 ${
+                        inv.status === 'accepted' ? 'text-green-600' :
+                        inv.status === 'rejected' ? 'text-red-600' :
+                        'text-orange-600'
+                      }`}>
+                        {inv.status === 'accepted' && <CheckCircle className="w-4 h-4" />}
+                        {inv.status === 'rejected' && <XCircle className="w-4 h-4" />}
+                        {inv.status === 'pending' && <Clock className="w-4 h-4" />}
+                        <span className="capitalize">{inv.status}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              {draft.all_accepted ? (
+                draft.is_member ? (
+                  <div className="text-sm text-green-700 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    All members accepted. Waiting for leader to finalize...
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleConfirmGroup(draft.group_id)}
+                    disabled={actionLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Confirm & Finalize Group
+                  </button>
+                )
+              ) : (
+                <div className="text-sm text-orange-700 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Waiting for all members to accept...
+                </div>
+              )}
+              {!draft.is_member && (
+                <button
+                  onClick={() => handleCancelDraft(draft.group_id)}
+                  disabled={actionLoading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium disabled:opacity-50"
+                >
+                  Cancel Draft
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
