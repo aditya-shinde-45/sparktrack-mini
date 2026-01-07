@@ -29,7 +29,7 @@ const UserProfile = ({ enrollmentNo }) => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('student_token');
-      const res = await apiRequest(`/api/student/profile/${enrollmentNo}`, 'GET', null, token);
+      const res = await apiRequest(`/api/students/student/profile/${enrollmentNo}`, 'GET', null, token);
       if (res && res.profile) {
         setProfile(res.profile);
         setEditForm(res.profile);
@@ -81,7 +81,7 @@ const UserProfile = ({ enrollmentNo }) => {
         ? import.meta.env.VITE_API_BASE_URL 
         : import.meta.env.VITE_API_BASE_URL_PROD;
 
-      const res = await fetch(`${API_BASE_URL}/api/students/profile/${enrollmentNo}`, {
+      const res = await fetch(`${API_BASE_URL}/api/students/student/profile/${enrollmentNo}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -114,7 +114,7 @@ const AnnouncementAdmin = () => {
                 ? import.meta.env.VITE_API_BASE_URL
                 : import.meta.env.VITE_API_BASE_URL_PROD;
 
-            const response = await fetch(`${API_BASE_URL}/api/announcement/send`, {
+            const response = await fetch(`${API_BASE_URL}/api/announcements/announcement/send`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -153,7 +153,7 @@ const AnnouncementAdmin = () => {
     const handleDeleteAnnouncement = async (id) => {
         if (!window.confirm("Delete this announcement?")) return;
         const token = localStorage.getItem("token");
-        const res = await apiRequest(`/api/announcement/${id}`, "DELETE", null, token);
+        const res = await apiRequest(`/api/announcements/announcement/${id}`, "DELETE", null, token);
         if (res && !res.success === false) {
             fetchAnnouncements();
         } else {

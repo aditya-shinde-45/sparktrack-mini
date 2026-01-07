@@ -2,9 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../api';
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
-import { AlertCircle, Check, X } from "lucide-react";
+import { 
+  AlertCircle, 
+  Check, 
+  X, 
+  FileText, 
+  Users, 
+  BookOpen, 
+  Lightbulb, 
+  Target, 
+  Code, 
+  Globe, 
+  Layers,
+  Edit3,
+  Trash2,
+  Save,
+  RefreshCw
+} from "lucide-react";
 
-const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
+const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete }) => {
   const [form, setForm] = useState(
     existing || {
       title: '',
@@ -16,7 +32,7 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
   );
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [messageType, setMessageType] = useState('');
 
   useEffect(() => {
     if (existing) setForm(existing);
@@ -55,13 +71,13 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
     setLoading(true);
     setMessage('');
     const token = localStorage.getItem('student_token');
-  const res = await apiRequest(`/api/students/student/problem-statement/${groupId}`, 'DELETE', null, token);
+    const res = await apiRequest(`/api/students/student/problem-statement/${groupId}`, 'DELETE', null, token);
     setLoading(false);
     
     if (res.success !== false) {
       setMessage(res.message || 'Problem statement deleted successfully!');
       setMessageType('success');
-  if (onDelete) onDelete();
+      if (onDelete) onDelete();
     } else {
       setMessage(res.message || 'Failed to delete problem statement.');
       setMessageType('error');
@@ -71,106 +87,160 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white rounded-xl shadow p-6 space-y-6 border border-purple-100"
+      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
     >
-      <h2 className="text-xl font-bold text-purple-700 mb-2">
-        {existing ? 'Edit' : 'Submit'} Problem Statement
-      </h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Form Header */}
+      <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <FileText className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              {existing ? 'Edit' : 'Submit'} Problem Statement
+            </h2>
+            <p className="text-gray-600 text-sm">Define your project scope and objectives</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Title Field */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Title</label>
+          <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+            <Lightbulb className="w-5 h-5 text-purple-600" />
+            Project Title *
+          </label>
           <input
             name="title"
             value={form.title}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
-            placeholder="Title"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+            placeholder="Enter your project title"
           />
         </div>
+
+        {/* Grid Layout for Secondary Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+              <Target className="w-5 h-5 text-blue-600" />
+              Type
+            </label>
+            <select
+              name="type"
+              value={form.type}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+            >
+              <option value="">Select Type</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Software">Software</option>
+              <option value="Hybrid">Hybrid</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+              <Code className="w-5 h-5 text-green-600" />
+              Technology Bucket
+            </label>
+            <input
+              name="technologyBucket"
+              value={form.technologyBucket}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+              placeholder="e.g., AI/ML, IoT"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+              <Globe className="w-5 h-5 text-orange-600" />
+              Domain
+            </label>
+            <input
+              name="domain"
+              value={form.domain}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+              placeholder="e.g., Healthcare"
+            />
+          </div>
+        </div>
+
+        {/* Description Field */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Type</label>
-          <input
-            name="type"
-            value={form.type}
+          <label className="flex items-center gap-2 text-gray-700 font-semibold mb-3">
+            <BookOpen className="w-5 h-5 text-indigo-600" />
+            Problem Description *
+          </label>
+          <textarea
+            name="description"
+            value={form.description}
             onChange={handleChange}
-            className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
-            placeholder="Type (e.g. Hardware/Software)"
+            required
+            rows={6}
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white resize-vertical"
+            placeholder="Describe your problem statement in detail..."
           />
+          <p className="text-gray-500 text-sm mt-2">
+            Provide a clear and concise description of the problem you aim to solve
+          </p>
         </div>
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">Technology Bucket</label>
-          <input
-            name="technologyBucket"
-            value={form.technologyBucket}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
-            placeholder="Technology Bucket"
-          />
-        </div>
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">Domain</label>
-          <input
-            name="domain"
-            value={form.domain}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
-            placeholder="Domain"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <label className="block text-gray-700 font-semibold mb-2">Description</label>
-        <textarea
-          name="description"
-          value={form.description}
-          onChange={handleChange}
-          required
-          rows={5}
-          className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white resize-vertical"
-          placeholder="Describe your problem statement"
-        />
-      </div>
-      
-      {message && (
-        <div className={`flex items-center gap-2 p-4 rounded-lg ${
-          messageType === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-        }`}>
-          {messageType === 'success' ? (
-            <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          )}
-          <span>{message}</span>
-        </div>
-      )}
-      
-      <div className="flex gap-4 justify-end">
-        {existing && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={loading}
-            className="px-5 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-semibold transition"
-          >
-            Delete
-          </button>
+
+        {/* Message Alert */}
+        {message && (
+          <div className={`flex items-center gap-3 p-4 rounded-xl border-2 ${
+            messageType === 'success' 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
+            {messageType === 'success' ? (
+              <Check className="w-6 h-6 text-green-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+            )}
+            <span className={`font-medium ${
+              messageType === 'success' ? 'text-green-800' : 'text-red-800'
+            }`}>
+              {message}
+            </span>
+          </div>
         )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? 
-            <span className="flex items-center gap-2">
-              <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-              {existing ? 'Updating...' : 'Submitting...'}
-            </span> : 
-            (existing ? 'Update' : 'Submit')
-          }
-        </button>
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
+          {existing && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                {existing ? 'Updating...' : 'Submitting...'}
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                {existing ? 'Update' : 'Submit'}
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -178,11 +248,10 @@ const ProblemStatementForm = ({ groupId, existing, onSubmit, onDelete }) => {
 
 const ProblemStatementSih = () => {
   const [student, setStudent] = useState(null);
-  const [groupId, setGroupId] = useState('');
+  const [groupData, setGroupData] = useState(null);
   const [existingPS, setExistingPS] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [fetchingGroup, setFetchingGroup] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('student_token');
@@ -205,24 +274,46 @@ const ProblemStatementSih = () => {
         }
         
         setStudent(profileData);
-        console.log("Student profile:", profileData);
+        const enrollmentNo = profileData.enrollment_no || profileData.enrollement_no;
         
-        // Check if student has a group ID directly in profile
-        const studentGroupId = profileData.group_id || 
-                               profileData.groupId || 
-                               profileData.group || 
-                               '';
-        
-        if (studentGroupId) {
-          console.log("Found group ID in profile:", studentGroupId);
-          setGroupId(studentGroupId);
+        // Fetch group details from pbl table
+        try {
+          const groupRes = await apiRequest(
+            `/api/students/student/group-details/${enrollmentNo}`, 
+            "GET", 
+            null, 
+            token
+          );
           
-          // Fetch existing problem statement for this group
-          fetchProblemStatement(studentGroupId, token);
-        } else {
-          // No group ID in profile, try fetch from group endpoint
-          await fetchGroupDetails(profileData, token);
+          const group = groupRes?.data?.group || groupRes?.group;
+          
+          if (group && group.group_id) {
+            setGroupData(group);
+            
+            // Fetch existing problem statement
+            try {
+              const psRes = await apiRequest(
+                `/api/students/student/problem-statement/${group.group_id}`, 
+                'GET', 
+                null, 
+                token
+              );
+              const statement = psRes?.data?.problemStatement || psRes?.problemStatement;
+              if (statement) {
+                setExistingPS(statement);
+              }
+            } catch (error) {
+              console.log("No existing problem statement found");
+            }
+          } else {
+            setError("You are not part of any group yet. Please create or join a group first.");
+          }
+        } catch (error) {
+          console.error("Error fetching group details:", error);
+          setError("You are not part of any group yet. Please create or join a group first.");
         }
+        
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching student data:", error);
         setError("An error occurred while fetching data.");
@@ -230,129 +321,49 @@ const ProblemStatementSih = () => {
       }
     };
 
-    const fetchGroupDetails = async (profile, token) => {
-      setFetchingGroup(true);
-      try {
-        // Try both enrollment_no and enrollement_no (with typo)
-        const enrollmentNo = profile.enrollment_no || profile.enrollement_no;
-        
-        if (!enrollmentNo) {
-          console.error("No enrollment number found in profile");
-          setLoading(false);
-          return;
-        }
-
-        console.log("Fetching group details for enrollment:", enrollmentNo);
-        
-        // Call the group details API
-        const groupRes = await apiRequest(`/api/students/pbl/gp/${enrollmentNo}`, "GET", null, token);
-        console.log("Group API response:", groupRes);
-        
-        const fetchedGroup = groupRes?.data?.groupDetails || groupRes?.groupDetails || groupRes?.group;
-
-        if (fetchedGroup && fetchedGroup.id) {
-          console.log("Found group ID from API:", fetchedGroup.id);
-          setGroupId(fetchedGroup.id);
-          fetchProblemStatement(fetchedGroup.id, token);
-        } else if (groupRes && groupRes.group_id) {
-          // Alternative response format
-          console.log("Found alternate group ID format:", groupRes.group_id);
-          setGroupId(groupRes.group_id);
-          fetchProblemStatement(groupRes.group_id, token);
-        } else if (groupRes && groupRes.data && groupRes.data.group_id) {
-          // Another possible response format
-          console.log("Found nested group ID:", groupRes.data.group_id);
-          setGroupId(groupRes.data.group_id);
-          fetchProblemStatement(groupRes.data.group_id, token);
-        } else {
-          // Special case for ADT24SOCBD142 - hardcode their group ID
-          // This is a temporary fix for this specific student
-          if (enrollmentNo === 'ADT24SOCBD142') {
-            console.log("Using hardcoded group ID for student ADT24SOCBD142");
-            const fixedGroupId = "G123"; // Replace with the actual group ID from the database
-            setGroupId(fixedGroupId);
-            fetchProblemStatement(fixedGroupId, token);
-          } else {
-            console.error("No group found for student");
-            setLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching group details:", error);
-        setLoading(false);
-      } finally {
-        setFetchingGroup(false);
-      }
-    };
-
-    const fetchProblemStatement = async (gid, token) => {
-      try {
-        console.log("Fetching problem statement for group:", gid);
-        const psRes = await apiRequest(`/api/students/student/problem-statement/${gid}`, 'GET', null, token);
-        console.log("Problem statement response:", psRes);
-        
-        const statement = psRes?.data?.problemStatement || psRes?.problemStatement;
-
-        if (statement) {
-          setExistingPS(statement);
-        }
-      } catch (error) {
-        console.error("Error fetching problem statement:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStudentData();
   }, []);
 
-  // Special function to manually set group ID from input
-  // This is a fallback for when automatic detection fails
-  const handleManualGroupIdSubmit = (e) => {
-    e.preventDefault();
-    const manualId = document.getElementById('manual-group-id').value;
-    if (manualId && manualId.trim()) {
-      console.log("Setting manual group ID:", manualId);
-      setGroupId(manualId);
-      
-      const token = localStorage.getItem('student_token');
-      if (token) {
-        fetchProblemStatement(manualId, token);
-      }
-    }
-  };
-
-  const fetchProblemStatement = async (gid, token) => {
-    try {
-      console.log("Fetching problem statement for group:", gid);
-      const psRes = await apiRequest(`/api/students/student/problem-statement/${gid}`, 'GET', null, token);
-      console.log("Problem statement response:", psRes);
-      
-      const statement = psRes?.data?.problemStatement || psRes?.problemStatement;
-
-      if (statement) {
-        setExistingPS(statement);
-      }
-    } catch (error) {
-      console.error("Error fetching problem statement:", error);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-gray-600">
-          {fetchingGroup ? "Retrieving your group information..." : "Loading..."}
-        </div>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+        <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <p className="text-lg text-gray-600 font-medium">Loading your data...</p>
       </div>
     );
   }
 
   if (error || !student) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-red-600">
-          {error || "Session expired. Please log in again."}
+      <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
+        <Header
+          name={student?.name_of_students || student?.name || "Student"}
+          id={student?.enrollment_no || student?.enrollement_no || "----"}
+        />
+        <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
+          <Sidebar />
+          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72">
+            <div>
+              <div className="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-8 max-w-2xl">
+                <div className="flex flex-col items-center text-center">
+                  <div className="p-4 bg-amber-100 rounded-full mb-6">
+                    <AlertCircle className="w-16 h-16 text-amber-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-amber-900 mb-3">Group Required</h3>
+                  <p className="text-amber-800 mb-6 leading-relaxed">
+                    {error || "You need to be part of a group to submit a problem statement. Please create or join a group first."}
+                  </p>
+                  <a
+                    href="/student-dashboard"
+                    className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition-all"
+                  >
+                    <Users className="w-5 h-5" />
+                    Go to Dashboard
+                  </a>
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -367,85 +378,57 @@ const ProblemStatementSih = () => {
       <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
         <Sidebar />
         <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-purple-800 mb-2">Problem Statement</h1>
-              <p className="text-gray-600">
-                Submit or edit your group's problem statement. Only one statement per group is allowed.
-              </p>
-            </div>
-            
-            {!groupId ? (
-              <div className="bg-white rounded-xl shadow p-6 border border-orange-200 bg-orange-50 text-orange-800">
-                <div className="flex flex-col items-center text-center mb-6">
-                  <AlertCircle className="w-12 h-12 text-orange-500 mb-4" />
-                  <h3 className="text-lg font-bold mb-2">Group Information</h3>
-                  <p className="mb-4">
-                    Your group data couldn't be retrieved automatically. Please enter your group ID manually.
+          <div className="space-y-6">
+            {/* Page Header */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Layers className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">Problem Statement</h1>
+                  <p className="text-gray-600">
+                    Define and document your project's problem statement to guide your development process
                   </p>
                 </div>
-                
-                <div className="bg-white p-4 rounded-lg border border-orange-200 mb-6">
-                  <h4 className="font-semibold mb-2">Student Information:</h4>
-                  <p><strong>Student ID:</strong> {student.enrollment_no || student.enrollement_no}</p>
-                  <p><strong>Student Name:</strong> {student.name_of_students || student.name}</p>
-                  
-                  {/* Manual Group ID Entry Form */}
-                  <div className="mt-4 pt-4 border-t border-orange-200">
-                    <h4 className="font-semibold mb-2">Enter Your Group ID:</h4>
-                    <form onSubmit={handleManualGroupIdSubmit} className="flex items-center gap-2">
-                      <input
-                        id="manual-group-id"
-                        type="text"
-                        className="px-3 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-gray-800 bg-white"
-                        placeholder="e.g. G123"
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                      >
-                        Submit
-                      </button>
-                    </form>
-                    <p className="mt-2 text-xs text-orange-600">
-                      You can find your group ID in your dashboard or ask your group members.
-                    </p>
+              </div>
+            </div>
+
+            {/* Group Information Card */}
+            {groupData && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Users className="w-5 h-5 text-blue-600" />
                   </div>
+                  <h2 className="text-lg font-bold text-gray-900">Group Information</h2>
                 </div>
-                
-                <div className="flex justify-center">
-                  <a
-                    href="/student/dashboard"
-                    className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition mr-4"
-                  >
-                    Return to Dashboard
-                  </a>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="bg-orange-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-orange-700 transition"
-                  >
-                    Refresh Page
-                  </button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-gray-600 text-sm mb-1">Group ID</p>
+                    <p className="text-lg font-bold text-gray-900">{groupData.group_id}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-gray-600 text-sm mb-1">Team Name</p>
+                    <p className="text-lg font-bold text-gray-900">{groupData.team_name || 'Not Set'}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <p className="text-gray-600 text-sm mb-1">Guide</p>
+                    <p className="text-lg font-bold text-gray-900">{groupData.guide_name || 'Not Assigned'}</p>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="mb-6 p-4 bg-purple-50 border border-purple-100 rounded-lg">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-purple-700">Group ID:</span>
-                    <span className="font-bold text-purple-900 bg-purple-100 px-3 py-1 rounded-md">
-                      {groupId}
-                    </span>
-                  </div>
-                </div>
-              
-                <ProblemStatementForm
-                  groupId={groupId}
-                  existing={existingPS}
-                  onSubmit={setExistingPS}
-                  onDelete={() => setExistingPS(null)}
-                />
-              </>
+            )}
+
+            {/* Problem Statement Form */}
+            {groupData && (
+              <ProblemStatementForm
+                groupId={groupData.group_id}
+                groupName={groupData.team_name}
+                existing={existingPS}
+                onSubmit={setExistingPS}
+                onDelete={() => setExistingPS(null)}
+              />
             )}
           </div>
         </main>

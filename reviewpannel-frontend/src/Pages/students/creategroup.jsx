@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../../Components/Student/sidebar';
 import Header from '../../Components/Student/Header';
 import axios from 'axios';
-import { Users, UserPlus, Mail, Phone, Building, Award, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Mail, Phone, Building, Award, AlertCircle, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 const CreateGroup = () => {
   const [memberCount, setMemberCount] = useState(1);
@@ -18,6 +18,7 @@ const CreateGroup = () => {
   const [guideName, setGuideName] = useState('');
   const [guideContact, setGuideContact] = useState('');
   const [guideEmail, setGuideEmail] = useState('');
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
 
   const [problemTitle, setProblemTitle] = useState('');
   const [problemType, setProblemType] = useState('');
@@ -44,6 +45,11 @@ const CreateGroup = () => {
       });
     } catch (err) {
       console.error('Error fetching leader data:', err);
+      // Check if error is due to deadline
+      if (err?.response?.status === 403) {
+        setDeadlinePassed(true);
+        setMessage('⚠️ Group creation deadline has passed. This feature is currently disabled.');
+      }
       // Fallback to localStorage if API fails
       const storedStudent = JSON.parse(localStorage.getItem('student') || '{}');
       setLeaderData(storedStudent);
@@ -175,11 +181,16 @@ const CreateGroup = () => {
       
       // Clear form after successful submission
       setTimeout(() => {
-        window.location.href = '/student-dashboard';
+        window.location.href = '/studentdashboard';
       }, 2000);
     } catch (err) {
       console.error(err);
-      setMessage(`❌ ${err.response?.data?.message || err.response?.data?.error || 'Submission failed'}`);
+      if (err?.response?.status === 403) {
+        setDeadlinePassed(true);
+        setMessage('⚠️ Group creation deadline has passed. This feature is currently disabled.');
+      } else {
+        setMessage(`❌ ${err.response?.data?.message || err.response?.data?.error || 'Submission failed'}`);
+      }
     }
   };
 
@@ -205,20 +216,50 @@ const CreateGroup = () => {
             <p className="text-gray-600">Create and manage your project team</p>
           </div>
 
+          {/* Deadline Warning Banner */}
+          {deadlinePassed && (
+            <div className="p-5 rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 shadow-md">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 p-2 bg-amber-100 rounded-full">
+                  <AlertTriangle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-amber-900 mb-1">
+                    Group Creation Deadline Expired
+                  </h3>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    The deadline for creating new groups has passed. This feature has been disabled by the administrator. 
+                    All form submissions will be blocked until the deadline is reopened.
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-amber-200">
+                    <p className="text-xs text-amber-700 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      For assistance, please contact your course coordinator or administrator.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Messages */}
           {message && (
             <div className={`p-4 rounded-lg border flex items-start gap-3 ${
               message.includes('✅') 
                 ? 'bg-green-50 border-green-200' 
+                : message.includes('⚠️')
+                ? 'bg-amber-50 border-amber-200'
                 : 'bg-red-50 border-red-200'
             }`}>
               {message.includes('✅') ? (
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              ) : message.includes('⚠️') ? (
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               )}
               <p className={`text-sm font-medium ${
-                message.includes('✅') ? 'text-green-800' : 'text-red-800'
+                message.includes('✅') ? 'text-green-800' : message.includes('⚠️') ? 'text-amber-800' : 'text-red-800'
               }`}>
                 {message}
               </p>
@@ -315,74 +356,13 @@ const CreateGroup = () => {
                     <Award className="w-4 h-4" />
                     Previous Project Details
                   </h3>
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-2">
                     <p className="text-sm text-gray-700">
                       <strong>Group ID:</strong> {groupId || 'N/A'}
                     </p>
                     <p className="text-sm text-gray-700">
                       <strong>Guide Name:</strong> {guideName || 'N/A'}
                     </p>
-                    {guideId && (
-                      <p className="text-sm text-gray-700">
-                        <strong>Guide ID:</strong> {guideId}
-                      </p>
-                    )}
-                    <div className="text-sm text-gray-700">
-                      <strong>Problem Statement:</strong>
-                      <p className="mt-1 text-gray-600 whitespace-pre-line">
-                        {problemStatement || 'Not available.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Problem Statement Title
-                    </label>
-                    <input
-                      type="text"
-                      value={problemTitle}
-                      onChange={(e) => setProblemTitle(e.target.value)}
-                      placeholder="Enter problem title"
-                      className="w-full border border-gray-300 rounded-lg py-2 px-3 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                      <select
-                        className="w-full border border-gray-300 rounded-lg py-2 px-3 text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        value={problemType}
-                        onChange={(e) => setProblemType(e.target.value)}
-                      >
-                        <option value="">Select</option>
-                        <option value="Hardware">Hardware</option>
-                        <option value="Software">Software</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Technology Bucket
-                      </label>
-                      <input
-                        type="text"
-                        value={technologyBucket}
-                        onChange={(e) => setTechnologyBucket(e.target.value)}
-                        placeholder="e.g. AI/ML, IoT"
-                        className="w-full border border-gray-300 rounded-lg py-2 px-3 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Domain</label>
-                      <input
-                        type="text"
-                        value={domain}
-                        onChange={(e) => setDomain(e.target.value)}
-                        placeholder="e.g. Healthcare, Education"
-                        className="w-full border border-gray-300 rounded-lg py-2 px-3 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
-                    </div>
                   </div>
                 </div>
               )}
@@ -417,10 +397,24 @@ const CreateGroup = () => {
             <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-center">
               <button
                 onClick={handleSubmit}
-                className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg"
+                disabled={deadlinePassed}
+                className={`px-8 py-3 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md ${
+                  deadlinePassed 
+                    ? 'bg-gray-400 cursor-not-allowed text-white' 
+                    : 'bg-purple-600 hover:bg-purple-700 text-white hover:shadow-lg'
+                }`}
               >
-                <CheckCircle className="w-5 h-5" />
-                Submit Group
+                {deadlinePassed ? (
+                  <>
+                    <AlertTriangle className="w-5 h-5" />
+                    Deadline Passed
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Submit Group
+                  </>
+                )}
               </button>
             </div>
           </div>

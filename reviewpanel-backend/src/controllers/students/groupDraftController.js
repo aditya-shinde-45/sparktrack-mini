@@ -76,7 +76,8 @@ export const getLeaderDrafts = async (req, res) => {
     const draftsWithInvitations = await Promise.all(
       drafts.map(async (draft) => {
         const invitations = await GroupRequest.getRequestsByGroup(draft.group_id);
-        const allAccepted = invitations.length > 0 && invitations.every(inv => inv.status === "ACCEPTED");
+        const acceptedCount = invitations.filter(inv => inv.status === "ACCEPTED").length;
+        const canFinalize = acceptedCount >= 1; // At least 1 member accepted
         
         return { 
           ...draft, 
@@ -85,7 +86,8 @@ export const getLeaderDrafts = async (req, res) => {
             enrollment_no: inv.student_id,
             status: inv.status.toLowerCase()
           })),
-          all_accepted: allAccepted
+          all_accepted: canFinalize,
+          accepted_count: acceptedCount
         };
       })
     );
@@ -114,7 +116,7 @@ export const sendInvitations = async (req, res) => {
     if (!draft) {
       return ApiResponse.error(res, "Draft group not found", 404);
     }
-    if (draft.status !== "draft") {
+    if (draft.status !== "DRAFT") {
       return ApiResponse.error(res, "Group is not in draft status", 400);
     }
 
@@ -358,7 +360,7 @@ export const confirmGroup = async (req, res) => {
     if (!draft) {
       return ApiResponse.error(res, "Draft group not found", 404);
     }
-    if (draft.status !== "draft") {
+    if (draft.status !== "DRAFT") {
       return ApiResponse.error(res, "Group is not in draft status", 400);
     }
 
@@ -368,26 +370,26 @@ export const confirmGroup = async (req, res) => {
       return ApiResponse.error(res, "No invitations sent yet", 400);
     }
 
-    // Check if all requests are accepted
-    const allAccepted = requests.every((r) => r.status === "ACCEPTED");
-    if (!allAccepted) {
+    // Check if at least one member accepted (minimum 2 people: leader + 1 member)
+    const acceptedRequests = requests.filter((r) => r.status === "ACCEPTED");
+    if (acceptedRequests.length === 0) {
       const pending = requests.filter((r) => r.status === "PENDING").length;
       const rejected = requests.filter((r) => r.status === "REJECTED").length;
       return ApiResponse.error(
         res,
-        "Cannot confirm: not all invitations accepted",
+        "Cannot confirm: at least one member must accept the invitation",
         400,
-        { pending, rejected }
+        { accepted: 0, pending, rejected }
       );
     }
 
     // Generate class-based group ID
     const finalGroupId = await generateClassBasedGroupId(draft.leader_id);
 
-    // Prepare all enrollment numbers (leader + accepted members)
+    // Prepare all enrollment numbers (leader + only accepted members)
     const allEnrollments = [
       draft.leader_id,
-      ...requests.map((r) => r.student_id),
+      ...acceptedRequests.map((r) => r.student_id),
     ];
 
     // Fetch all student details from pbl_2025
@@ -396,8 +398,8 @@ export const confirmGroup = async (req, res) => {
       .select("enrollement_no, name_of_student, class, contact, email_id")
       .in("enrollement_no", allEnrollments);
 
-    if (!students || students.length !== allEnrollments.length) {
-      return ApiResponse.error(res, "Some student details not found", 400);
+    if (!students || students.length < 2) {
+      return ApiResponse.error(res, "Minimum 2 members required (leader + 1 member)", 400);
     }
 
     // Prepare pbl table entries with the new generated group_id
@@ -427,8 +429,8 @@ export const confirmGroup = async (req, res) => {
       return ApiResponse.error(res, "Failed to finalize group", 500);
     }
 
-    // Update draft status to finalized
-    await GroupDraft.updateStatus(groupId, "finalized");
+    // Update draft status to CONFIRMED
+    await GroupDraft.updateStatus(groupId, "CONFIRMED");
 
     return ApiResponse.success(res, "Group confirmed and finalized successfully", {
       group_id: finalGroupId,
@@ -458,8 +460,8 @@ export const cancelDraft = async (req, res) => {
     // Delete all requests
     await GroupRequest.deleteRequestsByGroup(groupId);
 
-    // Update draft status to cancelled
-    await GroupDraft.updateStatus(groupId, "cancelled");
+    // Mark draft as CONFIRMED to prevent re-selection (constraint only allows DRAFT or CONFIRMED)
+    await GroupDraft.updateStatus(groupId, "CONFIRMED");
 
     return ApiResponse.success(res, "Draft group cancelled successfully");
   } catch (error) {

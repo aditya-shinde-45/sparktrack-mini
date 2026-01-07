@@ -23,6 +23,19 @@ class ProblemStatementModel {
   }
 
   /**
+   * Update ps_id in pbl table for all members of a group
+   */
+  async updatePsIdInPbl(groupId, psId) {
+    const { error } = await supabase
+      .from('pbl')
+      .update({ ps_id: psId })
+      .eq('group_id', groupId);
+
+    if (error) throw error;
+    return true;
+  }
+
+  /**
    * Update a problem statement for a given group
    */
   async update(groupId, updates) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../api.js';
-import { User, Eye, X, Download, Github, Linkedin, Globe, Mail, Phone, GraduationCap, Clock, CheckCircle, XCircle, Users } from 'lucide-react';
+import { User, Eye, X, Download, Github, Linkedin, Globe, Mail, Phone, GraduationCap, Clock, CheckCircle, XCircle, Users, AlertTriangle } from 'lucide-react';
 
 const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   const [enrollmentNo, setEnrollmentNo] = useState(propEnrollmentNo || null);
@@ -16,6 +16,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberProfile, setMemberProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,6 +59,10 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
           leaderDrafts = draftRes?.data?.drafts || draftRes?.drafts || [];
         } catch (err) {
           console.warn('No draft groups found as leader:', err?.message);
+          // Check if error is due to deadline
+          if (err?.response?.status === 403 || err?.message?.toLowerCase().includes('disabled')) {
+            setDeadlinePassed(true);
+          }
         }
 
         // Fetch pending invitations (if member)
@@ -91,6 +96,10 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
           }
         } catch (err) {
           console.warn('No pending invitations:', err?.message);
+          // Check if error is due to deadline
+          if (err?.response?.status === 403 || err?.message?.toLowerCase().includes('disabled')) {
+            setDeadlinePassed(true);
+          }
         }
 
         // Combine and deduplicate drafts (leader drafts take precedence)
@@ -140,7 +149,12 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
         }
       }
     } catch (err) {
-      setError(`Error handling ${response}: ${err.response?.data?.message || err.message}`);
+      if (err?.response?.status === 403) {
+        setError('Group creation deadline has passed. This feature is currently disabled.');
+        setDeadlinePassed(true);
+      } else {
+        setError(`Error handling ${response}: ${err.response?.data?.message || err.message}`);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -168,7 +182,12 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       }
       setDraftGroups([]);
     } catch (err) {
-      setError(`Error confirming group: ${err.response?.data?.message || err.message}`);
+      if (err?.response?.status === 403) {
+        setError('Group creation deadline has passed. This feature is currently disabled.');
+        setDeadlinePassed(true);
+      } else {
+        setError(`Error confirming group: ${err.response?.data?.message || err.message}`);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -185,7 +204,12 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       setDraftGroups(prev => prev.filter(d => d.group_id !== groupId));
       setMessage('✅ Draft cancelled successfully');
     } catch (err) {
-      setError(`Error cancelling draft: ${err.response?.data?.message || err.message}`);
+      if (err?.response?.status === 403) {
+        setError('Group creation deadline has passed. This feature is currently disabled.');
+        setDeadlinePassed(true);
+      } else {
+        setError(`Error cancelling draft: ${err.response?.data?.message || err.message}`);
+      }
     } finally {
       setActionLoading(false);
     }
@@ -327,18 +351,6 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
             </div>
           )}
         </div>
-
-        {/* Edit Group button (only for group leader) */}
-        {groupDetails.members && groupDetails.members.find(m => m.is_leader)?.enrollement_no === enrollmentNo && (
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <button
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
-              onClick={() => navigate(`/edit-group/${groupDetails.group_id}`)}
-            >
-              Edit Group
-            </button>
-          </div>
-        )}
 
         {/* Member Profile Modal */}
         {selectedMember && (
@@ -592,7 +604,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
                 draft.is_member ? (
                   <div className="text-sm text-green-700 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" />
-                    All members accepted. Waiting for leader to finalize...
+                    {draft.accepted_count >= 1 ? `${draft.accepted_count} member(s) accepted. Waiting for leader to finalize...` : 'Waiting for members to accept...'}
                   </div>
                 ) : (
                   <button
@@ -601,13 +613,13 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium disabled:opacity-50 flex items-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Confirm & Finalize Group
+                    Confirm & Finalize Group ({draft.accepted_count + 1} members)
                   </button>
                 )
               ) : (
                 <div className="text-sm text-orange-700 flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  Waiting for all members to accept...
+                  Waiting for at least 1 member to accept...
                 </div>
               )}
               {!draft.is_member && (
@@ -665,15 +677,40 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
           </div>
         ) : (
           <div className="text-center pt-10">
-            <span className="material-icons text-5xl text-gray-300">group_add</span>
-            <p className="text-gray-700 mt-2">Group has not been created yet.</p>
-            <p className="text-gray-600 text-sm">
-              Click{' '}
-              <a className="text-violet-700 font-semibold hover:underline" href="/create-group">
-                here
-              </a>{' '}
-              to create a group.
-            </p>
+            {deadlinePassed ? (
+              <div className="max-w-md mx-auto">
+                <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="p-3 bg-amber-100 rounded-full">
+                      <AlertTriangle className="w-8 h-8 text-amber-600" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-amber-900 mb-2">
+                    Group Creation Deadline Passed
+                  </h3>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    The deadline for creating new groups has expired. Group formation is currently disabled by the administrator.
+                  </p>
+                  <div className="mt-4 pt-4 border-t border-amber-200">
+                    <p className="text-xs text-amber-700">
+                      If you believe this is an error or need assistance, please contact your course coordinator or administrator.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="material-icons text-5xl text-gray-300">group_add</span>
+                <p className="text-gray-700 mt-2">Group has not been created yet.</p>
+                <p className="text-gray-600 text-sm">
+                  Click{' '}
+                  <a className="text-violet-700 font-semibold hover:underline" href="/create-group">
+                    here
+                  </a>{' '}
+                  to create a group.
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

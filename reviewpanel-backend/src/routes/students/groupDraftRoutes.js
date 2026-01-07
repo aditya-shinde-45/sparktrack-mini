@@ -9,8 +9,12 @@ import {
   confirmGroup,
   cancelDraft,
 } from "../../controllers/students/groupDraftController.js";
+import { deadlineBlocker } from "../../middleware/deadlineMiddleware.js";
 
 const router = express.Router();
+
+// Apply deadline check to all group creation routes
+router.use(deadlineBlocker('group_creation'));
 
 // Create draft group (Step 1)
 router.post("/draft", createDraft);
