@@ -15,15 +15,86 @@ import crypto from 'crypto';
  */
 class Pbl3Controller {
   /**
-   * Mentor login with phone number and fixed password
+   * Check if mentor exists and has set password
+   * POST /api/mentors/check-status
+   */
+  checkMentorStatus = asyncHandler(async (req, res) => {
+    const { contact_number } = req.body;
+
+    if (!contact_number) {
+      throw ApiError.badRequest('Mobile number is required');
+    }
+
+    const status = await mentorModel.hasPassword(contact_number);
+
+    if (!status || !status.exists) {
+      throw ApiError.notFound('Mentor not found with this mobile number');
+    }
+
+    return ApiResponse.success(res, 'Mentor status retrieved', {
+      exists: status.exists,
+      hasPassword: status.hasPassword,
+      mentor_name: status.mentor.mentor_name
+    });
+  });
+
+  /**
+   * Set password for first-time mentor login
+   * POST /api/mentors/set-password
+   */
+  setMentorPassword = asyncHandler(async (req, res) => {
+    const { contact_number, password, confirm_password } = req.body;
+
+    if (!contact_number || !password || !confirm_password) {
+      throw ApiError.badRequest('Mobile number, password, and confirm password are required');
+    }
+
+    if (password !== confirm_password) {
+      throw ApiError.badRequest('Passwords do not match');
+    }
+
+    if (password.length < 6) {
+      throw ApiError.badRequest('Password must be at least 6 characters long');
+    }
+
+    // Check if mentor exists and doesn't have password
+    const status = await mentorModel.hasPassword(contact_number);
+
+    if (!status || !status.exists) {
+      throw ApiError.notFound('Mentor not found with this mobile number');
+    }
+
+    if (status.hasPassword) {
+      throw ApiError.badRequest('Password already set. Please use login.');
+    }
+
+    // Set password
+    await mentorModel.setPassword(contact_number, password);
+
+    return ApiResponse.success(res, 'Password set successfully. You can now login.');
+  });
+
+  /**
+   * Mentor login with phone number and password
    * Username: contact_number (phone/mobile number)
-   * Password: MITADT1230 (fixed for all mentors)
+   * Password: User-set password (first time setup required)
    */
   mentorLogin = asyncHandler(async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
       throw ApiError.badRequest('Mobile number and password are required');
+    }
+
+    // Check if mentor has set password
+    const status = await mentorModel.hasPassword(username);
+
+    if (!status || !status.exists) {
+      throw ApiError.notFound('Mentor not found with this mobile number');
+    }
+
+    if (!status.hasPassword) {
+      throw ApiError.badRequest('Password not set. Please set your password first.');
     }
 
     // Validate credentials using mentor model

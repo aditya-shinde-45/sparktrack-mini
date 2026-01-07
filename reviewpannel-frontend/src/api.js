@@ -71,7 +71,7 @@ const refreshAccessToken = async () => {
 
 export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false) => {
   // Skip authentication check for login and public endpoints
-  const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password');
+  const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password') || endpoint.includes('/check-status') || endpoint.includes('/set-password');
   const isDashboardEndpoint = endpoint.includes('/dashboard');
   
   const headers = {};

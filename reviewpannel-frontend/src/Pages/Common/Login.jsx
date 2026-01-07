@@ -15,6 +15,13 @@ const Login = () => {
   const [isExternalEnabled, setIsExternalEnabled] = useState(false);
   const [savedExternals, setSavedExternals] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // Mentor password setup states
+  const [showMentorPasswordModal, setShowMentorPasswordModal] = useState(false);
+  const [mentorPassword, setMentorPassword] = useState("");
+  const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
+  const [mentorContactNumber, setMentorContactNumber] = useState("");
+  const [mentorName, setMentorName] = useState("");
 
   // Load saved external credentials on mount
   useEffect(() => {
@@ -74,8 +81,33 @@ const Login = () => {
       endpoint = "/api/external-auth/login";
       payload = { external_id: username, password };
     } else if (role === "Mentor") {
-      endpoint = "/api/mentors/login";
-      payload = { username, password };
+      // First, check if mentor has set password
+      try {
+        const statusData = await apiRequest("/api/mentors/check-status", "POST", { contact_number: username });
+        
+        if (!statusData || statusData.success === false) {
+          setErrorMsg(statusData?.message || "Mentor not found with this mobile number.");
+          setLoading(false);
+          return;
+        }
+
+        // If password not set, show password setup modal
+        if (!statusData.data.hasPassword) {
+          setMentorContactNumber(username);
+          setMentorName(statusData.data.mentor_name);
+          setShowMentorPasswordModal(true);
+          setLoading(false);
+          return;
+        }
+
+        // Password is set, proceed with normal login
+        endpoint = "/api/mentors/login";
+        payload = { username, password };
+      } catch (error) {
+        setErrorMsg("Failed to check mentor status. Please try again.");
+        setLoading(false);
+        return;
+      }
     } else {
       setErrorMsg("Selected role is not supported for login.");
       return;
@@ -219,6 +251,53 @@ const Login = () => {
     }
   };
 
+  // Handle mentor password setup
+  const handleMentorPasswordSetup = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (!mentorPassword || !mentorConfirmPassword) {
+      setErrorMsg("Please enter and confirm your password.");
+      return;
+    }
+
+    if (mentorPassword !== mentorConfirmPassword) {
+      setErrorMsg("Passwords do not match.");
+      return;
+    }
+
+    if (mentorPassword.length < 6) {
+      setErrorMsg("Password must be at least 6 characters long.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await apiRequest("/api/mentors/set-password", "POST", {
+        contact_number: mentorContactNumber,
+        password: mentorPassword,
+        confirm_password: mentorConfirmPassword
+      });
+
+      if (data && data.success) {
+        setErrorMsg("");
+        setShowMentorPasswordModal(false);
+        setMentorPassword("");
+        setMentorConfirmPassword("");
+        alert("Password set successfully! Please login with your new password.");
+        // Clear the username field so mentor can re-enter
+        setPassword("");
+      } else {
+        setErrorMsg(data?.message || "Failed to set password.");
+      }
+    } catch (error) {
+      console.error("Password setup error:", error);
+      setErrorMsg(error.message || "Failed to set password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="font-[Poppins] min-h-screen bg-white">
       {/* Fixed Navbar */}
@@ -323,7 +402,7 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
+                  required={role !== "Mentor"}
                 />
                 <button
                   type="button"
@@ -404,6 +483,80 @@ const Login = () => {
           </div>
         </div>
       </main>
+
+      {/* Mentor Password Setup Modal */}
+      {showMentorPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] rounded-2xl p-8 max-w-md w-full shadow-2xl border-2 border-white/20">
+            <h2 className="text-2xl font-bold text-white mb-2">Set Your Password</h2>
+            <p className="text-white/80 mb-6 text-sm">
+              Welcome, <span className="font-semibold">{mentorName}</span>! Please set a password for your account.
+            </p>
+
+            <form onSubmit={handleMentorPasswordSetup} className="space-y-4">
+              <div className="relative">
+                <input
+                  type="password"
+                  className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                           text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                           focus:border-white/60 transition-all duration-300 shadow-lg"
+                  placeholder="New Password (min 6 characters)"
+                  value={mentorPassword}
+                  onChange={(e) => setMentorPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <div className="relative">
+                <input
+                  type="password"
+                  className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                           text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                           focus:border-white/60 transition-all duration-300 shadow-lg"
+                  placeholder="Confirm Password"
+                  value={mentorConfirmPassword}
+                  onChange={(e) => setMentorConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              {errorMsg && (
+                <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                  <p className="text-white text-sm">{errorMsg}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMentorPasswordModal(false);
+                    setMentorPassword("");
+                    setMentorConfirmPassword("");
+                    setErrorMsg("");
+                  }}
+                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold 
+                           rounded-xl transition-all duration-300 border-2 border-white/30"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
+                           rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl 
+                           border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading}
+                >
+                  {loading ? 'Setting...' : 'Set Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

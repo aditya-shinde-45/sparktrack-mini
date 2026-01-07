@@ -1,4 +1,5 @@
 import supabase from '../config/database.js';
+import bcrypt from 'bcryptjs';
 
 /**
  * Mentor model for handling mentor data
@@ -41,11 +42,47 @@ class MentorModel {
   async getByContactNumber(contactNumber) {
     const { data, error } = await supabase
       .from(this.table)
-      .select('mentor_id, mentor_name, contact_number, group_id')
+      .select('mentor_id, mentor_name, contact_number, password, group_id')
       .eq('contact_number', contactNumber);
 
     if (error) throw error;
     return data || [];
+  }
+
+  /**
+   * Check if mentor has set a password
+   * @param {string} contactNumber - Mobile number
+   */
+  async hasPassword(contactNumber) {
+    const mentors = await this.getByContactNumber(contactNumber);
+    
+    if (!mentors || mentors.length === 0) {
+      return null; // Mentor not found
+    }
+
+    return {
+      exists: mentors.length > 0,
+      hasPassword: !!(mentors[0].password),
+      mentor: mentors[0]
+    };
+  }
+
+  /**
+   * Set password for mentor (first-time setup)
+   * @param {string} contactNumber - Mobile number
+   * @param {string} password - New password
+   */
+  async setPassword(contactNumber, password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const { data, error } = await supabase
+      .from(this.table)
+      .update({ password: hashedPassword })
+      .eq('contact_number', contactNumber)
+      .select('mentor_id, mentor_name, contact_number');
+
+    if (error) throw error;
+    return data;
   }
 
   /**
@@ -54,19 +91,27 @@ class MentorModel {
    * @param {string} password - Password
    */
   async validateCredentials(contactNumber, password) {
-    const MENTOR_PASSWORD = 'MITADT1230'; // Fixed password for all mentors
-    
-    if (password !== MENTOR_PASSWORD) {
-      return null;
-    }
-
     const mentors = await this.getByContactNumber(contactNumber);
     
     if (!mentors || mentors.length === 0) {
       return null;
     }
 
-    return mentors[0]; // Return first mentor record
+    const mentor = mentors[0];
+
+    // Check if password is set
+    if (!mentor.password) {
+      return null; // Password not set yet
+    }
+
+    // Verify password
+    const isValid = await bcrypt.compare(password, mentor.password);
+    
+    if (!isValid) {
+      return null;
+    }
+
+    return mentor; // Return first mentor record
   }
 
   /**

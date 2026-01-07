@@ -1,29 +1,234 @@
-import React from 'react';
-import { Bell, ChevronDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User } from 'lucide-react';
+import mitlogo from '../../assets/mitlogo.png';
+import { apiRequest } from '../../api.js';
 
 const MentorHeader = ({ name, id }) => {
+  const navigate = useNavigate();
+  const [showMenu, setShowMenu] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [prevPassword, setPrevPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const menuRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('mentor_token');
+      // Call backend to invalidate session if needed
+      if (token) {
+        await apiRequest('/api/mentors/logout', 'POST', null, token);
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      // Clear all tokens and data regardless of API result
+      localStorage.removeItem('mentor_token');
+      localStorage.removeItem('mentor_refresh_token');
+      localStorage.removeItem('mentor_name');
+      localStorage.removeItem('mentor_id');
+      localStorage.removeItem('role');
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!prevPassword || !newPassword) {
+      setMessage('Please fill in both fields');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setMessage('New password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const token = localStorage.getItem('mentor_token');
+
+      const response = await apiRequest(
+        '/api/mentors/update-password',
+        'PUT',
+        {
+          oldPassword: prevPassword,
+          newPassword: newPassword,
+        },
+        token
+      );
+
+      if (response.success) {
+        setMessage('✅ Password updated successfully!');
+        setTimeout(() => {
+          setShowModal(false);
+          setPrevPassword('');
+          setNewPassword('');
+          setMessage('');
+        }, 1500);
+      } else {
+        setMessage(`❌ ${response.message || 'Failed to update password'}`);
+      }
+    } catch (err) {
+      setMessage(`❌ ${err.message || 'Something went wrong. Try again.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <header className="font-[Poppins] fixed top-0 left-0 w-full bg-gradient-to-r from-[#7B74EF] to-[#5D3FD3] text-white p-3 md:p-4 shadow-lg z-50 flex justify-between items-center">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-700 font-bold text-base">
-          {name?.charAt(0) || 'M'}
+    <>
+      {/* Main Header */}
+      <header className="fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-3 sm:p-4 rounded-b-lg text-white shadow-lg">
+        <div className="flex justify-between items-center">
+          {/* Left side: Logo */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <img
+              alt="University Logo"
+              className="h-8 sm:h-12 w-auto object-contain"
+              src={mitlogo}
+            />
+          </div>
+
+          {/* Right section: User Info + Menu */}
+          <div className="flex items-center relative" ref={menuRef}>
+            {/* Mentor Info */}
+            <div className="text-right mr-2 sm:mr-4">
+              <p className="font-semibold text-xs sm:text-sm">{name || 'Mentor'}</p>
+              <div className="text-[10px] sm:text-xs">
+                <span className="font-mono bg-white/20 px-2 py-1 rounded">
+                  {id || '----'}
+                </span>
+              </div>
+            </div>
+
+            {/* Profile Picture + Dropdown Arrow */}
+            <div
+              className="flex items-center cursor-pointer select-none hover:bg-white/20 px-2 py-1 rounded-md transition"
+              onClick={() => setShowMenu(!showMenu)}
+            >
+              {/* Profile Picture */}
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-white/20 flex items-center justify-center mr-2">
+                <User size={20} className="text-white" />
+              </div>
+              
+              <span className="material-icons text-lg sm:text-xl">
+                {showMenu ? 'expand_less' : 'expand_more'}
+              </span>
+            </div>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white text-gray-800 rounded-xl shadow-xl ring-1 ring-black/5 animate-fadeIn">
+                <button
+                  onClick={() => {
+                    setShowModal(true);
+                    setShowMenu(false);
+                  }}
+                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
+                >
+                  <span className="material-icons text-lg">lock_reset</span>
+                  Change Password
+                </button>
+                
+                <div className="border-t border-gray-200"></div>
+                
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 hover:text-red-600 transition flex items-center gap-2"
+                >
+                  <span className="material-icons text-lg">logout</span>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <div>
-          <h1 className="text-base md:text-lg font-bold">{name || 'Mentor'}</h1>
-          <p className="text-xs text-purple-100">ID: {id || '----'}</p>
+      </header>
+
+      {/* Reset Password Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-80 animate-fadeIn">
+            <h2 className="text-lg font-semibold mb-4 text-gray-800">
+              Change Password
+            </h2>
+
+            {/* Previous Password */}
+            <div className="mb-3">
+              <label className="block text-sm mb-1 text-gray-800">
+                Current Password
+              </label>
+              <input
+                type="password"
+                value={prevPassword}
+                onChange={(e) => setPrevPassword(e.target.value)}
+                className="w-full border border-gray-400 px-3 py-2 rounded-md text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Enter current password"
+              />
+            </div>
+
+            {/* New Password */}
+            <div className="mb-4">
+              <label className="block text-sm mb-1 text-gray-800">
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border border-gray-400 px-3 py-2 rounded-md text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Enter new password (min 6 characters)"
+              />
+            </div>
+
+            {/* Message */}
+            {message && (
+              <p className={`text-sm mb-2 ${message.includes('✅') ? 'text-green-600' : 'text-red-500'}`}>
+                {message}
+              </p>
+            )}
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setPrevPassword('');
+                  setNewPassword('');
+                  setMessage('');
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-500 text-gray-800 hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetPassword}
+                disabled={loading}
+                className="px-4 py-2 text-sm rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 transition"
+              >
+                {loading ? 'Updating...' : 'Update'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <button className="relative p-2 hover:bg-white/20 rounded-full transition">
-          <Bell size={18} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
-        <button className="hidden md:flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-lg hover:bg-white/30 transition">
-          <span className="text-sm">Profile</span>
-          <ChevronDown size={14} />
-        </button>
-      </div>
-    </header>
+      )}
+    </>
   );
 };
 
