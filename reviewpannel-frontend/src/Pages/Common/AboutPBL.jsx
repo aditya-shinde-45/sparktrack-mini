@@ -35,9 +35,7 @@ About PBL          </h1>
               <h2 className="text-xl font-bold text-gray-800 mb-6">UPCOMING EVENTS</h2>
               <div className="space-y-4">
                 {[
-                  { icon: 'event', title: 'Design Thinking Workshop', date: 'Oct 25, 2023', color: 'indigo' },
-                  { icon: 'code', title: 'Hackathon 2023', date: 'Nov 10-12, 2023', color: 'pink' },
-                  { icon: 'campaign', title: 'Guest Lecture Series', date: 'Nov 15, 2023', color: 'green' },
+                  { icon: 'group_add', title: 'Group Creation', date: 'Jan 8, 2025', color: 'purple' },
                 ].map((event, idx) => (
                   <div
                     key={idx}

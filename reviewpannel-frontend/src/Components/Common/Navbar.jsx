@@ -21,7 +21,6 @@ const Navbar = () => {
         {/* Desktop Menu */}
         <nav className="hidden md:flex items-center space-x-6 nav-item">
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/">Home</Link>
-          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/problem-statementsih">Problem Statement</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/students">Students</Link>
@@ -46,7 +45,6 @@ const Navbar = () => {
         <div className="md:hidden px-6 pb-4">
           <nav className="flex flex-col space-y-3 nav-item">
             <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/">Home</Link>
-          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/problem-statementsih">Problem Statement</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/login">Login</Link>

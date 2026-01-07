@@ -53,7 +53,8 @@ const DignitySection = () => {
         </div>
         <div className="lg:w-2/3 text-left">
           <p className="text-gray-600 leading-relaxed">
-            MIT Art, Design &amp; Technology University, Pune is a place for aspiring leaders...
+           MIT Art, Design & Technology University has successfully positioned itself as a New Generation University which is having an aspiration to produce Innovators, Business Leaders, Scientists, Social Transformers, and nation builders, coming from all walks of life. MIT-ADT University has been taking a holistic approach towards imparting education wherein the students are being motivated to build a complete winning personality that is “physically fit, intellectually sharp, mentally alert and spiritually elevated. The students are being encouraged to participate in yoga, meditation, physical training, spiritual elevation, communication skills, and other personality development programs.
+
           </p>
         </div>
       </div>

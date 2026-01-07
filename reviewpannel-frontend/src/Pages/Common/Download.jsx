@@ -115,7 +115,7 @@ const Download = () => {
                 <a
                   href={doc.file}
                   download
-                  className="common-button download-link bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition flex items-center"
+                  className="common-button download-link bg-gradient-to-r from-purple-700 to-indigo-600 text-white px-4 py-2 rounded-md hover:from-purple-800 hover:to-indigo-700 transition flex items-center font-semibold shadow-lg"
                 >
                   <span className="material-icons mr-2">download</span>
                   Download
