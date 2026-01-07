@@ -33,6 +33,7 @@ const MentorSidebar = () => {
   const handleLogout = () => {
     localStorage.removeItem('mentor_token');
     localStorage.removeItem('mentor');
+    localStorage.removeItem('student_refresh_token');
     sessionStorage.clear();
     navigate('/mentor/login');
   };

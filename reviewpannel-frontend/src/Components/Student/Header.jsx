@@ -104,10 +104,23 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("student_token");
-    localStorage.removeItem("student");
-    navigate("/studentlogin");
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('student_token');
+      // Call backend to invalidate refresh token
+      if (token) {
+        await apiRequest('/api/student-auth/logout', 'POST', null, token);
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      // Clear all tokens and data regardless of API result
+      localStorage.removeItem("student_token");
+      localStorage.removeItem("student_refresh_token");
+      localStorage.removeItem("student");
+      localStorage.removeItem("enrollmentNumber");
+      navigate("/studentlogin");
+    }
   };
 
   const handleViewProfile = () => {

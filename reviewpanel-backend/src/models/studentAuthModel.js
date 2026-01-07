@@ -243,9 +243,106 @@ class StudentAuthModel {
   /**
    * Generate JWT token for student
    * @param {object} student - Student data
+   * @param {string} expiresIn - Token expiration time (default: 1d)
    */
-  generateToken(student) {
-    return jwt.sign(student, config.jwt.secret, { expiresIn: '1d' });
+  generateToken(student, expiresIn = '1d') {
+    return jwt.sign(student, config.jwt.secret, { expiresIn });
+  }
+
+  /**
+   * Generate refresh token for remember me feature
+   * @param {object} student - Student data
+   * @param {string} expiresIn - Token expiration time (default: 30d)
+   */
+  generateRefreshToken(student, expiresIn = '30d') {
+    return jwt.sign(
+      { 
+        student_id: student.student_id,
+        enrollment_no: student.enrollment_no,
+        type: 'refresh'
+      }, 
+      config.jwt.secret, 
+      { expiresIn }
+    );
+  }
+
+  /**
+   * Save refresh token to database
+   * @param {string} enrollmentNo - Student enrollment number
+   * @param {string} refreshToken - Refresh token to save
+   * @param {number} expiryDays - Number of days until token expires (default: 30)
+   */
+  async saveRefreshToken(enrollmentNo, refreshToken, expiryDays = 30) {
+    const expiry = dayjs().utc().add(expiryDays, 'day').toISOString();
+    
+    const { error } = await supabase
+      .from(this.authTable)
+      .update({ 
+        refresh_token: refreshToken, 
+        refresh_token_expiry: expiry 
+      })
+      .eq('enrollment_no', enrollmentNo);
+
+    if (error) throw error;
+    return true;
+  }
+
+  /**
+   * Verify and retrieve student from refresh token
+   * @param {string} refreshToken - Refresh token to verify
+   */
+  async verifyRefreshToken(refreshToken) {
+    try {
+      // Verify JWT signature and expiration
+      const decoded = jwt.verify(refreshToken, config.jwt.secret);
+      
+      // Check if it's a refresh token
+      if (decoded.type !== 'refresh') {
+        return null;
+      }
+
+      // Check if token exists in database and hasn't expired
+      const { data, error } = await supabase
+        .from(this.authTable)
+        .select('enrollment_no, email, refresh_token, refresh_token_expiry')
+        .eq('enrollment_no', decoded.enrollment_no)
+        .eq('refresh_token', refreshToken)
+        .single();
+
+      if (error || !data) return null;
+
+      // Check database expiry
+      const nowUTC = dayjs().utc();
+      const expiryUTC = dayjs(data.refresh_token_expiry).utc();
+      
+      if (nowUTC.isAfter(expiryUTC)) return null;
+
+      return {
+        student_id: data.enrollment_no,
+        enrollment_no: data.enrollment_no,
+        email: data.email,
+        role: 'student'
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Invalidate refresh token (logout)
+   * @param {string} enrollmentNo - Student enrollment number
+   */
+  async invalidateRefreshToken(enrollmentNo) {
+    const { error } = await supabase
+      .from(this.authTable)
+      .update({ 
+        refresh_token: null, 
+        refresh_token_expiry: null 
+      })
+      .eq('enrollment_no', enrollmentNo);
+
+    if (error) throw error;
+    return true;
   }
 
   /**

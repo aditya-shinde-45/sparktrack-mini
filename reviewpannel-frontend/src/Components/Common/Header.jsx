@@ -40,6 +40,7 @@ const Header = ({ name, id }) => {
     localStorage.removeItem("user_id");
     localStorage.removeItem("username");
     localStorage.removeItem("student_token");
+    localStorage.removeItem("student_refresh_token");
     localStorage.removeItem("external_id");
     localStorage.removeItem("selected_mentor");
     
