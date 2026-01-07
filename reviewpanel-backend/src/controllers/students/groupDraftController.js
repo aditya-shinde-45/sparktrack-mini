@@ -286,6 +286,67 @@ export const getGroupDetails = async (req, res) => {
 };
 
 /**
+ * Generate group ID based on leader's class
+ * Format: TYCSF301, TYCC101, SY0101, etc.
+ */
+const generateClassBasedGroupId = async (leaderEnrollment) => {
+  try {
+    // Get leader's class from pbl_2025
+    const { data: leader, error: leaderError } = await supabase
+      .from("pbl_2025")
+      .select("class")
+      .eq("enrollement_no", leaderEnrollment)
+      .single();
+
+    if (leaderError || !leader?.class) {
+      throw new Error("Leader class not found");
+    }
+
+    // Remove hyphens and spaces from class name (e.g., "TY-CSF-3" → "TYCSF3")
+    const classPrefix = leader.class.replace(/[-\s]/g, "");
+
+    // Get all existing group IDs from pbl table with this prefix
+    const { data: existingGroups, error: groupError } = await supabase
+      .from("pbl")
+      .select("group_id")
+      .like("group_id", `${classPrefix}%`)
+      .order("group_id", { ascending: true });
+
+    if (groupError) {
+      throw new Error("Failed to fetch existing groups");
+    }
+
+    // Extract sequence numbers and find the next available
+    const existingNumbers = existingGroups
+      .map(g => {
+        const match = g.group_id.match(new RegExp(`^${classPrefix}(\\d+)$`));
+        return match ? parseInt(match[1], 10) : null;
+      })
+      .filter(n => n !== null)
+      .sort((a, b) => a - b);
+
+    // Find the first gap in sequence or get next number
+    let nextNumber = 1;
+    for (const num of existingNumbers) {
+      if (num === nextNumber) {
+        nextNumber++;
+      } else if (num > nextNumber) {
+        break; // Found a gap
+      }
+    }
+
+    // Format: Pad with leading zeros to make it 2 digits (01, 02, etc.)
+    const sequenceStr = nextNumber.toString().padStart(2, "0");
+    const generatedGroupId = `${classPrefix}${sequenceStr}`;
+
+    return generatedGroupId;
+  } catch (error) {
+    console.error("Error generating group ID:", error);
+    throw error;
+  }
+};
+
+/**
  * Confirm and finalize group (Step 3) - with atomic transaction
  */
 export const confirmGroup = async (req, res) => {
@@ -308,10 +369,10 @@ export const confirmGroup = async (req, res) => {
     }
 
     // Check if all requests are accepted
-    const allAccepted = requests.every((r) => r.status === "accepted");
+    const allAccepted = requests.every((r) => r.status === "ACCEPTED");
     if (!allAccepted) {
-      const pending = requests.filter((r) => r.status === "pending").length;
-      const rejected = requests.filter((r) => r.status === "rejected").length;
+      const pending = requests.filter((r) => r.status === "PENDING").length;
+      const rejected = requests.filter((r) => r.status === "REJECTED").length;
       return ApiResponse.error(
         res,
         "Cannot confirm: not all invitations accepted",
@@ -320,32 +381,38 @@ export const confirmGroup = async (req, res) => {
       );
     }
 
+    // Generate class-based group ID
+    const finalGroupId = await generateClassBasedGroupId(draft.leader_id);
+
     // Prepare all enrollment numbers (leader + accepted members)
     const allEnrollments = [
-      draft.leader_enrollment,
-      ...requests.map((r) => r.enrollment_no),
+      draft.leader_id,
+      ...requests.map((r) => r.student_id),
     ];
 
     // Fetch all student details from pbl_2025
     const { data: students } = await supabase
       .from("pbl_2025")
-      .select("enrollement_no, name_of_student, class, contact")
+      .select("enrollement_no, name_of_student, class, contact, email_id")
       .in("enrollement_no", allEnrollments);
 
     if (!students || students.length !== allEnrollments.length) {
       return ApiResponse.error(res, "Some student details not found", 400);
     }
 
-    // Prepare pbl table entries
+    // Prepare pbl table entries with the new generated group_id
     const pblEntries = students.map((student) => ({
       enrollment_no: student.enrollement_no,
       student_name: student.name_of_student,
       class: student.class,
       contact: student.contact,
+      email_id: student.email_id,
       guide_name: draft.guide_name,
       guide_contact: draft.guide_contact,
       guide_email: draft.guide_email,
-      group_id: draft.group_id,
+      group_id: finalGroupId,
+      team_name: draft.group_name,
+      is_leader: student.enrollement_no === draft.leader_id,
       ps_id: draft.previous_ps_id || null,
     }));
 
@@ -364,8 +431,8 @@ export const confirmGroup = async (req, res) => {
     await GroupDraft.updateStatus(groupId, "finalized");
 
     return ApiResponse.success(res, "Group confirmed and finalized successfully", {
-      group_id: draft.group_id,
-      team_name: draft.team_name,
+      group_id: finalGroupId,
+      team_name: draft.group_name,
       members_count: allEnrollments.length,
       finalized_at: new Date().toISOString(),
     });

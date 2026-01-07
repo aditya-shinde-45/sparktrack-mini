@@ -113,7 +113,7 @@ class StudentModel {
     const { data: groupEntry, error: groupEntryError } = await supabase
       .from(this.pblTable)
       .select('group_id')
-      .eq('enrollement_no', enrollmentNo)
+      .eq('enrollment_no', enrollmentNo)
       .maybeSingle();
 
     if (groupEntryError && groupEntryError.code !== 'PGRST116') {
@@ -128,13 +128,14 @@ class StudentModel {
 
     const { data: members, error: membersError } = await supabase
       .from(this.pblTable)
-      .select('enrollement_no, name_of_student, guide_name')
+      .select('enrollment_no, student_name, guide_name, team_name, is_leader')
       .eq('group_id', groupId)
-      .order('enrollement_no', { ascending: true });
+      .order('is_leader', { ascending: false })
+      .order('enrollment_no', { ascending: true });
 
     if (membersError) throw membersError;
 
-    const enrollmentNumbers = members.map(member => member.enrollement_no);
+    const enrollmentNumbers = members.map(member => member.enrollment_no);
 
     let profiles = [];
     if (enrollmentNumbers.length) {
@@ -154,10 +155,14 @@ class StudentModel {
 
     return {
       group_id: groupId,
+      team_name: members[0]?.team_name || null,
       guide_name: members[0]?.guide_name || null,
       members: members.map(member => ({
-        ...member,
-        profile_picture_url: profileMap.get(member.enrollement_no) || null,
+        enrollement_no: member.enrollment_no,
+        name_of_student: member.student_name,
+        guide_name: member.guide_name,
+        is_leader: member.is_leader || false,
+        profile_picture_url: profileMap.get(member.enrollment_no) || null,
       })),
     };
   }

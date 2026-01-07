@@ -57,7 +57,7 @@ const GroupRequest = {
         )
       `)
       .eq("student_id", enrollmentNo)
-      .eq("status", "PENDING");
+      .in("status", ["PENDING", "ACCEPTED"]);
 
     if (error) throw error;
     return data;
