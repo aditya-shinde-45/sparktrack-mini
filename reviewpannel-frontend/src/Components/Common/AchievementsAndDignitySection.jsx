@@ -155,25 +155,54 @@ const AchievementsAndDignitySection = () => {
             Our distinguished management team brings together decades of experience in education, industry, and leadership.
           </p>
         </div>
-        <div className="bg-white p-10 rounded-2xl shadow-xl border border-gray-100 hover:shadow-2xl transition-shadow duration-500">
+        <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-8 md:p-10 rounded-3xl shadow-xl border-2 border-purple-200">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse bg-white rounded-2xl overflow-hidden shadow-lg">
               <thead>
-                <tr className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-                  <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Sr. No.</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Specialization</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Program Heads</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Specialization Lead</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Class Leads for SY, TY and LY</th>
+                <tr className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600">
+                  <th className="px-6 py-4 text-left font-bold text-white text-sm border-r border-purple-400">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-sm">numbers</span>
+                      Sr. No.
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left font-bold text-white text-sm border-r border-purple-400">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-sm">school</span>
+                      Specialization
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left font-bold text-white text-sm border-r border-purple-400">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-sm">admin_panel_settings</span>
+                      Program Heads
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left font-bold text-white text-sm border-r border-purple-400">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-sm">star</span>
+                      Specialization Lead
+                    </div>
+                  </th>
+                  <th className="px-6 py-4 text-left font-bold text-white text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="material-icons text-sm">groups</span>
+                      Class Leads
+                    </div>
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">1</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-Core</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Anuja Jadhav</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Anant Kaulage</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+              <tbody className="text-gray-800">
+                <tr className="hover:bg-purple-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-purple-700 bg-purple-50">1</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      CSE-Core
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Anuja Jadhav</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Anant Kaulage</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Prof. Manisha Shitole (LY - 1, 2, 3)<br/>
                     Prof. Swati Powar (LY-4,5,6)<br/>
                     Prof. Amreen Khan (TY - 1, 2, 3)<br/>
@@ -181,19 +210,27 @@ const AchievementsAndDignitySection = () => {
                     Prof. Rahul More (SY - 1, 2, 3)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">2</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-Blockchain</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Hari Palani</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Hari Palani</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Babeetha Bhagat (LY-1, TY-1)</td>
+                <tr className="hover:bg-blue-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-blue-700 bg-blue-50">2</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                      CSE-Blockchain
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Hari Palani</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Hari Palani</td>
+                  <td className="px-6 py-4 text-gray-700">Prof. Babeetha Bhagat (LY-1, TY-1)</td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">3</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-AIA</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Sagar Tambe</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Ranjana Kale</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-indigo-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-indigo-700 bg-indigo-50">3</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                      CSE-AIA
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Sagar Tambe</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Ranjana Kale</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Dr. Nandkishor Karlekar (LY - 1, 2, 3)<br/>
                     Prof. Mandar Mokashi (LY - 4, 5, 6)<br/>
                     Prof. Tejaswini Bhosale (TY - 1, 2, 3)<br/>
@@ -202,82 +239,115 @@ const AchievementsAndDignitySection = () => {
                     Prof. Abhishek Das (SY - 4, 5, 6)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">4</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-AI Edge Computing</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Harshad Lokhande</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Shubhra Mathur</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-purple-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-purple-700 bg-purple-50">4</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      CSE-AI Edge Computing
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Harshad Lokhande</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Shubhra Mathur</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Prof. Rupesh H (LY - 1, TY-1,2)<br/>
                     Prof. Shraddha Kashid (SY - 7, 8, 9, 10)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">5</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-Cloud Computing</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Rashmi Nair</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Rameez Shamalik</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-blue-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-blue-700 bg-blue-50">5</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                      CSE-Cloud Computing
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Rashmi Nair</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Rameez Shamalik</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Prof. Shahin Rashidah (LY-1,2)<br/>
                     Prof. Dattatray Kale (TY - 1,2,3)<br/>
                     Prof. Hemant Shinde (SY - 11,12,13,14)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">6</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-Big Data and Cloud Engineering</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Reena Pagare</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Mansi Bhonsle</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-indigo-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-indigo-700 bg-indigo-50">6</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                      CSE-Big Data & Cloud
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Reena Pagare</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Mansi Bhonsle</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Prof. Chaitanya Garware (LY-1, TY-1)<br/>
                     Prof. Shrikant Dhage (SY-15,16,17,18)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">7</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">CSE-Cyber Security Forensics</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Smita Gumaste</td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Zakir Shaikh</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-purple-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-purple-700 bg-purple-50">7</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      CSE-Cyber Security
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Smita Gumaste</td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Zakir Shaikh</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     Prof. Rahul Bembade (LY - 1, 2)<br/>
                     Prof. Sushant Shirbhate (TY - 1, 2, 3)<br/>
                     Prof. Swapnil Patil (SY-19,20,21,22)
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">8</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">IT – Core</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Rahul Bhole</td>
-                  <td className="border border-gray-300 px-4 py-3" rowSpan={3}>Prof. Ashvini Jadhav</td>
-                  <td className="border border-gray-300 px-4 py-3 text-sm leading-relaxed">
+                <tr className="hover:bg-blue-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-blue-700 bg-blue-50">8</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                      IT – Core
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Rahul Bhole</td>
+                  <td className="px-6 py-4 text-gray-800" rowSpan={3}>Prof. Ashvini Jadhav</td>
+                  <td className="px-6 py-4 text-sm leading-relaxed text-gray-700">
                     SY - Prof. Jyoti Nandimath<br/>
                     TY - Prof. Ashvini Jadhav<br/>
                     LY - Prof. Rahul Bhole
                   </td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">9</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">IT- Data Analytics</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Palash Sontakke</td>
-                  <td className="border border-gray-300 px-4 py-3"></td>
+                <tr className="hover:bg-indigo-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-indigo-700 bg-indigo-50">9</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                      IT- Data Analytics
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Palash Sontakke</td>
+                  <td className="px-6 py-4 text-gray-800"></td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">10</td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-purple-700">IT- Software & Mobile App</td>
-                  <td className="border border-gray-300 px-4 py-3">Prof. Reetika Kerketta</td>
-                  <td className="border border-gray-300 px-4 py-3"></td>
+                <tr className="hover:bg-purple-50 transition-all duration-200 border-b border-gray-200">
+                  <td className="px-6 py-4 text-center font-bold text-purple-700 bg-purple-50">10</td>
+                  <td className="px-6 py-4 font-semibold text-gray-900">
+                    <span className="inline-block px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                      IT- Software & Mobile
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-800">Prof. Reetika Kerketta</td>
+                  <td className="px-6 py-4 text-gray-800"></td>
                 </tr>
-                <tr className="hover:bg-gray-50 transition-colors duration-200">
-                  <td className="border border-gray-300 px-4 py-3 text-center font-medium">11</td>
-                  <td className="border border-gray-300 px-4 py-3"></td>
-                  <td className="border border-gray-300 px-4 py-3">Dr. Ayesha Butalia</td>
-                  <td className="border border-gray-300 px-4 py-3"></td>
-                  <td className="border border-gray-300 px-4 py-3 font-medium text-blue-600">Paper Publication Activities</td>
+                <tr className="hover:bg-blue-50 transition-all duration-200">
+                  <td className="px-6 py-4 text-center font-bold text-blue-700 bg-blue-50">11</td>
+                  <td className="px-6 py-4 text-gray-800"></td>
+                  <td className="px-6 py-4 text-gray-800">Dr. Ayesha Butalia</td>
+                  <td className="px-6 py-4 text-gray-800"></td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full text-sm font-semibold shadow-md">
+                      <span className="material-icons text-sm mr-2">article</span>
+                      Paper Publication Activities
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p className="text-gray-700 leading-relaxed text-lg text-center mt-6">
+          <p className="text-gray-700 leading-relaxed text-base text-center mt-8 font-medium">
             They provide strategic direction and ensure that MIT ADT University maintains its position as a premier 
             institution for higher education and research.
           </p>
