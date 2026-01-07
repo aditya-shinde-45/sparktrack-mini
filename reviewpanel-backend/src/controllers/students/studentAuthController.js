@@ -111,9 +111,10 @@ class StudentAuthController {
 
   /**
    * Student login with enrollment number and password
+   * Supports "Remember Me" feature with refresh tokens
    */
   studentLogin = asyncHandler(async (req, res) => {
-    const { enrollment_no, password } = req.body;
+    const { enrollment_no, password, rememberMe } = req.body;
 
     if (!enrollment_no || !password) {
       throw ApiError.badRequest('Enrollment number and password are required.');
@@ -124,6 +125,7 @@ class StudentAuthController {
       throw ApiError.unauthorized('Invalid enrollment number or password.');
     }
 
+    // Generate access token (short-lived)
     const token = studentAuthModel.generateToken({
       student_id: student.student_id,
       enrollment_no: student.enrollment_no,
@@ -131,14 +133,23 @@ class StudentAuthController {
       role: student.role,
     });
 
-    return ApiResponse.success(res, 'Login successful', {
+    const responseData = {
       token,
       student: {
         enrollment_no: student.enrollment_no,
         email: student.email,
         role: student.role,
       },
-    });
+    };
+
+    // If "Remember Me" is checked, generate and store refresh token
+    if (rememberMe) {
+      const refreshToken = studentAuthModel.generateRefreshToken(student);
+      await studentAuthModel.saveRefreshToken(student.enrollment_no, refreshToken);
+      responseData.refreshToken = refreshToken;
+    }
+
+    return ApiResponse.success(res, 'Login successful', responseData);
   });
 
   /**
@@ -220,6 +231,57 @@ class StudentAuthController {
     await studentAuthModel.updatePasswordByEnrollment(enrollmentNo, newPassword);
 
     return ApiResponse.success(res, 'Password updated successfully.');
+  });
+
+  /**
+   * Refresh access token using refresh token (Remember Me feature)
+   */
+  refreshAccessToken = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      throw ApiError.badRequest('Refresh token is required.');
+    }
+
+    // Verify and get student from refresh token
+    const student = await studentAuthModel.verifyRefreshToken(refreshToken);
+    
+    if (!student) {
+      throw ApiError.unauthorized('Invalid or expired refresh token.');
+    }
+
+    // Generate new access token
+    const newAccessToken = studentAuthModel.generateToken({
+      student_id: student.student_id,
+      enrollment_no: student.enrollment_no,
+      email: student.email,
+      role: student.role,
+    });
+
+    return ApiResponse.success(res, 'Token refreshed successfully', {
+      token: newAccessToken,
+      student: {
+        enrollment_no: student.enrollment_no,
+        email: student.email,
+        role: student.role,
+      },
+    });
+  });
+
+  /**
+   * Logout student and invalidate refresh token
+   */
+  logout = asyncHandler(async (req, res) => {
+    const enrollmentNo = req.user?.enrollment_no || req.user?.student_id;
+
+    if (!enrollmentNo) {
+      throw ApiError.badRequest('Enrollment number missing in token.');
+    }
+
+    // Invalidate refresh token
+    await studentAuthModel.invalidateRefreshToken(enrollmentNo);
+
+    return ApiResponse.success(res, 'Logged out successfully.');
   });
 }
 

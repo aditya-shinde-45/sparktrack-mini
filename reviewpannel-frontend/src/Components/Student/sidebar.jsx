@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link, NavLink } from 'react-router-dom';
+import { apiRequest } from '../../api';
 import './sidebar.css'; // Assuming you have a CSS file for styles
 import {
   LayoutDashboard,
@@ -35,13 +36,25 @@ const Sidebar = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('student');
-    localStorage.removeItem('student_token');
-    localStorage.removeItem('enrollmentNumber');
-    sessionStorage.clear();
-    navigate('/studentlogin');
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('student_token');
+      // Call backend to invalidate refresh token
+      if (token) {
+        await apiRequest('/api/student-auth/logout', 'POST', null, token);
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      // Clear all tokens and data regardless of API result
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('student');
+      localStorage.removeItem('student_token');
+      localStorage.removeItem('student_refresh_token');
+      localStorage.removeItem('enrollmentNumber');
+      sessionStorage.clear();
+      navigate('/studentlogin');
+    }
   };
 
   return (

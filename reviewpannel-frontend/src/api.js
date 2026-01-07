@@ -32,6 +32,43 @@ const isTokenExpired = (token) => {
   }
 };
 
+// Function to refresh access token using refresh token
+const refreshAccessToken = async () => {
+  const refreshToken = localStorage.getItem('student_refresh_token');
+  
+  if (!refreshToken) {
+    console.log('No refresh token available');
+    return null;
+  }
+
+  try {
+    console.log('Attempting to refresh access token...');
+    const response = await fetch(`${API_BASE_URL}/api/student-auth/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.data?.token) {
+      console.log('Token refreshed successfully');
+      // Update access token
+      localStorage.setItem('student_token', data.data.token);
+      return data.data.token;
+    } else {
+      console.warn('Failed to refresh token:', data.message);
+      // Refresh token expired or invalid, remove it
+      localStorage.removeItem('student_refresh_token');
+      return null;
+    }
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    localStorage.removeItem('student_refresh_token');
+    return null;
+  }
+};
+
 export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false) => {
   // Skip authentication check for login and public endpoints
   const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password');
@@ -127,6 +164,21 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           };
         }
         
+        // Try to refresh token if this is a student endpoint and not a login/refresh endpoint
+        const isRefreshEndpoint = endpoint.includes('/refresh-token');
+        const hasRefreshToken = localStorage.getItem('student_refresh_token');
+        
+        if (!isAuthEndpoint && !isRefreshEndpoint && hasRefreshToken) {
+          console.log('Attempting to refresh token and retry request...');
+          const newToken = await refreshAccessToken();
+          
+          if (newToken) {
+            // Retry the original request with the new token
+            console.log('Retrying request with refreshed token');
+            return apiRequest(endpoint, method, body, newToken, isFormData);
+          }
+        }
+        
         // If we're not on a login-related page, clear tokens
         if (!endpoint.includes('/login') && !endpoint.includes('/forgot-password')) {
           console.log("Clearing tokens due to 401");
@@ -134,6 +186,7 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           // Clear all auth-related data
           localStorage.removeItem('token');
           localStorage.removeItem('student_token');
+          localStorage.removeItem('student_refresh_token');
           localStorage.removeItem('role');
           localStorage.removeItem('name');
           localStorage.removeItem('id');
