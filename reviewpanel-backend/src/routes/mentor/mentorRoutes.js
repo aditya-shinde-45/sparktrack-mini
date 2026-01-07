@@ -6,6 +6,20 @@ import authMiddleware from '../../middleware/authMiddleware.js';
 const router = express.Router();
 
 /**
+ * @route   POST /api/mentors/check-status
+ * @desc    Check if mentor exists and has set password
+ * @access  Public
+ */
+router.post('/check-status', pbl3Controller.checkMentorStatus);
+
+/**
+ * @route   POST /api/mentors/set-password
+ * @desc    Set password for first-time mentor login
+ * @access  Public
+ */
+router.post('/set-password', pbl3Controller.setMentorPassword);
+
+/**
  * @route   POST /api/mentors/login
  * @desc    Mentor login with phone number and password
  * @access  Public
