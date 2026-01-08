@@ -1,20 +1,23 @@
-
-
-
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
-import { AlertCircle, Check, FileText, Download, Eye, Edit2, Trash2 } from "lucide-react";
+import { AlertCircle, Check, FileText, Download, Eye, Edit2, Trash2, Building2, Briefcase, Clock, Upload, Users, User, Calendar } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const InternshipDetails = () => {
   const [student, setStudent] = useState(null);
   const [existingInternship, setExistingInternship] = useState(null);
+  const [groupDetails, setGroupDetails] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     organization_name: "",
     internship_type: "",
     internship_duration: "",
+    start_date: null,
+    end_date: null,
+    role: "",
     file: null,
   });
   const [loading, setLoading] = useState(false);
@@ -56,8 +59,47 @@ const InternshipDetails = () => {
             organization_name: internshipData.organization_name || "",
             internship_type: internshipData.internship_type || "",
             internship_duration: durationNumber,
+            start_date: internshipData.start_date ? new Date(internshipData.start_date) : null,
+            end_date: internshipData.end_date ? new Date(internshipData.end_date) : null,
+            role: internshipData.role || "",
             file: null,
           });
+        }
+
+        // Fetch previous group details
+        const enrollmentNo = profileData?.enrollment_no;
+        if (enrollmentNo) {
+          try {
+            const response = await fetch(`${import.meta.env.MODE === "development" ? import.meta.env.VITE_API_BASE_URL : import.meta.env.VITE_API_BASE_URL_PROD}/api/groups/previous/${enrollmentNo}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            const data = await response.json();
+            console.log("Raw API Response:", data);
+            
+            if (data && data.success) {
+              // Handle both response formats
+              const previousGroup = data.previousGroup || data.data?.previousGroup;
+              const members = data.members || data.data?.members;
+              
+              console.log("previousGroup:", previousGroup);
+              console.log("members:", members);
+              
+              if (previousGroup && members && members.length > 0) {
+                const groupData = {
+                  group_id: previousGroup.group_id,
+                  guide_name: previousGroup.guide_name,
+                  members: members
+                };
+                console.log("Setting groupDetails:", groupData);
+                setGroupDetails(groupData);
+              }
+            }
+          } catch (groupError) {
+            console.error("Error fetching previous group:", groupError);
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -104,6 +146,14 @@ const InternshipDetails = () => {
       formData.append("organization_name", form.organization_name);
       formData.append("internship_type", form.internship_type);
       formData.append("internship_duration", `${form.internship_duration} Month${form.internship_duration !== '1' ? 's' : ''}`);
+      if (form.start_date) formData.append("start_date", form.start_date.toISOString().split('T')[0]);
+      if (form.end_date) formData.append("end_date", form.end_date.toISOString().split('T')[0]);
+      if (form.role) formData.append("role", form.role);
+      formData.append("student_name", student?.name_of_students || student?.name || "");
+      if (groupDetails) {
+        formData.append("group_id", groupDetails.group_id || "");
+        formData.append("guide", groupDetails.guide_name || "");
+      }
       if (form.file) {
         formData.append("internship_document", form.file);
       }
@@ -128,6 +178,9 @@ const InternshipDetails = () => {
           organization_name: internshipData.organization_name || "",
           internship_type: internshipData.internship_type || "",
           internship_duration: durationNumber,
+          start_date: internshipData.start_date ? new Date(internshipData.start_date) : null,
+          end_date: internshipData.end_date ? new Date(internshipData.end_date) : null,
+          role: internshipData.role || "",
           file: null,
         });
       }
@@ -164,6 +217,9 @@ const InternshipDetails = () => {
         organization_name: "",
         internship_type: "",
         internship_duration: "",
+        start_date: null,
+        end_date: null,
+        role: "",
         file: null,
       });
       setIsEditing(false);
@@ -229,25 +285,29 @@ const InternshipDetails = () => {
       />
       <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
         <Sidebar />
-        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-purple-800 mb-2">Internship Details</h1>
-              <p className="text-gray-600">
-                {existingInternship 
-                  ? "View and manage your internship information."
-                  : "Submit your internship information and upload the required documents."
-                }
-              </p>
+        <main className="flex-1 p-3 md:p-6 bg-gray-50 lg:ml-72">
+          <div className="mb-8 bg-gradient-to-r from-purple-600 to-purple-800 rounded-2xl shadow-lg p-6 text-white">
+            <div className="flex items-center gap-3 mb-2">
+              <Briefcase className="w-8 h-8" />
+              <h1 className="text-3xl font-bold">Internship Details</h1>
             </div>
+            <p className="text-purple-100 ml-11">
+              {existingInternship 
+                ? "View and manage your internship information."
+                : "Submit your internship information and upload the required documents."
+              }
+            </p>
+          </div>
 
             {/* Existing Internship Card */}
             {existingInternship && !isEditing && (
-              <div className="bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-lg p-6 mb-6 border-2 border-purple-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-purple-700 flex items-center gap-2">
-                    <FileText className="w-6 h-6" />
-                    Your Internship Details
+              <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 border border-purple-100">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-purple-100">
+                  <h2 className="text-2xl font-bold text-purple-800 flex items-center gap-3">
+                    <div className="bg-purple-100 p-2 rounded-lg">
+                      <FileText className="w-6 h-6 text-purple-600" />
+                    </div>
+                    Your Internship Information
                   </h2>
                   <div className="flex gap-2">
                     <button
@@ -259,12 +319,15 @@ const InternshipDetails = () => {
                           organization_name: existingInternship.organization_name || "",
                           internship_type: existingInternship.internship_type || "",
                           internship_duration: durationNumber,
+                          start_date: existingInternship.start_date ? new Date(existingInternship.start_date) : null,
+                          end_date: existingInternship.end_date ? new Date(existingInternship.end_date) : null,
+                          role: existingInternship.role || "",
                           file: null,
                         });
                         setIsEditing(true);
                         setMessage("");
                       }}
-                      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition"
+                      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md hover:bg-purple-700 hover:shadow-lg transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                       Edit
@@ -272,7 +335,7 @@ const InternshipDetails = () => {
                     <button
                       onClick={handleDelete}
                       disabled={loading}
-                      className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-red-700 transition disabled:opacity-50"
+                      className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl font-semibold shadow-md hover:bg-red-700 hover:shadow-lg transition-all disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4" />
                       Delete
@@ -280,40 +343,118 @@ const InternshipDetails = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white p-4 rounded-lg border border-purple-100">
-                    <p className="text-sm text-gray-500 font-semibold mb-1">Organization</p>
-                    <p className="text-gray-800 font-medium">{existingInternship.organization_name}</p>
+                <div className="space-y-4 mb-6">
+                  <div className="bg-gradient-to-br from-purple-50 to-white p-5 rounded-xl border-l-4 border-purple-500 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-purple-100 p-2 rounded-lg mt-1">
+                        <Building2 className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 font-semibold mb-1">Organization Name</p>
+                        <p className="text-gray-800 font-semibold text-lg">{existingInternship.organization_name}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg border border-purple-100">
-                    <p className="text-sm text-gray-500 font-semibold mb-1">Internship Type</p>
-                    <p className="text-gray-800 font-medium">{existingInternship.internship_type}</p>
+                  
+                  <div className="bg-gradient-to-br from-blue-50 to-white p-5 rounded-xl border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-blue-100 p-2 rounded-lg mt-1">
+                        <Briefcase className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 font-semibold mb-1">Internship Type</p>
+                        <p className="text-gray-800 font-semibold text-lg">{existingInternship.internship_type}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white p-4 rounded-lg border border-purple-100">
-                    <p className="text-sm text-gray-500 font-semibold mb-1">Duration</p>
-                    <p className="text-gray-800 font-medium">{existingInternship.internship_duration}</p>
+                  
+                  <div className="bg-gradient-to-br from-green-50 to-white p-5 rounded-xl border-l-4 border-green-500 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-green-100 p-2 rounded-lg mt-1">
+                        <Clock className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 font-semibold mb-1">Duration</p>
+                        <p className="text-gray-800 font-semibold text-lg">{existingInternship.internship_duration}</p>
+                      </div>
+                    </div>
                   </div>
+                  
                   {existingInternship.group_id && (
-                    <div className="bg-white p-4 rounded-lg border border-purple-100">
-                      <p className="text-sm text-gray-500 font-semibold mb-1">Group ID</p>
-                      <p className="text-gray-800 font-medium">{existingInternship.group_id}</p>
+                    <div className="bg-gradient-to-br from-orange-50 to-white p-5 rounded-xl border-l-4 border-orange-500 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-orange-100 p-2 rounded-lg mt-1">
+                          <FileText className="w-5 h-5 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500 font-semibold mb-1">Group ID</p>
+                          <p className="text-gray-800 font-semibold text-lg">{existingInternship.group_id}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {existingInternship.start_date && (
+                    <div className="bg-gradient-to-br from-teal-50 to-white p-5 rounded-xl border-l-4 border-teal-500 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-teal-100 p-2 rounded-lg mt-1">
+                          <Calendar className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500 font-semibold mb-1">Start Date</p>
+                          <p className="text-gray-800 font-semibold text-lg">{new Date(existingInternship.start_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {existingInternship.end_date && (
+                    <div className="bg-gradient-to-br from-pink-50 to-white p-5 rounded-xl border-l-4 border-pink-500 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-pink-100 p-2 rounded-lg mt-1">
+                          <Calendar className="w-5 h-5 text-pink-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500 font-semibold mb-1">End Date</p>
+                          <p className="text-gray-800 font-semibold text-lg">{new Date(existingInternship.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {existingInternship.role && (
+                    <div className="bg-gradient-to-br from-violet-50 to-white p-5 rounded-xl border-l-4 border-violet-500 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-violet-100 p-2 rounded-lg mt-1">
+                          <User className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div className="w-full">
+                          <p className="text-sm text-gray-500 font-semibold mb-1">Profile & Brief of Task Allocated/Project Details</p>
+                          <p className="text-gray-800 font-medium text-base whitespace-pre-wrap">{existingInternship.role}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {existingInternship.file_name && (
-                  <div className="bg-white p-4 rounded-lg border border-purple-100">
-                    <p className="text-sm text-gray-500 font-semibold mb-2">Uploaded Document</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-purple-600" />
+                  <div className="bg-gradient-to-br from-indigo-50 to-white p-5 rounded-xl border border-indigo-200 shadow-sm">
+                    <p className="text-sm text-indigo-700 font-bold mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      INTERNSHIP LETTER
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-indigo-100 p-3 rounded-lg">
+                          <FileText className="w-6 h-6 text-indigo-600" />
+                        </div>
                         <span className="text-gray-800 font-medium">{existingInternship.file_name}</span>
                       </div>
                       <div className="flex gap-2">
                         {existingInternship.file_url && existingInternship.file_url !== 'pending_upload' && (
                           <button
                             onClick={handlePreview}
-                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-blue-700 transition"
+                            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-blue-700 hover:shadow-lg transition-all"
                           >
                             <Eye className="w-4 h-4" />
                             Preview
@@ -321,7 +462,7 @@ const InternshipDetails = () => {
                         )}
                         <button
                           onClick={handleDownload}
-                          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold shadow hover:bg-green-700 transition"
+                          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-green-700 hover:shadow-lg transition-all"
                         >
                           <Download className="w-4 h-4" />
                           Download
@@ -332,12 +473,13 @@ const InternshipDetails = () => {
                 )}
 
                 {existingInternship.created_at && (
-                  <div className="mt-4 text-sm text-gray-500">
-                    Submitted on: {new Date(existingInternship.created_at).toLocaleDateString('en-IN', {
+                  <div className="mt-6 pt-4 border-t border-purple-100 flex items-center gap-2 text-sm text-gray-500">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span>Submitted on: <span className="font-semibold text-gray-700">{new Date(existingInternship.created_at).toLocaleDateString('en-IN', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
-                    })}
+                    })}</span></span>
                   </div>
                 )}
               </div>
@@ -347,12 +489,17 @@ const InternshipDetails = () => {
             {(!existingInternship || isEditing) && (
               <form
                 onSubmit={handleSubmit}
-                className="bg-white rounded-xl shadow p-6 space-y-6 border border-purple-100"
+                className="bg-white rounded-2xl shadow-xl p-8 space-y-6 border border-purple-100"
               >
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-purple-700 mb-2">
-                    {existingInternship ? "Update Internship Details" : "Submit Internship Details"}
-                  </h2>
+                <div className="flex items-center justify-between border-b-2 border-purple-100 pb-4 mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-purple-100 p-2 rounded-lg">
+                      <Briefcase className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-purple-800">
+                      {existingInternship ? "Update Internship Details" : "Submit Internship Details"}
+                    </h2>
+                  </div>
                   {isEditing && (
                     <button
                       type="button"
@@ -364,17 +511,18 @@ const InternshipDetails = () => {
                           document.getElementById("internship-file").value = "";
                         }
                       }}
-                      className="text-gray-600 hover:text-gray-800 font-semibold"
+                      className="text-gray-500 hover:text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition"
                     >
                       Cancel
                     </button>
                   )}
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-5">
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Organization Name
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    Organization Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -383,14 +531,15 @@ const InternshipDetails = () => {
                       setForm({ ...form, organization_name: e.target.value })
                     }
                     required
-                    className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
-                    placeholder="Organization Name"
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300"
+                    placeholder="Enter organization name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Internship Type
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5 text-purple-600" />
+                    Internship Type <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.internship_type}
@@ -398,10 +547,10 @@ const InternshipDetails = () => {
                       setForm({ ...form, internship_type: e.target.value })
                     }
                     required
-                    className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300"
                   >
                     <option value="">Select Internship Type</option>
-                    <option value="Internship">Internship</option>
+                    <option value="Development Internship">Development Internship</option>
                     <option value="Research Internship">Research Internship</option>
                     <option value="Industrial Training">Industrial Training</option>
                     <option value="Virtual Internship">Virtual Internship</option>
@@ -409,8 +558,9 @@ const InternshipDetails = () => {
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Internship Duration (Months)
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-purple-600" />
+                    Internship Duration <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.internship_duration}
@@ -418,7 +568,7 @@ const InternshipDetails = () => {
                       setForm({ ...form, internship_duration: e.target.value })
                     }
                     required
-                    className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white"
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300"
                   >
                     <option value="">Select Duration</option>
                     <option value="1">1 Month</option>
@@ -427,64 +577,162 @@ const InternshipDetails = () => {
                     <option value="4">4 Months</option>
                     <option value="5">5 Months</option>
                     <option value="6">6 Months</option>
-                    <option value="7">7 Months</option>
-                    <option value="8">8 Months</option>
-                    <option value="9">9 Months</option>
-                    <option value="10">10 Months</option>
-                    <option value="11">11 Months</option>
-                    <option value="12">12 Months</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Upload Document (PDF only) {existingInternship && "(Optional - leave blank to keep current file)"}
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                    Start Date
                   </label>
-                  <input
-                    id="internship-file"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) =>
-                      setForm({ ...form, file: e.target.files[0] })
-                    }
-                    required={!existingInternship}
-                    className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  <DatePicker
+                    selected={form.start_date}
+                    onChange={(date) => setForm({ ...form, start_date: date })}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="Select start date (DD/MM/YYYY)"
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300"
+                    wrapperClassName="w-full"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
                   />
+                  <p className="mt-1 text-xs text-gray-500">Select internship start date (DD/MM/YYYY)</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-purple-600" />
+                    End Date
+                  </label>
+                  <DatePicker
+                    selected={form.end_date}
+                    onChange={(date) => setForm({ ...form, end_date: date })}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="Select end date (DD/MM/YYYY)"
+                    minDate={form.start_date}
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300"
+                    wrapperClassName="w-full"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Select internship end date (DD/MM/YYYY)</p>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <User className="w-5 h-5 text-purple-600" />
+                    Profile & Brief of Task Allocated / Project Details
+                  </label>
+                  <textarea
+                    value={form.role}
+                    onChange={(e) =>
+                      setForm({ ...form, role: e.target.value })
+                    }
+                    rows={4}
+                    className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white font-medium shadow-sm hover:border-purple-300 resize-y"
+                    placeholder="Describe your profile, role, internship project, tasks, and responsibilities..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-2.5 flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-purple-600" />
+                    Internship Letter (PDF only) <span className="text-red-500">*</span>
+                    {existingInternship && <span className="text-sm text-gray-500 font-normal">(Joining letter/Approval letter)</span>}
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="internship-file"
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) =>
+                        setForm({ ...form, file: e.target.files[0] })
+                      }
+                      required={!existingInternship}
+                      className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition text-gray-800 bg-white shadow-sm hover:border-purple-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-gray-500 flex items-center gap-1">
+                    <FileText className="w-4 h-4" />
+                    Upload your official internship offer letter or certificate
+                  </p>
                 </div>
               </div>
 
               {message && (
-                <div className={`flex items-center gap-2 p-4 rounded-lg ${
-                  messageType === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                <div className={`flex items-center gap-3 p-4 rounded-xl font-medium ${
+                  messageType === 'success' ? 'bg-green-50 text-green-700 border-2 border-green-200' : 'bg-red-50 text-red-700 border-2 border-red-200'
                 }`}>
                   {messageType === 'success' ? (
-                    <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <Check className="w-6 h-6 text-green-500 flex-shrink-0" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                    <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
                   )}
                   <span>{message}</span>
                 </div>
               )}
 
-              <div className="flex gap-4 justify-end">
+              <div className="flex gap-4 justify-end pt-4 border-t border-purple-100">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:from-purple-700 hover:to-purple-800 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {loading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    <>
+                      <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
                       {existingInternship ? "Updating..." : "Uploading..."}
-                    </span>
+                    </>
                   ) : (
-                    existingInternship ? "Update" : "Submit"
+                    <>
+                      <Check className="w-5 h-5" />
+                      {existingInternship ? "Update Details" : "Submit Details"}
+                    </>
                   )}
                 </button>
               </div>
             </form>
             )}
-          </div>
+
+          {/* Previous Group Info - Compact Version */}
+          {groupDetails && (
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4 text-gray-600" />
+                <h3 className="text-sm font-bold text-gray-700">Previous Year PBL Group</h3>
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 font-medium">Group ID:</span>
+                  <span className="text-gray-800 font-semibold">{groupDetails.group_id}</span>
+                </div>
+                
+                {groupDetails.guide_name && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-medium">Guide:</span>
+                    <span className="text-gray-800 font-semibold">{groupDetails.guide_name}</span>
+                  </div>
+                )}
+                
+                {groupDetails.members && groupDetails.members.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Members:</span>
+                    <div className="mt-1 space-y-1">
+                      {groupDetails.members.map((member, index) => (
+                        <div key={index} className="flex items-center gap-2 text-xs text-gray-700 pl-2">
+                          <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                          <span>{member.name_of_student || member.name_of_students || member.name}</span>
+                          <span className="text-gray-500">({member.enrollement_no || member.enrollment_no})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
