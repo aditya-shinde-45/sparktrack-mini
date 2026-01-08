@@ -9,7 +9,8 @@ import {
   PlusSquare,
   Edit,
   GraduationCap,
-  Settings
+  Settings,
+  Lock
 } from "lucide-react";
 import mitLogo from '../../assets/mitlogo.png';
 
@@ -22,7 +23,7 @@ const routes = [
   { name: "Tools", path: "/studenttools", icon: Settings },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose, isMobile }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const navigate = useNavigate();
@@ -63,29 +64,47 @@ const Sidebar = () => {
       {isDesktop && (
         <div className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
           <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
-            {routes.map(({ name, path, icon: Icon }, index) => (
-              <NavLink
-                key={index}
-                to={path}
-                className={({ isActive }) =>
-                  `w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out shadow-sm
-              ${
-                isActive
-                  ? "bg-white text-[#4C1D95] shadow-lg"
-                  : "bg-white/20 text-white hover:bg-white/30"
-              }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
-                    <span className={isActive ? "text-[#4C1D95]" : "text-white"}>
-                      {name}
-                    </span>
-                  </>
-                )}
-              </NavLink>
-            ))}
+            {routes.map(({ name, path, icon: Icon }, index) => {
+              const isDisabled = name !== "Dashboard";
+              const isActive = location.pathname === path;
+              
+              if (isDisabled) {
+                return (
+                  <div
+                    key={index}
+                    className="w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base bg-white/10 text-white/50 cursor-not-allowed shadow-sm"
+                  >
+                    <Icon size={20} color="#FFFFFF80" />
+                    <span className="flex-1">{name}</span>
+                    <Lock size={16} color="#FFFFFF80" />
+                  </div>
+                );
+              }
+              
+              return (
+                <NavLink
+                  key={index}
+                  to={path}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 ease-in-out shadow-sm
+                ${
+                  isActive
+                    ? "bg-white text-[#4C1D95] shadow-lg"
+                    : "bg-white/20 text-white hover:bg-white/30"
+                }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
+                      <span className={isActive ? "text-[#4C1D95]" : "text-white"}>
+                        {name}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
           <div className="mt-auto pt-6">
             <button
@@ -99,57 +118,57 @@ const Sidebar = () => {
         </div>
       )}
 
-      {/* ✅ Mobile Hamburger */}
-      {!isDesktop && (
-        <div className="fixed top-4 left-4 z-50">
-          <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className=" bg-purple-700 p-2 rounded-full "
-          >
-            <span className="material-icons-outlined">menu</span>
-          </button>
-        </div>
-      )}
-
-      {/* ✅ Mobile Dropdown */}
-      {!isDesktop && showDropdown && (
-        <div className="absolute top-16 left-4 right-4 mx-auto bg-white rounded-lg shadow-lg p-4 z-50 border max-w-sm w-full">
-          <div className="flex justify-center mb-4">
-            <img src={mitLogo} alt="MIT Logo" className="h-10" />
-          </div>
-          <ul className="space-y-3">
-            {routes.map(({ name, path, icon: Icon }, index) => {
-              const isActive = location.pathname === path;
-              return (
-                <li key={index}>
-                  <Link
-                    to={path}
-                    onClick={() => setShowDropdown(false)}
-                    className={`flex items-center space-x-3 px-4 py-2 rounded-md text-sm ${isActive ? 'bg-purple-100 text-purple-700' : 'hover:bg-purple-50 text-gray-800'
+      {/* Mobile Sidebar from Header */}
+      {isMobile && isOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+          <div className="fixed top-16 left-4 right-4 mx-auto rounded-lg shadow-lg p-4 z-50 border max-w-sm w-full bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3]">
+            <ul className="space-y-3">
+              {routes.map(({ name, path, icon: Icon }, index) => {
+                const isActive = location.pathname === path;
+                const isDisabled = name !== "Dashboard";
+                
+                if (isDisabled) {
+                  return (
+                    <li key={index}>
+                      <div className="flex items-center justify-between px-4 py-2 rounded-md text-sm bg-white/10 text-white/50 cursor-not-allowed">
+                        <div className="flex items-center space-x-3">
+                          <Icon size={20} color="#FFFFFF80" />
+                          <span>{name}</span>
+                        </div>
+                        <Lock size={16} color="#FFFFFF80" />
+                      </div>
+                    </li>
+                  );
+                }
+                
+                return (
+                  <li key={index}>
+                    <Link
+                      to={path}
+                      onClick={onClose}
+                      className={`flex items-center space-x-3 px-4 py-2 rounded-md text-sm ${
+                        isActive ? 'bg-white text-[#4C1D95]' : 'bg-white/20 text-white hover:bg-white/30'
                       }`}
-                  >
-                    <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
-                    <span className={isActive ? "text-[#4C1D95]" : "text-white"}>
-                      {name}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-            <li>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setShowDropdown(false);
-                }}
-                className="flex items-center space-x-3 px-4 py-2 rounded-md text-red-600 hover:bg-red-50 w-full text-sm"
-              >
-                <span className="material-icons-outlined text-base">logout</span>
-                <span>Logout</span>
-              </button>
-            </li>
-          </ul>
-        </div>
+                    >
+                      <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
+                      <span className={isActive ? "text-[#4C1D95]" : "text-white"}>{name}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+              <li>
+                <button
+                  onClick={() => { handleLogout(); onClose(); }}
+                  className="flex items-center space-x-3 px-4 py-2 rounded-md bg-white text-[#4C1D95] hover:bg-purple-100 w-full text-sm font-semibold"
+                >
+                  <span className="material-icons-outlined text-base">logout</span>
+                  <span>Logout</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </>
       )}
     </>
   );
