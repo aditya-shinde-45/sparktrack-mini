@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../api"; // centralized API
 import backgroundImage from "../../assets/login.png"; // Import your image
-import LoginHeader from "../../Components/Common/LoginHeader"; // Import LoginHeader
+import LoginHeader from "../../Components/Common/Navbar"; // Import LoginHeader
 
 const StudentLogin = () => {
   const [enrollmentNo, setEnrollmentNo] = useState("");

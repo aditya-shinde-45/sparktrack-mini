@@ -3,6 +3,7 @@ import problemStatementController from '../../controllers/students/problemStatem
 import authMiddleware from '../../middleware/authMiddleware.js';
 import supabase from '../../config/database.js';
 import ApiResponse from '../../utils/apiResponse.js';
+import { deadlineBlocker } from '../../middleware/deadlineMiddleware.js';
 
 const router = express.Router();
 
@@ -35,6 +36,7 @@ router.post(
   '/student/problem-statement',
   authMiddleware.authenticateUser,
   authMiddleware.restrictTo('student', 'admin', 'mentor'),
+  deadlineBlocker('problem_statement'),
   problemStatementController.submitProblemStatement,
 );
 
@@ -48,6 +50,7 @@ router.put(
   '/student/problem-statement/:group_id',
   authMiddleware.authenticateUser,
   authMiddleware.restrictTo('student', 'admin', 'mentor'),
+  deadlineBlocker('problem_statement'),
   problemStatementController.editProblemStatement,
 );
 
@@ -55,6 +58,7 @@ router.delete(
   '/student/problem-statement/:group_id',
   authMiddleware.authenticateUser,
   authMiddleware.restrictTo('student', 'admin'),
+  deadlineBlocker('problem_statement'),
   problemStatementController.deleteProblemStatement,
 );
 
