@@ -81,33 +81,10 @@ const Login = () => {
       endpoint = "/api/external-auth/login";
       payload = { external_id: username, password };
     } else if (role === "Mentor") {
-      // First, check if mentor has set password
-      try {
-        const statusData = await apiRequest("/api/mentors/check-status", "POST", { contact_number: username });
-        
-        if (!statusData || statusData.success === false) {
-          setErrorMsg(statusData?.message || "Mentor not found with this mobile number.");
-          setLoading(false);
-          return;
-        }
-
-        // If password not set, show password setup modal
-        if (!statusData.data.hasPassword) {
-          setMentorContactNumber(username);
-          setMentorName(statusData.data.mentor_name);
-          setShowMentorPasswordModal(true);
-          setLoading(false);
-          return;
-        }
-
-        // Password is set, proceed with normal login
-        endpoint = "/api/mentors/login";
-        payload = { username, password };
-      } catch (error) {
-        setErrorMsg("Failed to check mentor status. Please try again.");
-        setLoading(false);
-        return;
-      }
+      // For mentor login, send credentials directly
+      // Backend will handle first-time login with default password 'ideabliss2305'
+      endpoint = "/api/mentors/login";
+      payload = { username, password };
     } else {
       setErrorMsg("Selected role is not supported for login.");
       return;
@@ -157,6 +134,16 @@ const Login = () => {
       if (role === "Mentor") {
         // Store mentor data from response
         const mentorData = data.data || data;
+        
+        // Check if this is first-time login (password needs to be set)
+        if (mentorData.requirePasswordChange) {
+          // Show password setup modal for first-time users
+          setMentorContactNumber(username);
+          setMentorName(mentorData.mentor_name || username);
+          setShowMentorPasswordModal(true);
+          setLoading(false);
+          return;
+        }
         
         // Store mentor token separately for mentor routes
         localStorage.setItem("mentor_token", token);
@@ -480,6 +467,7 @@ const Login = () => {
                 )}
               </button>
 
+              {/* Reviewer Admin Link */}
               <div className="mt-6 text-center">
                 <button
                   type="button"

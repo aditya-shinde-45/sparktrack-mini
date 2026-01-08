@@ -22,7 +22,7 @@ class Pbl3Controller {
     }
 
     // Fixed password for all mentors
-    const MENTOR_PASSWORD = 'ideabliss912';
+    const MENTOR_PASSWORD = 'ideabliss2305';
 
     // Check if password matches
     if (password !== MENTOR_PASSWORD) {

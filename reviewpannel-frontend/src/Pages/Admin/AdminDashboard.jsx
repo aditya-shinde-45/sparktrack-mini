@@ -3,10 +3,11 @@ import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Admin/Sidebar";
 import Header from "../../Components/Common/Header";
 import StatsCards from "../../Components/Admin/StatsCards";
+import Loading from "../../Components/Common/loading";
 import {
   PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer
 } from "recharts";
-import { TrendingUp, CheckCircle, GraduationCap, Users, Target, Activity } from "lucide-react";
+import { TrendingUp, CheckCircle, GraduationCap, Users, Target, Activity, RefreshCw } from "lucide-react";
 
 const COLORS = ["#7B74EF", "#5D3FD3", "#FFBB28", "#FF8042", "#A28BFE", "#82CA9D", "#FFC658", "#8884D8"];
 
@@ -104,38 +105,8 @@ const AdminDashboard = () => {
   const name = localStorage.getItem("name");
   const id = localStorage.getItem("id");
 
-  const LoadingContent = () => (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
-      <Header name={name} id={id} />
-      <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
-        <Sidebar />
-        <main className="flex-1 lg:ml-72 px-4 sm:px-8 py-6">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <div className="relative mb-8">
-                <div className="animate-spin rounded-full h-24 w-24 border-4 border-[#5D3FD3]/20 border-t-[#5D3FD3] mx-auto"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <TrendingUp className="w-8 h-8 text-[#5D3FD3] animate-pulse" />
-                </div>
-              </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent mb-3">
-                Loading Dashboard Analytics
-              </h2>
-              <p className="text-lg font-medium text-gray-600 mb-6">Fetching comprehensive system data...</p>
-              <div className="flex justify-center items-center space-x-1">
-                <div className="w-2 h-2 bg-[#5D3FD3] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-[#7B74EF] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-[#5D3FD3] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-
   if (loading) {
-    return <LoadingContent />;
+    return <Loading message="Loading Dashboard Analytics" />;
   }
 
   if (error) {
