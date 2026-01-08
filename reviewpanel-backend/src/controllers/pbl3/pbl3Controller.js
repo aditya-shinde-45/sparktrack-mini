@@ -13,8 +13,6 @@ import config from '../../config/index.js';
 class Pbl3Controller {
   /**
    * Mentor login with phone number and fixed password
-   * Username: contact_number (phone)
-   * Password: MITADT1230 (fixed)
    */
   mentorLogin = asyncHandler(async (req, res) => {
     const { username, password } = req.body;

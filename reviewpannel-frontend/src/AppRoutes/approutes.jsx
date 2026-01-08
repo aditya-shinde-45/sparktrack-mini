@@ -47,6 +47,7 @@ import InternshipDetails from '../Pages/students/InternshipDetails';
 
 // Mentor Pages
 import MentorDashboard from '../Pages/Mentor/MentorDashboard';
+import ZerothReview from '../Pages/Mentor/ZerothReview';
 
 // Reviewer Admin Pages
 import ReviewerAdminLogin from '../Pages/ReviewerAdmin/ReviewerAdminLogin';
@@ -79,6 +80,7 @@ const AppRoutes = () => {
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />
       <Route path="/mentor/groups" element={<MentorDashboard />} />
       <Route path="/mentor/reviews" element={<MentorDashboard />} />
+      <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
       <Route path="/mentor/schedule" element={<MentorDashboard />} />
       <Route path="/mentor/settings" element={<MentorDashboard />} />
 
