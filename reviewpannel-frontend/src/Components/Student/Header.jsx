@@ -2,19 +2,31 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import mitlogo from "../../assets/mitlogo.png";
 import { apiRequest } from "../../api.js";
-import { User } from "lucide-react";
+import { User, Menu } from "lucide-react";
+import Sidebar from "./sidebar.jsx";
 
 const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [prevPassword, setPrevPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [profilePicture, setProfilePicture] = useState(null);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const menuRef = useRef(null);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Fetch student data - NOW GETS EVERYTHING IN ONE CALL
   useEffect(() => {
@@ -180,8 +192,18 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
       {/* Main Header */}
       <header className="fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-3 sm:p-4 rounded-b-lg text-white shadow-lg">
         <div className="flex justify-between items-center">
-          {/* Left side: Logo */}
+          {/* Left side: Hamburger (mobile) + Logo */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile Hamburger Menu */}
+            {!isDesktop && (
+              <button
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="p-2 hover:bg-white/20 rounded-md transition lg:hidden"
+              >
+                <Menu size={20} className="text-white" />
+              </button>
+            )}
+            
             <img
               alt="University Logo"
               className="h-8 sm:h-12 w-auto object-contain"
@@ -267,6 +289,15 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
           </div>
         </div>
       </header>
+
+      {/* Mobile Sidebar */}
+      {!isDesktop && showSidebar && (
+        <Sidebar 
+          isOpen={showSidebar} 
+          onClose={() => setShowSidebar(false)}
+          isMobile={true}
+        />
+      )}
 
       {/* Reset Password Modal */}
       {showModal && (
