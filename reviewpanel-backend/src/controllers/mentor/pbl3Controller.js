@@ -77,31 +77,41 @@ class Pbl3Controller {
   /**
    * Mentor login with phone number and password
    * Username: contact_number (phone/mobile number)
-   * Password: User-set password (first time setup required)
+   * Password: First-time login uses 'ideabliss2305', then user sets their own password
    */
   mentorLogin = asyncHandler(async (req, res) => {
     const { username, password } = req.body;
+    const FIRST_TIME_PASSWORD = 'ideabliss2305';
 
     if (!username || !password) {
       throw ApiError.badRequest('Mobile number and password are required');
     }
 
-    // Check if mentor has set password
+    // Check if mentor exists and password status
     const status = await mentorModel.hasPassword(username);
 
     if (!status || !status.exists) {
       throw ApiError.notFound('Mentor not found with this mobile number');
     }
 
+    let mentor;
+    let requirePasswordChange = false;
+
+    // If password not set in database, check for first-time password
     if (!status.hasPassword) {
-      throw ApiError.badRequest('Password not set. Please set your password first.');
-    }
+      if (password !== FIRST_TIME_PASSWORD) {
+        throw ApiError.unauthorized('Invalid password. Use first-time login password.');
+      }
+      // First-time login successful with default password
+      mentor = status.mentor;
+      requirePasswordChange = true;
+    } else {
+      // Validate credentials using mentor model (password is set)
+      mentor = await mentorModel.validateCredentials(username, password);
 
-    // Validate credentials using mentor model
-    const mentor = await mentorModel.validateCredentials(username, password);
-
-    if (!mentor) {
-      throw ApiError.unauthorized('Invalid mobile number or password');
+      if (!mentor) {
+        throw ApiError.unauthorized('Invalid mobile number or password');
+      }
     }
 
     // Get all groups for this mentor
@@ -130,13 +140,12 @@ class Pbl3Controller {
 
     return ApiResponse.success(res, 'Mentor login successful', {
       token,
-      mentor: {
-        mentor_id: mentor.mentor_id,
-        mentor_name: mentor.mentor_name,
-        contact_number: mentor.contact_number,
-        groups: groups,
-        role: 'mentor'
-      }
+      requirePasswordChange,
+      mentor_id: mentor.mentor_id,
+      mentor_name: mentor.mentor_name,
+      contact_number: mentor.contact_number,
+      groups: groups,
+      role: 'mentor'
     });
   });
 

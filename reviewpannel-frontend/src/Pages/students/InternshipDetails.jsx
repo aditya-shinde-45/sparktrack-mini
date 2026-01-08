@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
+import Loading from "../../Components/Common/loading";
 import { AlertCircle, Check, FileText, Download, Eye, Edit2, Trash2, Building2, Briefcase, Clock, Upload, Users, User, Calendar } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -271,11 +272,7 @@ const InternshipDetails = () => {
   };
 
   if (!student || fetchingData)
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
-      </div>
-    );
+    return <Loading message="Loading internship details" />;
 
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">

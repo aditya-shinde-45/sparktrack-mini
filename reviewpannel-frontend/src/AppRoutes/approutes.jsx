@@ -9,6 +9,7 @@ import AboutPBL from '../Pages/Common/AboutPBL';
 import ProblemStatementSih from '../Pages/Common/ProblemStatement';
 import Download from '../Pages/Common/Download';
 import Students from '../Pages/Common/students';
+import LoadingTest from '../Pages/Common/LoadingTest';
 
 // External Pages
 import ExternalHome from '../Pages/External/ExternalHome';
@@ -72,6 +73,7 @@ const AppRoutes = () => {
       <Route path="/documentation" element={<Documentation />} />
       <Route path="/studenttools" element={<Tools />} />
       <Route path="/create-group" element={<CreateGroup />} />
+      <Route path="/loading-test" element={<LoadingTest />} />
 
       {/* Mentor Routes */}
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />

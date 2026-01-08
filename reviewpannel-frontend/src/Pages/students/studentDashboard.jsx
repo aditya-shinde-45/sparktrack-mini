@@ -7,6 +7,7 @@ import GroupDetails from "../../Components/Student/GroupDetails";
 import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
 import StudentPosts from "../../Components/Student/posts";
+import Loading from "../../Components/Common/loading";
 import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus } from "lucide-react";
 
 const StudentDashboard = () => {
@@ -348,11 +349,7 @@ const StudentDashboard = () => {
   };
 
   if (!student)
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-gray-600">Loading student data...</div>
-      </div>
-    );
+    return <Loading message="Loading your dashboard" />;
 
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
