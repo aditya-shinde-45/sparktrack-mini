@@ -6,7 +6,8 @@ import {
   FileCheck,
   Calendar,
   Settings,
-  LogOut
+  LogOut,
+  ClipboardCheck
 } from "lucide-react";
 import mitLogo from '../../assets/mitlogo.png';
 
@@ -14,6 +15,7 @@ const mentorRoutes = [
   { name: "Dashboard", path: "/mentor/dashboard", icon: LayoutDashboard },
   { name: "My Groups", path: "/mentor/groups", icon: Users },
   { name: "Reviews", path: "/mentor/reviews", icon: FileCheck },
+  { name: "Zeroth Review", path: "/mentor/zeroth-review", icon: ClipboardCheck },
   { name: "Schedule", path: "/mentor/schedule", icon: Calendar },
   { name: "Settings", path: "/mentor/settings", icon: Settings },
 ];
@@ -82,33 +84,53 @@ const MentorSidebar = () => {
 
       {/* Mobile Bottom Navigation */}
       {!isDesktop && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-[#7B74EF] to-[#5D3FD3] p-3 shadow-2xl flex justify-around items-center z-50 rounded-t-3xl">
-          {mentorRoutes.slice(0, 4).map(({ name, path, icon: Icon }, index) => (
-            <NavLink
-              key={index}
-              to={path}
-              className={({ isActive }) =>
-                `flex flex-col items-center justify-center py-2 px-3 rounded-xl transition-all
-                ${isActive ? "bg-white text-[#4C1D95]" : "text-white"}`
-              }
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50">
+          <div className="flex justify-around items-stretch max-w-screen-md mx-auto px-2 py-2 safe-area-inset-bottom">
+            {mentorRoutes.slice(0, 4).map(({ name, path, icon: Icon }, index) => (
+              <NavLink
+                key={index}
+                to={path}
+                className={({ isActive }) =>
+                  `flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl transition-all duration-300 ease-out mx-1
+                  ${isActive ? "scale-105" : "hover:bg-gray-50 active:scale-95"}`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
+                      isActive 
+                        ? "bg-gradient-to-br from-[#7B74EF] via-[#6B64DF] to-[#5D3FD3] shadow-lg shadow-purple-500/30" 
+                        : "bg-transparent"
+                    }`}>
+                      <Icon 
+                        size={24} 
+                        color={isActive ? "#FFFFFF" : "#6B7280"} 
+                        strokeWidth={isActive ? 2.5 : 2}
+                        className="transition-all duration-300"
+                      />
+                      {isActive && (
+                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full border-2 border-white"></div>
+                      )}
+                    </div>
+                    <span className={`text-[9px] mt-1 font-semibold tracking-tight transition-all duration-300 truncate max-w-full ${
+                      isActive ? "text-[#4C1D95]" : "text-gray-500"
+                    }`}>
+                      {name}
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+            <button
+              onClick={handleLogout}
+              className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl text-gray-600 hover:bg-red-50 active:scale-95 transition-all duration-300 mx-1"
             >
-              {({ isActive }) => (
-                <>
-                  <Icon size={20} color={isActive ? "#4C1D95" : "#FFFFFF"} />
-                  <span className={`text-xs mt-1 ${isActive ? "text-[#4C1D95]" : "text-white"}`}>
-                    {name}
-                  </span>
-                </>
-              )}
-            </NavLink>
-          ))}
-          <button
-            onClick={handleLogout}
-            className="flex flex-col items-center justify-center py-2 px-3 rounded-xl text-white"
-          >
-            <LogOut size={20} />
-            <span className="text-xs mt-1">Logout</span>
-          </button>
+              <div className="p-2.5 rounded-xl bg-transparent transition-all duration-300 hover:bg-red-100">
+                <LogOut size={24} strokeWidth={2} className="text-red-500" />
+              </div>
+              <span className="text-[9px] mt-1 font-semibold tracking-tight text-gray-500">Logout</span>
+            </button>
+          </div>
         </div>
       )}
     </>

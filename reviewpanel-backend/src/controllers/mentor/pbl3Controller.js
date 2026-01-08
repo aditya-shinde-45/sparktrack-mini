@@ -146,33 +146,35 @@ class Pbl3Controller {
   getMentorGroups = asyncHandler(async (req, res) => {
     const { contact_number, mentor_name } = req.user;
 
-    if (!contact_number && !mentor_name) {
-      throw ApiError.badRequest('Mentor identification is required');
+    if (!contact_number) {
+      throw ApiError.badRequest('Mentor contact number is required');
     }
 
-    // Query by contact_number first (from token), fallback to mentor_name
-    let mentorData;
-    if (contact_number) {
-      const { data, error } = await supabase.from('mentors')
-        .select('mentor_id, mentor_name, contact_number, group_id')
-        .eq('contact_number', contact_number);
-      
-      if (error) throw error;
-      mentorData = data;
-    } else {
-      mentorData = await mentorModel.getByName(mentor_name);
+    // Query internship_details table using guide column (mentor name) and filter for LY% groups
+    const { data, error } = await supabase
+      .from('internship_details')
+      .select('group_id, guide')
+      .eq('guide', mentor_name)
+      .like('group_id', 'LY%');
+    
+    if (error) {
+      console.error('Error fetching mentor groups:', error);
+      throw error;
     }
 
-    if (!mentorData || mentorData.length === 0) {
-      throw ApiError.notFound('Mentor not found');
+    if (!data || data.length === 0) {
+      return ApiResponse.success(res, 'No groups found for this mentor', { 
+        groups: [],
+        mentor_name: mentor_name || 'Unknown'
+      });
     }
 
     // Extract unique group IDs
-    const groups = [...new Set(mentorData.map(m => m.group_id))];
+    const groups = [...new Set(data.map(m => m.group_id))];
 
     return ApiResponse.success(res, 'Mentor groups retrieved successfully', { 
       groups,
-      mentor_name: mentorData[0].mentor_name 
+      mentor_name: data[0].guide || mentor_name
     });
   });
 

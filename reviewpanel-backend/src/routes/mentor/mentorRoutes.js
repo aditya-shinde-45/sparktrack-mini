@@ -1,6 +1,7 @@
 import express from 'express';
 import mentorController from '../../controllers/mentor/mentorController.js';
 import pbl3Controller from '../../controllers/mentor/pbl3Controller.js';
+import zerothReviewController from '../../controllers/mentor/zerothReviewController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -35,6 +36,62 @@ router.get(
   '/groups',
   authMiddleware.verifyToken,
   pbl3Controller.getMentorGroups
+);
+
+// Zeroth Review Routes
+/**
+ * @route   POST /api/mentors/zeroth-review/submit
+ * @desc    Submit Zeroth Review evaluation
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/zeroth-review/submit',
+  authMiddleware.verifyToken,
+  zerothReviewController.submitZerothReview
+);
+
+/**
+ * @route   GET /api/mentors/zeroth-review/:group_id
+ * @desc    Get Zeroth Review data for a specific group
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/zeroth-review/:group_id',
+  authMiddleware.verifyToken,
+  zerothReviewController.getZerothReviewByGroup
+);
+
+/**
+ * @route   GET /api/mentors/zeroth-review
+ * @desc    Get all Zeroth Reviews
+ * @access  Private (Mentor/Admin)
+ */
+router.get(
+  '/zeroth-review',
+  authMiddleware.verifyToken,
+  zerothReviewController.getAllZerothReviews
+);
+
+/**
+ * @route   PUT /api/mentors/zeroth-review/:group_id/:enrollment_no
+ * @desc    Update Zeroth Review
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/zeroth-review/:group_id/:enrollment_no',
+  authMiddleware.verifyToken,
+  zerothReviewController.updateZerothReview
+);
+
+/**
+ * @route   DELETE /api/mentors/zeroth-review/:group_id
+ * @desc    Delete Zeroth Review for a group
+ * @access  Private (Mentor/Admin)
+ */
+router.delete(
+  '/zeroth-review/:group_id',
+  authMiddleware.verifyToken,
+  zerothReviewController.deleteZerothReview
 );
 
 /**
