@@ -31,7 +31,7 @@ class InternshipController {
    * Submit new internship details
    */
   submitInternship = asyncHandler(async (req, res) => {
-    const { organization_name, internship_type, internship_duration } = req.body;
+    const { organization_name, internship_type, internship_duration, start_date, end_date, role, student_name, group_id, guide } = req.body;
     
     // Get enrollment number from authenticated student
     const enrollment_no = req.user?.enrollment_no || req.user?.enrollement_no;
@@ -44,30 +44,36 @@ class InternshipController {
       throw ApiError.badRequest('Organization name, internship type, and duration are required.');
     }
 
-    // Fetch group_id from pbl table
-    const { data: pblData, error: pblError } = await supabase
-      .from('pbl')
-      .select('*')
-      .eq('enrollment_no', enrollment_no)
-      .maybeSingle();
+    // Use group_id and guide from request if provided (from previous year group)
+    let finalGroupId = group_id || null;
+    let finalGuide = guide || null;
+    
+    // If not provided in request, fetch from pbl table
+    if (!finalGroupId) {
+      const { data: pblData, error: pblError } = await supabase
+        .from('pbl')
+        .select('*')
+        .eq('enrollment_no', enrollment_no)
+        .maybeSingle();
 
-    console.log('PBL data from DB:', pblData);
-    console.log('Enrollment number used:', enrollment_no);
+      console.log('PBL data from DB:', pblData);
+      console.log('Enrollment number used:', enrollment_no);
 
-    if (pblError) {
-      console.error('Error fetching PBL data:', pblError);
-    }
+      if (pblError) {
+        console.error('Error fetching PBL data:', pblError);
+      }
 
-    // Try different possible column names for group_id in pbl table
-    const group_id = pblData?.group_id || 
+      // Try different possible column names for group_id in pbl table
+      finalGroupId = pblData?.group_id || 
                      pblData?.groupId || 
                      pblData?.id ||
                      null;
-    
-    console.log('Extracted group_id from PBL:', group_id);
-    
-    if (!group_id) {
-      console.warn('No group_id found in PBL table for this student. Group assignment may be pending.');
+      
+      console.log('Extracted group_id from PBL:', finalGroupId);
+      
+      if (!finalGroupId) {
+        console.warn('No group_id found in PBL table for this student. Group assignment may be pending.');
+      }
     }
 
     if (!req.file) {
@@ -133,10 +139,15 @@ class InternshipController {
       .from('internship_details')
       .insert([{
         enrollment_no,
-        group_id: group_id || null,
+        group_id: finalGroupId,
+        guide: finalGuide,
+        student_name: student_name || null,
         organization_name,
         internship_type,
         internship_duration,
+        start_date: start_date || null,
+        end_date: end_date || null,
+        role: role || null,
         file_url,
         file_name,
         file_type
@@ -250,7 +261,7 @@ class InternshipController {
    */
   updateInternship = asyncHandler(async (req, res) => {
     const enrollment_no = req.user?.enrollment_no || req.user?.enrollement_no;
-    const { organization_name, internship_type, internship_duration, group_id } = req.body;
+    const { organization_name, internship_type, internship_duration, group_id, guide, student_name, start_date, end_date, role } = req.body;
 
     if (!enrollment_no) {
       throw ApiError.unauthorized('Student enrollment number not found.');
@@ -279,6 +290,11 @@ class InternshipController {
       internship_type: internship_type || existing.internship_type,
       internship_duration: internship_duration || existing.internship_duration,
       group_id: group_id !== undefined ? group_id : existing.group_id,
+      guide: guide !== undefined ? guide : existing.guide,
+      student_name: student_name !== undefined ? student_name : existing.student_name,
+      start_date: start_date !== undefined ? start_date : existing.start_date,
+      end_date: end_date !== undefined ? end_date : existing.end_date,
+      role: role !== undefined ? role : existing.role,
       updated_at: new Date().toISOString()
     };
 

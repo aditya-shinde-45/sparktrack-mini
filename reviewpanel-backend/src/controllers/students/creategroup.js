@@ -311,8 +311,11 @@ export const getPreviousGroup = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      previousGroup: data,
-      members: groupMembers || []
+      message: 'Previous group found',
+      data: {
+        previousGroup: data,
+        members: groupMembers || []
+      }
     });
 
   } catch (error) {
