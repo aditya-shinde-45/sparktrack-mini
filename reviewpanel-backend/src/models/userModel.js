@@ -6,8 +6,8 @@ import config from "../config/index.js";
 const users = [
   {
     id: 1,
-    username: "admin",
-    passwordHash: bcrypt.hashSync("admin1230", 10),
+    username: "8698078603",
+    passwordHash: bcrypt.hashSync("strawhats", 10),
     role: "Admin",
   },
 ];

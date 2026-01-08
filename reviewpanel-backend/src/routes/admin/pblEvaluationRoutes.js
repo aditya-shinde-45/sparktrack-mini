@@ -69,4 +69,26 @@ router.post(
   pblEvaluationController.saveEvaluation
 );
 
+/**
+ * @route   GET /api/evaluation/zero-review
+ * @desc    Get Zero Review data from internship_details table
+ * @access  Private (Admin)
+ */
+router.get(
+  '/zero-review',
+  authMiddleware.authenticateAdmin,
+  pblEvaluationController.getZeroReviewData
+);
+
+/**
+ * @route   GET /api/evaluation/zero-review/download
+ * @desc    Download Zero Review data as CSV
+ * @access  Private (Admin)
+ */
+router.get(
+  '/zero-review/download',
+  authMiddleware.authenticateAdmin,
+  pblEvaluationController.downloadZeroReviewCSV
+);
+
 export default router;

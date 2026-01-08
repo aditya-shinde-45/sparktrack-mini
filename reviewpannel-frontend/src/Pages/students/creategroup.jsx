@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from '../../Components/Student/sidebar';
 import Header from '../../Components/Student/Header';
-import axios from 'axios';
+import { apiRequest } from '../../api';
 import { Users, UserPlus, Mail, Phone, Building, Award, AlertCircle, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 const CreateGroup = () => {
@@ -35,18 +35,22 @@ const CreateGroup = () => {
 
   const fetchLeaderData = async (enrollmentNo) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/groups/${enrollmentNo}`);
-      const studentData = res.data.student;
-      setLeaderData({
-        enrollment_no: studentData.enrollment_no,
-        name_of_students: studentData.student_name,
-        class: studentData.class,
-        contact: studentData.contact
-      });
+      const token = localStorage.getItem('student_token');
+      const res = await apiRequest(`/api/groups/${enrollmentNo}`, 'GET', null, token);
+      
+      if (res.success && res.student) {
+        const studentData = res.student;
+        setLeaderData({
+          enrollment_no: studentData.enrollment_no,
+          name_of_students: studentData.student_name,
+          class: studentData.class,
+          contact: studentData.contact
+        });
+      }
     } catch (err) {
       console.error('Error fetching leader data:', err);
       // Check if error is due to deadline
-      if (err?.response?.status === 403) {
+      if (err?.response?.status === 403 || err?.status === 403) {
         setDeadlinePassed(true);
         setMessage('⚠️ Group creation deadline has passed. This feature is currently disabled.');
       }
@@ -71,18 +75,22 @@ const CreateGroup = () => {
   const fetchMemberData = async (enrollmentNo, index) => {
     setMemberEnrollments(prev => ({ ...prev, [index]: enrollmentNo }));
     try {
-      const res = await axios.get(`http://localhost:5000/api/groups/${enrollmentNo}`);
-      const studentData = res.data.student;
-      const updatedData = { 
-        ...memberData, 
-        [index]: {
-          enrollment_no: studentData.enrollment_no,
-          name_of_students: studentData.student_name,
-          class: studentData.class,
-          contact: studentData.contact
-        }
-      };
-      setMemberData(updatedData);
+      const token = localStorage.getItem('student_token');
+      const res = await apiRequest(`/api/groups/${enrollmentNo}`, 'GET', null, token);
+      
+      if (res.success && res.student) {
+        const studentData = res.student;
+        const updatedData = { 
+          ...memberData, 
+          [index]: {
+            enrollment_no: studentData.enrollment_no,
+            name_of_students: studentData.student_name,
+            class: studentData.class,
+            contact: studentData.contact
+          }
+        };
+        setMemberData(updatedData);
+      }
     } catch (err) {
       console.error(`Error fetching member ${index}:`, err);
       const updatedData = { ...memberData, [index]: null };
@@ -92,9 +100,16 @@ const CreateGroup = () => {
 
   const fetchPreviousMembers = async (enrollmentNo) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/groups/previous/${enrollmentNo}`);
-      const group = res.data.previousGroup;
-      const allMembers = res.data.members || [];
+      const token = localStorage.getItem('student_token');
+      const res = await apiRequest(`/api/groups/previous/${enrollmentNo}`, 'GET', null, token);
+      
+      if (!res.success) {
+        setMessage('❌ Failed to fetch previous group details');
+        return;
+      }
+      
+      const group = res.previousGroup || res.data?.previousGroup;
+      const allMembers = res.members || res.data?.members || [];
 
       setGroupId(group.group_id || '');
       setGuideId(group.guide_id || '');
@@ -111,16 +126,19 @@ const CreateGroup = () => {
       for (let i = 0; i < otherMembers.length && count < 3; i++) {
         const member = otherMembers[i];
         try {
-          const res = await axios.get(`http://localhost:5000/api/groups/${member.enrollement_no}`);
-          const studentData = res.data.student;
-          initialMemberData[count + 1] = {
-            enrollment_no: studentData.enrollment_no,
-            name_of_students: studentData.student_name,
-            class: studentData.class,
-            contact: studentData.contact
-          };
-          initialEnrollments[count + 1] = member.enrollement_no;
-          count++;
+          const memberRes = await apiRequest(`/api/groups/${member.enrollement_no}`, 'GET', null, token);
+          
+          if (memberRes.success && memberRes.student) {
+            const studentData = memberRes.student;
+            initialMemberData[count + 1] = {
+              enrollment_no: studentData.enrollment_no,
+              name_of_students: studentData.student_name,
+              class: studentData.class,
+              contact: studentData.contact
+            };
+            initialEnrollments[count + 1] = member.enrollement_no;
+            count++;
+          }
         } catch (err) {
           console.error(`Failed to fetch previous member ${member.enrollement_no}`, err);
         }
@@ -152,6 +170,8 @@ const CreateGroup = () => {
     }
 
     try {
+      const token = localStorage.getItem('student_token');
+      
       // Step 1: Create draft group
       const draftBody = {
         leader_enrollment: applicantEnrollment,
@@ -166,8 +186,13 @@ const CreateGroup = () => {
         domain: continuePrevious ? domain : null
       };
 
-      const draftRes = await axios.post('http://localhost:5000/api/groups-draft/draft', draftBody);
-      const createdGroupId = draftRes.data.data.group_id;
+      const draftRes = await apiRequest('/api/groups-draft/draft', 'POST', draftBody, token);
+      
+      if (!draftRes.success) {
+        throw new Error(draftRes.message || 'Failed to create group draft');
+      }
+      
+      const createdGroupId = draftRes.data?.group_id || draftRes.group_id;
 
       // Step 2: Send invitations to members
       const inviteBody = {
@@ -175,7 +200,11 @@ const CreateGroup = () => {
         enrollments: members
       };
 
-      await axios.post('http://localhost:5000/api/groups-draft/invite', inviteBody);
+      const inviteRes = await apiRequest('/api/groups-draft/invite', 'POST', inviteBody, token);
+      
+      if (!inviteRes.success) {
+        throw new Error(inviteRes.message || 'Failed to send invitations');
+      }
       
       setMessage(`✅ Group draft created! Invitations sent to ${members.length} member(s). Check Group Details for status.`);
       
@@ -185,11 +214,11 @@ const CreateGroup = () => {
       }, 2000);
     } catch (err) {
       console.error(err);
-      if (err?.response?.status === 403) {
+      if (err?.status === 403 || err?.response?.status === 403) {
         setDeadlinePassed(true);
         setMessage('⚠️ Group creation deadline has passed. This feature is currently disabled.');
       } else {
-        setMessage(`❌ ${err.response?.data?.message || err.response?.data?.error || 'Submission failed'}`);
+        setMessage(`❌ ${err.message || 'Submission failed'}`);
       }
     }
   };

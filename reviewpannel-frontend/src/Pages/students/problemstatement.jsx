@@ -55,6 +55,13 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
     const res = await apiRequest(endpoint, method, body, token);
     setLoading(false);
     
+    // Check for deadline block error
+    if (res.success === false && res.status === 403 && res.message?.includes('disabled')) {
+      setMessage('This task has been closed by the administrator. Submissions are no longer accepted.');
+      setMessageType('error');
+      return;
+    }
+    
     if (res.success !== false) {
       setMessage(res.message || (existing ? 'Problem statement updated successfully!' : 'Problem statement submitted successfully!'));
       setMessageType('success');
@@ -73,6 +80,13 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
     const token = localStorage.getItem('student_token');
     const res = await apiRequest(`/api/students/student/problem-statement/${groupId}`, 'DELETE', null, token);
     setLoading(false);
+    
+    // Check for deadline block error
+    if (res.success === false && res.status === 403 && res.message?.includes('disabled')) {
+      setMessage('This task has been closed by the administrator. Modifications are no longer allowed.');
+      setMessageType('error');
+      return;
+    }
     
     if (res.success !== false) {
       setMessage(res.message || 'Problem statement deleted successfully!');
@@ -252,6 +266,7 @@ const ProblemStatementSih = () => {
   const [existingPS, setExistingPS] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isDeadlineBlocked, setIsDeadlineBlocked] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('student_token');
@@ -304,6 +319,25 @@ const ProblemStatementSih = () => {
               }
             } catch (error) {
               console.log("No existing problem statement found");
+            }
+            
+            // Check if deadline is blocked by trying a test request
+            try {
+              const testRes = await apiRequest(
+                `/api/students/student/problem-statement`,
+                'POST',
+                { group_id: group.group_id, title: 'test', description: 'test' },
+                token
+              );
+              
+              if (testRes.success === false && testRes.status === 403 && testRes.message?.includes('disabled')) {
+                setIsDeadlineBlocked(true);
+              }
+            } catch (error) {
+              // If there's an error other than deadline block, ignore it
+              if (error.status === 403 && error.message?.includes('disabled')) {
+                setIsDeadlineBlocked(true);
+              }
             }
           } else {
             setError("You are not part of any group yet. Please create or join a group first.");
@@ -422,13 +456,75 @@ const ProblemStatementSih = () => {
 
             {/* Problem Statement Form */}
             {groupData && (
-              <ProblemStatementForm
-                groupId={groupData.group_id}
-                groupName={groupData.team_name}
-                existing={existingPS}
-                onSubmit={setExistingPS}
-                onDelete={() => setExistingPS(null)}
-              />
+              <>
+                {isDeadlineBlocked ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                    <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
+                      <div className="p-4 bg-orange-100 rounded-full mb-6">
+                        <AlertCircle className="w-16 h-16 text-orange-600" />
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-3">Submission Period Closed</h3>
+                      <p className="text-gray-600 mb-2 leading-relaxed text-lg">
+                        The problem statement submission period has been closed by the administrator.
+                      </p>
+                      <p className="text-gray-500 mb-6">
+                        This task is no longer accepting new submissions or modifications. The deadline may have passed or the task has not been started yet.
+                      </p>
+                      {existingPS && (
+                        <div className="w-full bg-blue-50 rounded-lg p-6 border border-blue-200 text-left">
+                          <h4 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+                            <FileText className="w-5 h-5" />
+                            Your Submitted Problem Statement
+                          </h4>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-sm font-semibold text-blue-800 mb-1">Title</p>
+                              <p className="text-gray-900">{existingPS.title}</p>
+                            </div>
+                            {existingPS.type && (
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800 mb-1">Type</p>
+                                <p className="text-gray-900">{existingPS.type}</p>
+                              </div>
+                            )}
+                            {existingPS.technologyBucket && (
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800 mb-1">Technology Bucket</p>
+                                <p className="text-gray-900">{existingPS.technologyBucket}</p>
+                              </div>
+                            )}
+                            {existingPS.domain && (
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800 mb-1">Domain</p>
+                                <p className="text-gray-900">{existingPS.domain}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold text-blue-800 mb-1">Description</p>
+                              <p className="text-gray-900 whitespace-pre-wrap">{existingPS.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <a
+                        href="/student-dashboard"
+                        className="mt-6 flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition-all"
+                      >
+                        <Users className="w-5 h-5" />
+                        Back to Dashboard
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <ProblemStatementForm
+                    groupId={groupData.group_id}
+                    groupName={groupData.team_name}
+                    existing={existingPS}
+                    onSubmit={setExistingPS}
+                    onDelete={() => setExistingPS(null)}
+                  />
+                )}
+              </>
             )}
           </div>
         </main>
