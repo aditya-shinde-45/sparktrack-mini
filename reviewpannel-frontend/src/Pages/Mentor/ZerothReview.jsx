@@ -426,21 +426,36 @@ const ZerothReview = () => {
     try {
       const token = localStorage.getItem("mentor_token");
       
-      // Fetch the PDF URL for the student's internship letter
+      console.log("Fetching letter for enrollment:", enrollmentNo);
+      
+      // Fetch the internship details for the student to get the file_url
       const response = await apiRequest(
-        `/api/students/internship/letter/${enrollmentNo}`,
+        `/api/students/internship/enrollment/${enrollmentNo}`,
         "GET",
         null,
         token
       );
       
-      if (response?.data?.file_url || response?.file_url) {
-        let pdfUrl = response.data?.file_url || response.file_url;
+      console.log("API Response:", response);
+      console.log("Response data:", response?.data);
+      
+      // Extract file_url from the internship object
+      const internship = response?.data?.internship || response?.internship;
+      const fileUrl = internship?.file_url;
+      
+      console.log("file_url:", fileUrl);
+      
+      if (fileUrl && fileUrl !== 'pending_upload') {
+        let pdfUrl = fileUrl;
+        
+        console.log("PDF URL found:", pdfUrl);
         
         // Ensure the URL is properly formatted for PDF viewing
         if (pdfUrl && !pdfUrl.includes('#')) {
           pdfUrl += '#toolbar=1&navpanes=1&scrollbar=1&page=1&view=FitH';
         }
+        
+        console.log("Final PDF URL:", pdfUrl);
         
         setSelectedPdfUrl(pdfUrl);
         setSelectedStudentName(studentName);
@@ -455,16 +470,18 @@ const ZerothReview = () => {
           }
         }, 1500);
       } else {
+        console.error("No file_url in response or file is pending upload");
         setMessage({ 
           type: "error", 
-          text: "No internship letter found for this student" 
+          text: fileUrl === 'pending_upload' ? "Student hasn't uploaded internship letter yet" : "No internship letter found for this student"
         });
       }
     } catch (error) {
       console.error("Error fetching PDF:", error);
+      console.error("Error details:", error.response || error);
       setMessage({ 
         type: "error", 
-        text: "Failed to load internship letter" 
+        text: "Failed to load internship letter. " + (error?.message || "Please try again.")
       });
     }
   };
@@ -903,19 +920,6 @@ const ZerothReview = () => {
                           <p className="text-sm text-gray-600">Professional experience and training records</p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const firstStudent = students[0];
-                          if (firstStudent) {
-                            addInternshipRow(firstStudent.enrollment_no);
-                          }
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-xl hover:from-teal-600 hover:to-cyan-700 font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 text-sm sm:text-base"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Entry
-                      </button>
                     </div>
                     
                     <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-teal-200">
