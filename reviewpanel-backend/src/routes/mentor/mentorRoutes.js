@@ -95,6 +95,28 @@ router.delete(
 );
 
 /**
+ * @route   POST /api/mentors/zeroth-review/add-member
+ * @desc    Add missing member from PBL 2025 table to internship details
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/zeroth-review/add-member',
+  authMiddleware.verifyToken,
+  zerothReviewController.addMissingMember
+);
+
+/**
+ * @route   POST /api/mentors/zeroth-review/verify-member
+ * @desc    Verify if student exists in PBL 2025 table with same group
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/zeroth-review/verify-member',
+  authMiddleware.verifyToken,
+  zerothReviewController.verifyMissingMember
+);
+
+/**
  * @route   GET /api/admin/mentors
  * @desc    Get all mentors with their assigned groups
  * @access  Private (Admin)

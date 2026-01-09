@@ -161,6 +161,12 @@ const ZerothReview = () => {
   const [selectedStudentName, setSelectedStudentName] = useState("");
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState("");
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
+  const [memberEnrollment, setMemberEnrollment] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const [verifyingStudent, setVerifyingStudent] = useState(false);
+  const [verifiedStudent, setVerifiedStudent] = useState(null);
+  const [verificationError, setVerificationError] = useState("");
 
   // Form state for the evaluation form
   const [formData, setFormData] = useState({
@@ -422,6 +428,188 @@ const ZerothReview = () => {
       profile_task: "",
       remark: "Pending"
     }]);
+  };
+
+  const handleVerifyStudent = async () => {
+    if (!memberEnrollment.trim()) {
+      setVerificationError("Please enter an enrollment number");
+      return;
+    }
+
+    if (!selectedGroup) {
+      setVerificationError("Please select a group first");
+      return;
+    }
+
+    try {
+      setVerifyingStudent(true);
+      setVerificationError("");
+      setVerifiedStudent(null);
+      const token = localStorage.getItem("mentor_token");
+
+      console.log("Verifying student:", memberEnrollment.trim(), "in group:", selectedGroup);
+
+      // Call API to verify student
+      const response = await apiRequest(
+        `/api/mentors/zeroth-review/verify-member`,
+        "POST",
+        {
+          enrollment_no: memberEnrollment.trim(),
+          group_id: selectedGroup
+        },
+        token
+      );
+
+      console.log("Verification response:", response);
+
+      if (response?.success || response?.data?.success) {
+        const student = response?.data?.student || response?.student;
+        const inSameGroup = response?.data?.inSameGroup || response?.inSameGroup;
+        const alreadyAdded = response?.data?.alreadyAdded || response?.alreadyAdded;
+
+        if (alreadyAdded) {
+          setVerificationError("This student is already added to the internship details");
+          return;
+        }
+
+        if (!inSameGroup) {
+          setVerificationError("Student not found in this group. Please verify the enrollment number.");
+          return;
+        }
+
+        setVerifiedStudent({
+          enrollment_no: student.enrollment_no || student.enrollement_no,
+          name: student.name_of_student || student.student_name,
+          guide_name: student.guide_name,
+          group_id: student.group_id
+        });
+      } else {
+        setVerificationError(response?.message || "Failed to verify student");
+      }
+    } catch (error) {
+      console.error("Error verifying student:", error);
+      setVerificationError(
+        error?.response?.data?.message || error?.message || "Failed to verify student. Please try again."
+      );
+    } finally {
+      setVerifyingStudent(false);
+    }
+  };
+
+  const handleAddMissingMember = async () => {
+    if (!verifiedStudent) {
+      setMessage({ type: "error", text: "Please verify the student first" });
+      return;
+    }
+
+    try {
+      setAddingMember(true);
+      const token = localStorage.getItem("mentor_token");
+
+      console.log("Adding member with enrollment:", memberEnrollment.trim(), "to group:", selectedGroup);
+
+      // Call API to add missing member
+      const response = await apiRequest(
+        `/api/mentors/zeroth-review/add-member`,
+        "POST",
+        {
+          enrollment_no: memberEnrollment.trim(),
+          group_id: selectedGroup
+        },
+        token
+      );
+
+      console.log("Add member response:", response);
+
+      if (response?.success || response?.data?.success) {
+        const newMember = response?.data?.student || response?.student;
+        const wasMoved = response?.data?.moved || response?.moved;
+        const previousGroup = response?.data?.previousGroup || response?.previousGroup;
+        
+        console.log("New member data:", newMember);
+        
+        if (newMember) {
+          const enrollmentNo = newMember.enrollment_no || newMember.enrollement_no;
+          const studentName = newMember.name_of_student || newMember.student_name || 'Unknown';
+          
+          // If student was moved from another group, refetch the entire group data
+          if (wasMoved) {
+            setMessage({ 
+              type: "success", 
+              text: `${studentName} moved from group ${previousGroup} to this group successfully` 
+            });
+            setAddMemberModalOpen(false);
+            setMemberEnrollment("");
+            setVerifiedStudent(null);
+            setVerificationError("");
+            
+            // Refetch group details to show the moved student
+            await fetchGroupDetails(selectedGroup);
+            return;
+          }
+          
+          // Add to internships array
+          setInternships(prev => {
+            const updated = [...prev, {
+              enrollment_no: enrollmentNo,
+              student_name: studentName,
+              company_name: "",
+              mode: "Development Internship",
+              start_date: "",
+              end_date: "",
+              profile_task: "",
+              remark: "Pending"
+            }];
+            console.log("Updated internships:", updated);
+            return updated;
+          });
+
+          // Add to students array for marks
+          setStudents(prev => {
+            const updated = [...prev, {
+              enrollment_no: enrollmentNo,
+              name: studentName,
+              isAbsent: false,
+              marks: {
+                literature_survey: 0,
+                status_sem7: 0,
+                technical_readiness: 0,
+                knowledge_problem: 0,
+                plan_development: 0,
+                total: 0
+              }
+            }];
+            console.log("Updated students:", updated);
+            return updated;
+          });
+
+          setMessage({ type: "success", text: `Successfully added ${studentName}` });
+          setAddMemberModalOpen(false);
+          setMemberEnrollment("");
+          setVerifiedStudent(null);
+          setVerificationError("");
+          
+          // Scroll to show the new member
+          setTimeout(() => {
+            const internshipSection = document.querySelector('[class*="Internship Details"]');
+            if (internshipSection) {
+              internshipSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }, 300);
+        }
+      } else {
+        setMessage({ type: "error", text: response?.message || "Failed to add member" });
+      }
+    } catch (error) {
+      console.error("Error adding member:", error);
+      console.error("Error details:", error?.response);
+      setMessage({ 
+        type: "error", 
+        text: error?.response?.data?.message || error?.message || "Failed to add missing member. Please check if the student exists in the same group." 
+      });
+    } finally {
+      setAddingMember(false);
+    }
   };
 
   const handleViewLetter = async (enrollmentNo, studentName) => {
@@ -922,6 +1110,14 @@ const ZerothReview = () => {
                           <p className="text-sm text-gray-600">Professional experience and training records</p>
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setAddMemberModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl hover:from-purple-600 hover:to-indigo-700 font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 text-sm sm:text-base"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Add Missing Member
+                      </button>
                     </div>
                     
                     <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-teal-200">
@@ -1285,6 +1481,167 @@ const ZerothReview = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Missing Member Modal */}
+      {addMemberModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => !addingMember && !verifyingStudent && setAddMemberModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <UserPlus className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-white">Add Missing Member</h2>
+              </div>
+              <button
+                onClick={() => !addingMember && setAddMemberModalOpen(false)}
+                disabled={addingMember}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800 font-medium">
+                  ℹ️ This will search for the student in the PBL 2025 table with Group ID: <span className="font-bold">{selectedGroup}</span>
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Enrollment Number
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={memberEnrollment}
+                    onChange={(e) => {
+                      setMemberEnrollment(e.target.value.toUpperCase());
+                      setVerifiedStudent(null);
+                      setVerificationError("");
+                    }}
+                    placeholder="e.g., MITU22BTCS0123"
+                    disabled={addingMember || verifyingStudent}
+                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed uppercase"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !verifyingStudent && !addingMember) {
+                        if (!verifiedStudent) {
+                          handleVerifyStudent();
+                        } else {
+                          handleAddMissingMember();
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleVerifyStudent}
+                    disabled={verifyingStudent || addingMember || !memberEnrollment.trim()}
+                    className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {verifyingStudent ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    ) : (
+                      "Check"
+                    )}
+                  </button>
+                </div>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-500">
+                    • Enter enrollment number and click "Check" to verify
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    • Student must exist in pbl_2025 table with the same group_id
+                  </p>
+                </div>
+              </div>
+
+              {/* Verification Error */}
+              {verificationError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg animate-fadeIn">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 font-medium">{verificationError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Verified Student Details */}
+              {verifiedStudent && (
+                <div className="mb-4 p-4 bg-green-50 border-2 border-green-300 rounded-xl animate-fadeIn">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {verifiedStudent.name.charAt(0)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                        <h3 className="text-sm font-bold text-green-800">Student Verified ✓</h3>
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-semibold text-gray-900">{verifiedStudent.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-600" />
+                          <span className="text-xs text-gray-600">{verifiedStudent.enrollment_no}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-green-600" />
+                          <span className="text-xs text-gray-600">Group: {verifiedStudent.group_id}</span>
+                        </div>
+                        {verifiedStudent.guide_name && (
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-green-600" />
+                            <span className="text-xs text-gray-600">Guide: {verifiedStudent.guide_name}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setAddMemberModalOpen(false);
+                    setMemberEnrollment("");
+                    setVerifiedStudent(null);
+                    setVerificationError("");
+                  }}
+                  disabled={addingMember || verifyingStudent}
+                  className="flex-1 px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddMissingMember}
+                  disabled={addingMember || verifyingStudent || !verifiedStudent}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl hover:from-purple-600 hover:to-indigo-700 font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {addingMember ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      Add Member
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
