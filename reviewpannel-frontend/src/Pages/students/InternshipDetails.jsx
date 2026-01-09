@@ -3,7 +3,7 @@ import { apiRequest } from "../../api";
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
 import Loading from "../../Components/Common/loading";
-import { AlertCircle, Check, FileText, Download, Eye, Edit2, Trash2, Building2, Briefcase, Clock, Upload, Users, User, Calendar } from "lucide-react";
+import { AlertCircle, Check, FileText, Download, Eye, Edit2, Trash2, Building2, Briefcase, Clock, Upload, Users, User, Calendar, X, Maximize2 } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -25,6 +25,7 @@ const InternshipDetails = () => {
   const [fetchingData, setFetchingData] = useState(true);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // 'success' or 'error'
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("student_token");
@@ -426,8 +427,18 @@ const InternshipDetails = () => {
                           <User className="w-5 h-5 text-violet-600" />
                         </div>
                         <div className="w-full">
-                          <p className="text-sm text-gray-500 font-semibold mb-1">Profile & Brief of Task Allocated/Project Details</p>
-                          <p className="text-gray-800 font-medium text-base whitespace-pre-wrap">{existingInternship.role}</p>
+                          <div className="flex items-start justify-between mb-1">
+                            <p className="text-sm text-gray-500 font-semibold">Profile & Brief of Task Allocated/Project Details</p>
+                            <button
+                              onClick={() => setShowRoleModal(true)}
+                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-violet-600 hover:text-violet-800 hover:bg-violet-100 rounded-lg transition-colors"
+                              title="View in full screen"
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                              Expand
+                            </button>
+                          </div>
+                          <p className="text-gray-800 font-medium text-base whitespace-pre-wrap line-clamp-3 cursor-pointer hover:text-violet-600 transition-colors" onClick={() => setShowRoleModal(true)}>{existingInternship.role}</p>
                         </div>
                       </div>
                     </div>
@@ -732,6 +743,54 @@ const InternshipDetails = () => {
           )}
         </main>
       </div>
+
+      {/* Role Details Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowRoleModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <User className="w-6 h-6 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-white">Profile & Brief of Task Allocated/Project Details</h2>
+              </div>
+              <button
+                onClick={() => setShowRoleModal(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl p-6 border border-violet-200">
+                <pre className="text-gray-800 font-medium text-base whitespace-pre-wrap leading-relaxed font-sans">
+                  {existingInternship?.role}
+                </pre>
+              </div>
+              
+              {/* Optional: Add copy to clipboard button */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(existingInternship?.role || '');
+                    setMessage("Copied to clipboard!");
+                    setMessageType("success");
+                    setTimeout(() => setMessage(""), 2000);
+                  }}
+                  className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 font-medium text-sm transition-colors flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Copy to Clipboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
