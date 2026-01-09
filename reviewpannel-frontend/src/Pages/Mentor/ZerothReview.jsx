@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
-import { Plus, Save, UserPlus, Building, Mail, Phone, Calendar, FileText, CheckCircle, AlertCircle, ClipboardCheck, Users, Award, BookOpen, Target, X, Download, Eye, User, Building2, Briefcase } from "lucide-react";
+import { Plus, Save, UserPlus, Building, Mail, Phone, Calendar, FileText, CheckCircle, AlertCircle, ClipboardCheck, Users, Award, BookOpen, Target, X, Download, Eye, User, Building2, Briefcase, Maximize2 } from "lucide-react";
 
 // Add custom CSS for animations and sliders
 const customStyles = `
@@ -159,6 +159,8 @@ const ZerothReview = () => {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedStudentName, setSelectedStudentName] = useState("");
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState("");
 
   // Form state for the evaluation form
   const [formData, setFormData] = useState({
@@ -1072,17 +1074,26 @@ const ZerothReview = () => {
                                   </div>
                                 </td>
                                 <td className="px-4 py-4">
-                                  <div className="relative">
+                                  <div className="relative group">
                                     <input
                                       type="text"
                                       value={internship.profile_task}
                                       onChange={(e) => handleInternshipChange(index, 'profile_task', e.target.value)}
                                       placeholder="Role & key responsibilities"
-                                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 hover:border-teal-300 bg-gradient-to-r from-white to-gray-50 shadow-sm hover:shadow-md"
+                                      className="w-full px-4 py-3 pr-10 border-2 border-gray-200 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-200 hover:border-teal-300 bg-gradient-to-r from-white to-gray-50 shadow-sm hover:shadow-md"
                                     />
-                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                      <Briefcase className="w-4 h-4 text-gray-400" />
-                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedRole(internship.profile_task);
+                                        setSelectedStudentName(internship.student_name);
+                                        setRoleModalOpen(true);
+                                      }}
+                                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-teal-600 transition-colors"
+                                      title="View in full screen"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
                                   </div>
                                 </td>
                                 <td className="px-4 py-4">
@@ -1274,6 +1285,72 @@ const ZerothReview = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Details Modal */}
+      {roleModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setRoleModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <Briefcase className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Role & Responsibilities</h2>
+                  <p className="text-sm text-white/90">{selectedStudentName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRoleModalOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-200">
+                <textarea
+                  value={selectedRole}
+                  onChange={(e) => {
+                    setSelectedRole(e.target.value);
+                    // Update the internship data
+                    const internshipIndex = internships.findIndex(i => i.student_name === selectedStudentName);
+                    if (internshipIndex !== -1) {
+                      handleInternshipChange(internshipIndex, 'profile_task', e.target.value);
+                    }
+                  }}
+                  placeholder="Enter role and key responsibilities..."
+                  className="w-full h-64 px-4 py-3 border-2 border-teal-200 rounded-xl text-gray-800 font-medium text-base resize-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-white/50"
+                />
+              </div>
+              
+              {/* Action buttons */}
+              <div className="mt-4 flex justify-between items-center">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedRole || '');
+                    setMessage({ type: "success", text: "Copied to clipboard!" });
+                    setTimeout(() => setMessage({ type: "", text: "" }), 2000);
+                  }}
+                  className="px-4 py-2 bg-teal-100 text-teal-700 rounded-lg hover:bg-teal-200 font-medium text-sm transition-colors flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Copy to Clipboard
+                </button>
+                <button
+                  onClick={() => setRoleModalOpen(false)}
+                  className="px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 font-semibold text-sm transition-all shadow-lg hover:shadow-xl"
+                >
+                  Done
+                </button>
               </div>
             </div>
           </div>
