@@ -38,6 +38,8 @@ const CreateGroup = () => {
       const token = localStorage.getItem('student_token');
       const res = await apiRequest(`/api/groups/${enrollmentNo}`, 'GET', null, token);
       
+      console.log('Leader data response:', res);
+      
       if (res.success && res.student) {
         const studentData = res.student;
         setLeaderData({
@@ -45,6 +47,16 @@ const CreateGroup = () => {
           name_of_students: studentData.student_name,
           class: studentData.class,
           contact: studentData.contact
+        });
+      } else {
+        // Fallback to localStorage if API returns null
+        console.log('Leader data not found in API, using localStorage');
+        const storedStudent = JSON.parse(localStorage.getItem('student') || '{}');
+        setLeaderData({
+          enrollment_no: storedStudent.enrollment_no,
+          name_of_students: storedStudent.name || storedStudent.name_of_students,
+          class: storedStudent.class,
+          contact: storedStudent.contact
         });
       }
     } catch (err) {
@@ -56,7 +68,12 @@ const CreateGroup = () => {
       }
       // Fallback to localStorage if API fails
       const storedStudent = JSON.parse(localStorage.getItem('student') || '{}');
-      setLeaderData(storedStudent);
+      setLeaderData({
+        enrollment_no: storedStudent.enrollment_no,
+        name_of_students: storedStudent.name || storedStudent.name_of_students,
+        class: storedStudent.class,
+        contact: storedStudent.contact
+      });
     }
   };
 
@@ -103,6 +120,8 @@ const CreateGroup = () => {
       const token = localStorage.getItem('student_token');
       const res = await apiRequest(`/api/groups/previous/${enrollmentNo}`, 'GET', null, token);
       
+      console.log('Previous group response:', res);
+      
       if (!res.success) {
         setMessage('❌ Failed to fetch previous group details');
         return;
@@ -111,6 +130,19 @@ const CreateGroup = () => {
       const group = res.previousGroup || res.data?.previousGroup;
       const allMembers = res.members || res.data?.members || [];
 
+      console.log('Group:', group);
+      console.log('All members:', allMembers);
+
+      // Set leader data from the group object
+      if (group) {
+        setLeaderData({
+          enrollment_no: group.enrollement_no,
+          name_of_students: group.name_of_student,
+          class: group.class,
+          contact: group.contact
+        });
+      }
+
       setGroupId(group.group_id || '');
       setGuideId(group.guide_id || '');
       setGuideName(group.guide_name || 'N/A');
@@ -118,31 +150,28 @@ const CreateGroup = () => {
 
       // Filter out the current leader from the members list
       const otherMembers = allMembers.filter(m => m.enrollement_no !== enrollmentNo);
+      console.log('Other members (excluding leader):', otherMembers);
 
       const initialMemberData = {};
       const initialEnrollments = {};
-      let count = 0;
 
-      for (let i = 0; i < otherMembers.length && count < 3; i++) {
+      // Use the data we already have from allMembers instead of making API calls
+      for (let i = 0; i < otherMembers.length && i < 3; i++) {
         const member = otherMembers[i];
-        try {
-          const memberRes = await apiRequest(`/api/groups/${member.enrollement_no}`, 'GET', null, token);
-          
-          if (memberRes.success && memberRes.student) {
-            const studentData = memberRes.student;
-            initialMemberData[count + 1] = {
-              enrollment_no: studentData.enrollment_no,
-              name_of_students: studentData.student_name,
-              class: studentData.class,
-              contact: studentData.contact
-            };
-            initialEnrollments[count + 1] = member.enrollement_no;
-            count++;
-          }
-        } catch (err) {
-          console.error(`Failed to fetch previous member ${member.enrollement_no}`, err);
-        }
+        initialMemberData[i + 1] = {
+          enrollment_no: member.enrollement_no,
+          name_of_students: member.name_of_student,
+          class: member.class,
+          contact: member.contact
+        };
+        initialEnrollments[i + 1] = member.enrollement_no;
       }
+
+      const count = otherMembers.length > 3 ? 3 : otherMembers.length;
+
+      console.log('Final count:', count);
+      console.log('Final enrollments:', initialEnrollments);
+      console.log('Final member data:', initialMemberData);
 
       setMemberCount(count);
       setMemberEnrollments(initialEnrollments);
@@ -350,7 +379,10 @@ const CreateGroup = () => {
                         checked={continuePrevious}
                         onChange={() => {
                           setContinuePrevious(true);
-                          fetchPreviousMembers(leaderData.enrollment_no);
+                          const enrollmentNo = leaderData?.enrollment_no || JSON.parse(localStorage.getItem('student') || '{}')?.enrollment_no;
+                          if (enrollmentNo) {
+                            fetchPreviousMembers(enrollmentNo);
+                          }
                         }}
                         className="w-4 h-4 text-purple-600 focus:ring-purple-500"
                       />

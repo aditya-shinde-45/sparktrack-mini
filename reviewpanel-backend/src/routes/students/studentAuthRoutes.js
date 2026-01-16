@@ -6,6 +6,9 @@ const router = express.Router();
 
 // Authentication routes
 router.post('/login', studentAuthController.studentLogin);
+router.post('/set-password', studentAuthController.setPassword);
+router.post('/forgot-password/send-otp', studentAuthController.sendForgotPasswordOTP);
+router.post('/forgot-password/reset', studentAuthController.resetPassword);
 router.post('/logout', authMiddleware.authenticateStudent, studentAuthController.logout);
 
 // Protected routes (require authentication)
