@@ -255,7 +255,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       <div className="card col-span-1 p-6 bg-white rounded-xl shadow">
         <MessageAlert />
         {groupDetails.team_name && (
-          <h1 className="text-2xl font-bold mb-2 text-gray-900">{groupDetails.team_name}</h1>
+          <h1 className="text-base md:text-2xl font-bold mb-2 text-gray-900">{groupDetails.team_name}</h1>
         )}
         <h2 className="text-xl font-semibold mb-4 text-gray-900">Group: {groupDetails.group_id}</h2>
         <p className="text-base text-gray-800 mb-6">
@@ -354,7 +354,8 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
         {/* Member Profile Modal */}
         {selectedMember && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+<div className="fixed inset-0 bg-white/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+
             <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">

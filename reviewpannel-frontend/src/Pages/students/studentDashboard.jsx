@@ -220,10 +220,6 @@ const StudentDashboard = () => {
             "💬 After group creation and Mentor Allocation, Team Chat will be available!";
           break;
 
-        case "Internship Details":
-          navigate("/student/InternshipDetails");
-          return;
-
         default:
           return;
       }

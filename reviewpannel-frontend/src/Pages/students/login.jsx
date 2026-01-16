@@ -1,146 +1,90 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../../api"; // centralized API
-import backgroundImage from "../../assets/login.png"; // Import your image
-import LoginHeader from "../../Components/Common/Navbar"; // Import LoginHeader
+import { apiRequest } from "../../api";
+import backgroundImage from "../../assets/login.png";
+import LoginHeader from "../../Components/Common/Navbar";
 
 const StudentLogin = () => {
   const [enrollmentNo, setEnrollmentNo] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState("login"); // 'login', 'firstTime', 'forgot'
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const navigate = useNavigate();
 
-  // Auto-refresh token on page load if refresh token exists
-  useEffect(() => {
-    const refreshToken = localStorage.getItem("student_refresh_token");
-    // Only auto-refresh if we have a token and we're coming from a direct link
-    // Don't auto-refresh if user just logged out
-    if (refreshToken && window.location.pathname === '/studentlogin') {
-      refreshAccessToken(refreshToken);
-    }
-  }, []);
-
-  // Reset state when mode changes
-  useEffect(() => {
-    setMessage("");
-    setOtpSent(false);
-    setOtp("");
-    setNewPassword("");
-    setPassword("");
-    setEmail("");
-    setEnrollmentNo("");
-  }, [mode]);
-
-  // Function to refresh access token using refresh token
-  const refreshAccessToken = async (refreshToken) => {
-    try {
-      const res = await apiRequest("/api/student-auth/refresh-token", "POST", { refreshToken });
-      if (res.success && res.data?.token) {
-        localStorage.setItem("student_token", res.data.token);
-        // Optionally redirect if already logged in
-        const enrollmentId = res.data?.student?.enrollment_no;
-        if (enrollmentId) {
-          localStorage.setItem("enrollmentNumber", enrollmentId);
-          // Use a small delay to ensure state is updated
-          setTimeout(() => {
-            navigate("/studentdashboard");
-          }, 100);
-        }
-      } else {
-        // Refresh token expired or invalid, remove it
-        localStorage.removeItem("student_refresh_token");
-      }
-    } catch (error) {
-      console.error("Failed to refresh token:", error);
-      localStorage.removeItem("student_refresh_token");
-    }
-  };
-
-  // Login handler (now with enrollment_no and rememberMe)
   const handleLogin = async (e) => {
-    e.preventDefault();
-    setMessage("");
-    const res = await apiRequest("/api/student-auth/login", "POST", { 
-      enrollment_no: enrollmentNo, 
-      password,
-      rememberMe 
-    });
-    if (res.success === false) {
-      setMessage(res.message || "Login failed.");
-    } else {
-      setMessage(res.message || "Login successful.");
-      // Save access token
-      const token = res.data?.token || res.token;
-      if (token) {
-        localStorage.setItem("student_token", token);
-      }
-      // Save refresh token if remember me was checked
-      const refreshToken = res.data?.refreshToken;
-      if (refreshToken) {
-        localStorage.setItem("student_refresh_token", refreshToken);
-      } else {
-        // Clear refresh token if not using remember me
-        localStorage.removeItem("student_refresh_token");
-      }
-      const enrollmentId = res.data?.student?.enrollment_no || res.enrollment_no || enrollmentNo;
-      if (enrollmentId || enrollmentNo) {
-        localStorage.setItem("enrollmentNumber", enrollmentId || enrollmentNo);
-      }
-      // Redirect to student dashboard
-      navigate("/studentdashboard");
-    }
-  };
-
-  // Send OTP for first time user
-  const handleSendFirstTimeOtp = async (e) => {
     e.preventDefault();
     setMessage("");
     setLoading(true);
     
     try {
-      const res = await apiRequest("/api/student-auth/first-time/send-otp", "POST", { email });
+      const res = await apiRequest("/api/student-auth/login", "POST", { 
+        enrollment_no: enrollmentNo, 
+        password
+      });
+      
       if (res.success === false) {
-        setMessage(res.message || "Failed to send OTP.");
+        setMessage(res.message || "Login failed.");
+      } else if (res.data?.needsPasswordSetup) {
+        setNeedsPasswordSetup(true);
+        setMessage("Please set your password to continue.");
       } else {
-        setMessage("✓ OTP sent successfully! Please check your email.");
-        setOtpSent(true);
+        const token = res.data?.token || res.token;
+        if (token) {
+          localStorage.setItem("student_token", token);
+        }
+        const enrollmentId = res.data?.student?.enrollment_no || res.enrollment_no || enrollmentNo;
+        if (enrollmentId || enrollmentNo) {
+          localStorage.setItem("enrollmentNumber", enrollmentId || enrollmentNo);
+        }
+        navigate("/studentdashboard");
       }
     } catch (error) {
-      setMessage("Failed to send OTP. Please try again.");
+      setMessage("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Set password for first time user
-  const handleSetNewUserPassword = async (e) => {
+  const handleSetPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    
+
     if (newPassword.length < 6) {
       setMessage("Password must be at least 6 characters long.");
       return;
     }
-    
+
+    if (newPassword !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
     
     try {
-      const res = await apiRequest("/api/student-auth/set-password", "POST", { email, otp, newPassword });
+      const res = await apiRequest("/api/student-auth/set-password", "POST", { 
+        enrollment_no: enrollmentNo, 
+        newPassword
+      });
+      
       if (res.success === false) {
         setMessage(res.message || "Failed to set password.");
       } else {
-        setMessage("✓ Registration successful! You can now login.");
+        setMessage("Password set successfully! Please login.");
         setTimeout(() => {
-          setOtpSent(false);
-          setMode("login");
+          setNeedsPasswordSetup(false);
+          setPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
         }, 2000);
       }
     } catch (error) {
@@ -150,61 +94,59 @@ const StudentLogin = () => {
     }
   };
 
-  // Send OTP for forgot password
-  const handleSendForgotOtp = async (e) => {
+  const handleSendForgotOTP = async (e) => {
     e.preventDefault();
     setMessage("");
     setLoading(true);
-    
+
     try {
-      const res = await apiRequest("/api/student-auth/forgot-password/send-otp", "POST", { email });
+      const res = await apiRequest("/api/student-auth/forgot-password/send-otp", "POST", { email: forgotEmail });
+      
       if (res.success === false) {
-        setMessage(res.message || "Failed to send OTP. Please check your email and try again.");
+        setMessage(res.message || "Failed to send OTP.");
       } else {
-        setMessage("✓ OTP sent successfully! Please check your email (including spam folder).");
+        setMessage("OTP sent to your email successfully!");
         setOtpSent(true);
       }
     } catch (error) {
       setMessage("Failed to send OTP. Please try again.");
-      console.error("Send OTP error:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Reset password with OTP
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    
-    // Validation
-    if (newPassword.length < 6) {
+
+    if (forgotNewPassword.length < 6) {
       setMessage("Password must be at least 6 characters long.");
       return;
     }
-    
-    if (otp.length !== 6) {
-      setMessage("Please enter a valid 6-digit OTP.");
-      return;
-    }
-    
+
     setLoading(true);
-    
+
     try {
-      const res = await apiRequest("/api/student-auth/forgot-password/reset", "POST", { email, otp, newPassword });
+      const res = await apiRequest("/api/student-auth/forgot-password/reset", "POST", { 
+        email: forgotEmail,
+        otp: forgotOtp,
+        newPassword: forgotNewPassword
+      });
+      
       if (res.success === false) {
-        setMessage(res.message || "Failed to reset password. Please check your OTP and try again.");
+        setMessage(res.message || "Failed to reset password.");
       } else {
-        setMessage("✓ Password reset successful! You can now login with your new password.");
-        // Wait 2 seconds before switching to login mode
+        setMessage("Password reset successfully! Please login.");
         setTimeout(() => {
+          setShowForgotPassword(false);
           setOtpSent(false);
-          setMode("login");
+          setForgotEmail("");
+          setForgotOtp("");
+          setForgotNewPassword("");
         }, 2000);
       }
     } catch (error) {
       setMessage("Failed to reset password. Please try again.");
-      console.error("Reset password error:", error);
     } finally {
       setLoading(false);
     }
@@ -215,17 +157,17 @@ const StudentLogin = () => {
       {/* Login Header - Fixed at top */}
       <LoginHeader />
 
-      {/* Background Image */}
+      {/* Background Image - Hidden on mobile */}
       <img
         src={backgroundImage}
         alt="Login background"
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full hidden lg:block"
       />
 
       {/* Main Content */}
-      <div className="relative z-10 min-h-screen flex items-center justify-start pt-20 lg:pl-20 xl:pl-32">
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 lg:justify-start lg:pl-20 xl:pl-32">
         {/* Glass morphism login container with sidebar color theme */}
-        <div className="relative w-full max-w-md mx-4 lg:mx-0">
+        <div className="relative w-full max-w-md">
           {/* Primary glass background with sidebar gradient colors */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] backdrop-blur-2xl rounded-2xl border-2 border-white/20 shadow-2xl"></div>
           
@@ -233,35 +175,38 @@ const StudentLogin = () => {
           <div className="absolute inset-1 bg-gradient-to-b from-white/10 to-white/5 rounded-2xl"></div>
           
           {/* Content container */}
-          <div className="relative z-10 p-8">
+          <div className="relative z-10 p-6 sm:p-8">
             {/* Header */}
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
-                {mode === "login" ? "Login" : mode === "firstTime" ? "Register" : "Reset Password"}
+            <div className="text-center mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 drop-shadow-lg">
+                {needsPasswordSetup ? "Set Password" : showForgotPassword ? "Reset Password" : "Login"}
               </h1>
-              <p className="text-white/80 text-sm drop-shadow-md">
-                SparkTrack Student Portal
+              <p className="text-white/80 text-xs sm:text-sm drop-shadow-md">
+                {needsPasswordSetup 
+                  ? "Create a new password for your account" 
+                  : showForgotPassword
+                  ? "Enter your email to reset password"
+                  : "SparkTrack Student Portal"}
               </p>
             </div>
 
             {/* Forms */}
-            <div className="space-y-6">
-              {/* Login Form */}
-              {mode === "login" && (
-                <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
+              {!needsPasswordSetup && !showForgotPassword ? (
+                <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
                   <div className="relative">
                     <input
                       type="text"
-                      className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                               text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                      className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
                                focus:border-white/60 transition-all duration-300 shadow-lg"
                       value={enrollmentNo}
                       onChange={(e) => setEnrollmentNo(e.target.value)}
                       required
                       placeholder="Enrollment Number"
                     />
-                    <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                      <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
@@ -270,8 +215,8 @@ const StudentLogin = () => {
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
-                      className="w-full px-6 py-4 pr-12 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                               text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                      className="w-full px-4 py-3 pr-12 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
                                focus:border-white/60 transition-all duration-300 shadow-lg"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -285,12 +230,12 @@ const StudentLogin = () => {
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.97 0-9-3.582-9-8s4.03-8 9-8 9 3.582 9 8a9.06 9.06 0 01-2.125 5.825M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
                         </svg>
                       ) : (
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
@@ -298,253 +243,181 @@ const StudentLogin = () => {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="flex items-center text-white/80 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="mr-2 w-4 h-4 text-[#4C1D95] bg-white/20 border-white/30 rounded focus:ring-white/50 focus:ring-2"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
+
+
+                <button
+                  className="w-full py-3 sm:py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold text-sm sm:text-base
+                           rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
+                           border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? 'Logging in...' : 'Login'}
+                </button>
+
+                <div className="text-center">
+                  <button 
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-white/80 hover:text-white transition-colors text-xs sm:text-sm font-medium underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </form>
+              ) : showForgotPassword ? (
+                !otpSent ? (
+                  <form onSubmit={handleSendForgotOTP} className="space-y-4 sm:space-y-6">
+                    <div className="relative">
+                      <input
+                        type="email"
+                        className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                                 text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                                 focus:border-white/60 transition-all duration-300 shadow-lg"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        required
+                        placeholder="Enter your email"
                       />
-                      Remember me
-                    </label>
-                    <button 
-                      type="button" 
-                      className="text-white/80 hover:text-white transition-colors font-medium"
-                      onClick={() => setMode("forgot")}
+                    </div>
+
+                    <button
+                      className="w-full py-3 sm:py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold text-sm sm:text-base
+                               rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="submit"
+                      disabled={loading}
                     >
-                      Forgot password?
+                      {loading ? 'Sending OTP...' : 'Send OTP'}
                     </button>
+
+                    <div className="text-center">
+                      <button 
+                        type="button"
+                        onClick={() => setShowForgotPassword(false)}
+                        className="text-white/80 hover:text-white transition-colors text-xs sm:text-sm font-medium"
+                      >
+                        ← Back to Login
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-4 sm:space-y-6">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                                 text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                                 focus:border-white/60 transition-all duration-300 shadow-lg"
+                        value={forgotOtp}
+                        onChange={(e) => setForgotOtp(e.target.value)}
+                        required
+                        placeholder="Enter OTP"
+                        maxLength="6"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <input
+                        type="password"
+                        className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                                 text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                                 focus:border-white/60 transition-all duration-300 shadow-lg"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        required
+                        placeholder="New Password (min 6 characters)"
+                      />
+                    </div>
+
+                    <button
+                      className="w-full py-3 sm:py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold text-sm sm:text-base
+                               rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="submit"
+                      disabled={loading}
+                    >
+                      {loading ? 'Resetting...' : 'Reset Password'}
+                    </button>
+
+                    <div className="text-center">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setOtpSent(false);
+                          setForgotOtp("");
+                          setForgotNewPassword("");
+                        }}
+                        className="text-white/80 hover:text-white transition-colors text-xs sm:text-sm font-medium"
+                      >
+                        ← Back
+                      </button>
+                    </div>
+                  </form>
+                )
+              ) : (
+                <form onSubmit={handleSetPassword} className="space-y-4 sm:space-y-6">
+                  <div className="relative">
+                    <input
+                      type="password"
+                      className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                               focus:border-white/60 transition-all duration-300 shadow-lg"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      placeholder="New Password (min 6 characters)"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="password"
+                      className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                               focus:border-white/60 transition-all duration-300 shadow-lg"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      placeholder="Confirm Password"
+                    />
                   </div>
 
                   <button
-                    className="w-full py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
+                    className="w-full py-3 sm:py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold text-sm sm:text-base
                              rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
                              border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     type="submit"
                     disabled={loading}
                   >
-                    {loading ? 'Logging in...' : 'Login'}
+                    {loading ? 'Setting Password...' : 'Set Password'}
                   </button>
 
                   <div className="text-center">
-                    <p className="text-white/80 text-sm">
-                      Don't have an account?{" "}
-                      <button 
-                        type="button"
-                        onClick={() => setMode("firstTime")} 
-                        className="text-white hover:text-white/80 font-medium transition-colors underline"
-                      >
-                        Register
-                      </button>
-                    </p>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setNeedsPasswordSetup(false);
+                        setNewPassword("");
+                        setConfirmPassword("");
+                        setMessage("");
+                      }}
+                      className="text-white/80 hover:text-white transition-colors text-xs sm:text-sm font-medium"
+                    >
+                      ← Back to Login
+                    </button>
                   </div>
                 </form>
               )}
-
-              {/* First Time User Form */}
-              {mode === "firstTime" && (
-                <div className="space-y-6">
-                  {!otpSent ? (
-                    <form onSubmit={handleSendFirstTimeOtp} className="space-y-6">
-                      <div className="relative">
-                        <input
-                          type="email"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          placeholder="Email Address"
-                        />
-                        <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                          <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                          </svg>
-                        </div>
-                      </div>
-                      <button
-                        className="w-full py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
-                                 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
-                                 border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        type="submit"
-                        disabled={loading}
-                      >
-                        {loading ? 'Sending OTP...' : 'Send OTP'}
-                      </button>
-                      <div className="text-center">
-                        <button 
-                          type="button"
-                          onClick={() => setMode("login")} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium"
-                        >
-                          ← Back to Login
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleSetNewUserPassword} className="space-y-6">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                          required
-                          placeholder="Enter OTP"
-                        />
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          placeholder="Create Password"
-                        />
-                      </div>
-                      <button
-                        className="w-full py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
-                                 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
-                                 border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        type="submit"
-                        disabled={loading}
-                      >
-                        {loading ? 'Setting Password...' : 'Set Password'}
-                      </button>
-                      <div className="flex justify-between items-center text-center">
-                        <button 
-                          type="button"
-                          onClick={() => setOtpSent(false)} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium underline"
-                        >
-                          Resend OTP
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setMode("login")} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium"
-                        >
-                          ← Back to Login
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              )}
-
-              {/* Forgot Password Form */}
-              {mode === "forgot" && (
-                <div className="space-y-6">
-                  {!otpSent ? (
-                    <form onSubmit={handleSendForgotOtp} className="space-y-6">
-                      <div className="relative">
-                        <input
-                          type="email"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          placeholder="Email Address"
-                        />
-                        <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                          <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                          </svg>
-                        </div>
-                      </div>
-                      <button
-                        className="w-full py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
-                                 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
-                                 border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        type="submit"
-                        disabled={loading}
-                      >
-                        {loading ? 'Sending Code...' : 'Send Reset Code'}
-                      </button>
-                      <div className="text-center">
-                        <button 
-                          type="button"
-                          onClick={() => setMode("login")} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium"
-                        >
-                          ← Back to Login
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <form onSubmit={handleResetPassword} className="space-y-6">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                          required
-                          placeholder="Enter Reset Code"
-                        />
-                      </div>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                                   text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                                   focus:border-white/60 transition-all duration-300 shadow-lg"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          required
-                          placeholder="New Password"
-                        />
-                      </div>
-                      <button
-                        className="w-full py-4 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
-                                 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
-                                 border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        type="submit"
-                        disabled={loading}
-                      >
-                        {loading ? 'Resetting Password...' : 'Reset Password'}
-                      </button>
-                      <div className="flex justify-between items-center text-center">
-                        <button 
-                          type="button"
-                          onClick={() => setOtpSent(false)} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium underline"
-                        >
-                          Resend Code
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setMode("login")} 
-                          className="text-white/80 hover:text-white transition-colors text-sm font-medium"
-                        >
-                          ← Back to Login
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-              )}
             </div>
 
-            {/* Message display with success/error styling */}
             {message && (
-              <div className={`mt-6 p-4 backdrop-blur-md border-2 rounded-xl text-center shadow-lg ${
-                message.includes('✓') || message.includes('successful') 
-                  ? 'bg-green-500/20 border-green-300/50' 
+              <div className={`mt-4 sm:mt-6 p-3 sm:p-4 backdrop-blur-md border-2 rounded-xl text-center shadow-lg ${
+                message.includes('successfully') || message.includes('Please set')
+                  ? 'bg-green-500/20 border-green-300/50'
                   : 'bg-red-500/20 border-red-300/50'
               }`}>
-                <p className="text-white font-medium text-sm drop-shadow-md">
+                <p className="text-white font-medium text-xs sm:text-sm drop-shadow-md">
                   {message}
                 </p>
               </div>
