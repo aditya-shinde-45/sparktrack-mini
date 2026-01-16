@@ -39,22 +39,25 @@ class ProblemStatementController {
   });
 
   /**
-   * Get problem statement for a group
+   * Get problem statement for a group or by ps_id
    */
   getProblemStatement = asyncHandler(async (req, res) => {
     const { group_id } = req.params;
+    const { ps_id } = req.query;
 
-    if (!group_id) {
-      throw ApiError.badRequest('Group ID is required.');
+    if (!group_id && !ps_id) {
+      throw ApiError.badRequest('Group ID or PS ID is required.');
     }
 
-    const problemStatement = await problemStatementModel.findByGroup(group_id);
-
-    if (!problemStatement) {
-      throw ApiError.notFound('Problem statement not found.');
+    let problemStatement;
+    
+    if (ps_id) {
+      problemStatement = await problemStatementModel.findByPsId(ps_id);
+    } else {
+      problemStatement = await problemStatementModel.findByGroup(group_id);
     }
 
-    return ApiResponse.success(res, 'Problem statement retrieved successfully.', { problemStatement });
+    return ApiResponse.success(res, 'Problem statement retrieved successfully.', { problemStatement: problemStatement || null });
   });
 
   /**

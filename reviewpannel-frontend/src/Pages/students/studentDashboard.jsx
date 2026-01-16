@@ -31,20 +31,14 @@ const StudentDashboard = () => {
       return;
     }
 
-    const fetchProblemStatement = async (groupId, token) => {
+    const fetchProblemStatement = async (groupId, psId, token) => {
       try {
-        console.log('Fetching problem statement for group_id:', groupId);
-        const psRes = await apiRequest(`/api/students/student/problem-statement/${groupId}`, "GET", null, token);
-        console.log('Problem statement response:', psRes);
-        const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement;
-
-        if (problemStatement) {
-          console.log('Setting problem statement:', problemStatement);
-          setProblem(problemStatement);
-        } else {
-          console.log('No problem statement found');
-          setProblem(null);
-        }
+        const endpoint = psId 
+          ? `/api/students/student/problem-statement/${groupId}?ps_id=${psId}`
+          : `/api/students/student/problem-statement/${groupId}`;
+        const psRes = await apiRequest(endpoint, "GET", null, token);
+        const problemStatement = psRes?.data?.problemStatement || psRes?.problemStatement || null;
+        setProblem(problemStatement);
       } catch (error) {
         console.error('Error fetching problem statement:', error);
         setProblem(null);
@@ -63,17 +57,12 @@ const StudentDashboard = () => {
         setStudent(profileData);
 
         // Fetch group details and problem statement
-        console.log('Fetching group details for enrollment:', profileData.enrollment_no);
         const groupDetailsRes = await apiRequest(`/api/students/student/group-details/${profileData.enrollment_no}`, "GET", null, token);
-        console.log('Group details response:', groupDetailsRes);
         const groupDetails = groupDetailsRes?.data?.group || groupDetailsRes?.group;
         
         // If group_id exists, fetch problem statement
         if (groupDetails?.group_id) {
-          console.log('Found group_id:', groupDetails.group_id);
-          await fetchProblemStatement(groupDetails.group_id, token);
-        } else {
-          console.log('No group_id found in group details');
+          await fetchProblemStatement(groupDetails.group_id, groupDetails.ps_id, token);
         }
 
         // Fetch PBL Review 1 marks (pass enrollement_no as query param)

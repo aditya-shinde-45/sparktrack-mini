@@ -79,6 +79,23 @@ class ProblemStatementModel {
 
     return data || null;
   }
+
+  /**
+   * Fetch a problem statement by ps_id
+   */
+  async findByPsId(psId) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .eq('ps_id', psId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return data || null;
+  }
 }
 
 export default new ProblemStatementModel();
