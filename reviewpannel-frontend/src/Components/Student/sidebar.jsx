@@ -65,8 +65,7 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
         <div className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
           <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
             {routes.map(({ name, path, icon: Icon }, index) => {
-              const isDisabled = name !== "Dashboard";
-              const isActive = location.pathname === path;
+              const isDisabled = name !== "Dashboard" && name !== "Tools";
               
               if (isDisabled) {
                 return (
@@ -126,7 +125,7 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
             <ul className="space-y-3">
               {routes.map(({ name, path, icon: Icon }, index) => {
                 const isActive = location.pathname === path;
-                const isDisabled = name !== "Dashboard";
+                const isDisabled = name !== "Dashboard" && name !== "Tools";
                 
                 if (isDisabled) {
                   return (
@@ -156,7 +155,7 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
                     </Link>
                   </li>
                 );
-              })}
+              })}}
               <li>
                 <button
                   onClick={() => { handleLogout(); onClose(); }}

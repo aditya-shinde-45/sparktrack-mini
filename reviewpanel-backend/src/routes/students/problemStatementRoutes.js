@@ -17,7 +17,7 @@ router.get(
       
       const { data, error } = await supabase
         .from('pbl')
-        .select('group_id, team_name, guide_name')
+        .select('group_id, team_name, guide_name, ps_id')
         .eq('enrollment_no', enrollment_no)
         .single();
 

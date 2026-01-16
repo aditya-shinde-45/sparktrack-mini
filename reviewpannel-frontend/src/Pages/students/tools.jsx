@@ -725,30 +725,26 @@ const Tools = () => {
         
         <main className="flex-1 lg:ml-72 bg-gray-50">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <Wrench className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h1 className="text-2xl sm:text-3xl font-bold">
-                        Development Tools
-                      </h1>
-                      <p className="text-purple-100 text-sm mt-1">
-                        Essential resources for your project
-                      </p>
-                    </div>
+          <div className="border-b border-gray-200 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Wrench className="w-7 h-7 text-gray-700" />
+                  <div>
+                    <h1 className="text-2xl font-semibold text-gray-900">
+                      Development Tools
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Essential resources for your project
+                    </p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-                  <Zap className="w-5 h-5" />
-                  <div>
-                    <p className="text-xs text-purple-100">Total Tools</p>
-                    <p className="text-lg font-bold">{tools.length}</p>
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                  <Zap className="w-4 h-4 text-gray-600" />
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Total Tools</p>
+                    <p className="text-lg font-semibold text-gray-900">{tools.length}</p>
                   </div>
                 </div>
               </div>
