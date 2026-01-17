@@ -116,6 +116,19 @@ const GroupRequest = {
   },
 
   /**
+   * Delete a specific request by ID
+   */
+  async deleteRequest(requestId) {
+    const { error } = await supabase
+      .from("group_requests")
+      .delete()
+      .eq("request_id", requestId);
+
+    if (error) throw error;
+    return true;
+  },
+
+  /**
    * Delete all requests for a group (used when cancelling draft)
    */
   async deleteRequestsByGroup(groupId) {

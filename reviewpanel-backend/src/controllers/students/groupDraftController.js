@@ -221,10 +221,14 @@ export const respondToInvitation = async (req, res) => {
       return ApiResponse.error(res, "Invalid request data", 400);
     }
 
-    // Convert to uppercase for database
-    const dbStatus = status.toUpperCase();
+    if (status === "rejected") {
+      // Delete the request entry instead of updating status
+      await GroupRequest.deleteRequest(request_id);
+      return ApiResponse.success(res, "Invitation declined successfully", { request_id, deleted: true });
+    }
 
-    // Update request status
+    // For accepted status, update as before
+    const dbStatus = status.toUpperCase();
     const updatedRequest = await GroupRequest.updateRequestStatus(request_id, dbStatus);
 
     return ApiResponse.success(res, `Invitation ${status} successfully`, updatedRequest);
@@ -431,6 +435,10 @@ export const confirmGroup = async (req, res) => {
 
     // Update draft status to CONFIRMED
     await GroupDraft.updateStatus(groupId, "CONFIRMED");
+
+    // Delete all pending and rejected requests (cleanup)
+    // Only accepted members are in the finalized group, pending/rejected are no longer needed
+    await GroupRequest.deleteRequestsByGroup(groupId);
 
     return ApiResponse.success(res, "Group confirmed and finalized successfully", {
       group_id: finalGroupId,
