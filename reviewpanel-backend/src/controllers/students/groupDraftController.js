@@ -20,9 +20,6 @@ export const createDraft = async (req, res) => {
       leader_enrollment,
       team_name,
       previous_ps_id,
-      guide_name,
-      guide_contact,
-      guide_email,
     } = req.body;
 
     // Validation
@@ -413,9 +410,7 @@ export const confirmGroup = async (req, res) => {
       class: student.class,
       contact: student.contact,
       email_id: student.email_id,
-      guide_name: draft.guide_name,
-      guide_contact: draft.guide_contact,
-      guide_email: draft.guide_email,
+      mentor_code: null, // Will be assigned later by admin
       group_id: finalGroupId,
       team_name: draft.group_name,
       is_leader: student.enrollement_no === draft.leader_id,
@@ -465,11 +460,11 @@ export const cancelDraft = async (req, res) => {
       return ApiResponse.error(res, "Draft group not found", 404);
     }
 
-    // Delete all requests
+    // Delete all requests first
     await GroupRequest.deleteRequestsByGroup(groupId);
 
-    // Mark draft as CONFIRMED to prevent re-selection (constraint only allows DRAFT or CONFIRMED)
-    await GroupDraft.updateStatus(groupId, "CONFIRMED");
+    // Delete the draft group itself
+    await GroupDraft.deleteDraft(groupId);
 
     return ApiResponse.success(res, "Draft group cancelled successfully");
   } catch (error) {

@@ -128,7 +128,7 @@ class StudentModel {
 
     const { data: members, error: membersError } = await supabase
       .from(this.pblTable)
-      .select('enrollment_no, student_name, guide_name, team_name, is_leader')
+      .select('enrollment_no, student_name, mentor_code, team_name, is_leader')
       .eq('group_id', groupId)
       .order('is_leader', { ascending: false })
       .order('enrollment_no', { ascending: true });
@@ -156,11 +156,10 @@ class StudentModel {
     return {
       group_id: groupId,
       team_name: members[0]?.team_name || null,
-      guide_name: members[0]?.guide_name || null,
+      mentor_code: members[0]?.mentor_code || null,
       members: members.map(member => ({
         enrollement_no: member.enrollment_no,
         name_of_student: member.student_name,
-        guide_name: member.guide_name,
         is_leader: member.is_leader || false,
         profile_picture_url: profileMap.get(member.enrollment_no) || null,
       })),
@@ -226,22 +225,22 @@ class StudentModel {
    * Update core student information in the students table
    */
   async updateStudent(enrollmentNo, updates) {
-    const payload = {
-      name: updates.name,
-      email_id: updates.email,
-      contact: updates.phone,
-      department: updates.department,
-      skills: updates.skills,
-      interests: updates.interests,
-    };
+    const payload = {};
 
-    Object.keys(payload).forEach(key => {
-      if (payload[key] === undefined) {
-        delete payload[key];
-      }
-    });
+    // Map fields from frontend (SubAdminDashboard) to database columns
+    if (updates.name_of_students !== undefined) payload.name = updates.name_of_students;
+    if (updates.email_id !== undefined) payload.email_id = updates.email_id;
+    if (updates.contact !== undefined) payload.contact = updates.contact;
+    if (updates.class !== undefined) payload.class = updates.class;
+    if (updates.specialization !== undefined) payload.specialization = updates.specialization;
+    
+    // Handle password update if provided
+    if (updates.password && updates.password.trim() !== '') {
+      const bcrypt = await import('bcrypt');
+      payload.password = await bcrypt.hash(updates.password, 10);
+    }
 
-    if (!Object.keys(payload).length) {
+    if (Object.keys(payload).length === 0) {
       return null;
     }
 

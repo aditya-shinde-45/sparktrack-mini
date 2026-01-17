@@ -565,7 +565,7 @@ class Pbl3Controller {
       evaluation.evaluations,
       {
         feedback: evaluation.feedback,
-        guide_name: evaluation.faculty_guide,
+        mentor_code: evaluation.mentor_code || null,
         industry_guide: evaluation.industry_guide,
         industry_guide_contact: evaluation.industry_guide_contact,
         industry_guide_email: evaluation.industry_guide_email,

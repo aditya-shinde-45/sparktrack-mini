@@ -2,6 +2,7 @@ import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import ApiResponse from '../../utils/apiResponse.js';
 import studentModel from '../../models/studentModel.js';
 import pblModel from '../../models/pblModel.js';
+import supabase from '../../config/database.js';
 
 /**
  * Controller for student management operations
@@ -188,6 +189,38 @@ class StudentController {
     const students = await studentModel.getStudentsBySpecialization(specialization);
 
     return ApiResponse.success(res, 'Students retrieved successfully.', { students });
+  });
+
+  /**
+   * Check if student is already in a finalized PBL group
+   */
+  checkGroupMembership = asyncHandler(async (req, res) => {
+    const { enrollment_no } = req.params;
+
+    if (!enrollment_no) {
+      throw ApiError.badRequest('Enrollment number is required');
+    }
+
+    // Check if student exists in pbl table (finalized group)
+    const { data: pblGroup, error } = await supabase
+      .from('pbl')
+      .select('group_id, enrollment_no')
+      .eq('enrollment_no', enrollment_no)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking group membership:', error);
+      throw ApiError.internalError('Failed to check group membership');
+    }
+
+    const isInGroup = !!pblGroup;
+    const group_id = pblGroup?.group_id || null;
+
+    return ApiResponse.success(res, isInGroup ? 'Student is in a group' : 'Student is not in a group', {
+      isInGroup,
+      group_id,
+      enrollment_no
+    });
   });
 }
 

@@ -171,9 +171,8 @@ const CreateGroup = () => {
       }
 
       setGroupId(group.group_id || '');
-      setGuideId(group.guide_id || '');
-      setGuideName(group.guide_name || 'N/A');
       setProblemStatement(group.problem_statement || '');
+      setGuideName(group.guide_name || group.mentor_code || '');
 
       // Filter out the current leader from the members list
       const otherMembers = allMembers.filter(m => m.enrollement_no !== enrollmentNo);
@@ -228,14 +227,43 @@ const CreateGroup = () => {
     try {
       const token = localStorage.getItem('student_token');
       
-      // Step 1: Create draft group
+      // Step 1: Validate members are not already in a group BEFORE creating draft
+      const validationErrors = [];
+      for (const enrollment of members) {
+        try {
+          const checkRes = await apiRequest(`/api/students/check-membership/${enrollment}`, 'GET', null, token);
+          if (checkRes.data?.isInGroup || checkRes.isInGroup) {
+            const groupId = checkRes.data?.group_id || checkRes.group_id;
+            validationErrors.push(`${enrollment} is already in group ${groupId}`);
+          }
+        } catch (err) {
+          console.error(`Error checking member ${enrollment}:`, err);
+          // If the endpoint doesn't exist or fails, continue (backward compatibility)
+        }
+      }
+
+      // Check if leader is already in a group
+      try {
+        const leaderCheckRes = await apiRequest(`/api/students/check-membership/${applicantEnrollment}`, 'GET', null, token);
+        if (leaderCheckRes.data?.isInGroup || leaderCheckRes.isInGroup) {
+          const groupId = leaderCheckRes.data?.group_id || leaderCheckRes.group_id;
+          validationErrors.push(`Leader (${applicantEnrollment}) is already in group ${groupId}`);
+        }
+      } catch (err) {
+        console.error('Error checking leader:', err);
+        // If the endpoint doesn't exist or fails, continue (backward compatibility)
+      }
+
+      if (validationErrors.length > 0) {
+        const errorMsg = 'Cannot create group - the following members are already in a PBL group:\n• ' + validationErrors.join('\n• ');
+        return setMessage(`❌ ${errorMsg}`);
+      }
+
+      // Step 2: Create draft group (only if validation passes)
       const draftBody = {
         leader_enrollment: applicantEnrollment,
         team_name: teamName,
         previous_ps_id: continuePrevious ? groupId : null,
-        guide_name: null,
-        guide_contact: null,
-        guide_email: null,
         problem_title: continuePrevious ? problemTitle : null,
         problem_type: continuePrevious ? problemType : null,
         technology_bucket: continuePrevious ? technologyBucket : null,
@@ -250,7 +278,7 @@ const CreateGroup = () => {
       
       const createdGroupId = draftRes.data?.group_id || draftRes.group_id;
 
-      // Step 2: Send invitations to members
+      // Step 3: Send invitations to members
       const inviteBody = {
         group_id: createdGroupId,
         enrollments: members
@@ -259,13 +287,28 @@ const CreateGroup = () => {
       const inviteRes = await apiRequest('/api/groups-draft/invite', 'POST', inviteBody, token);
       
       if (!inviteRes.success) {
+        // If invitation fails, try to delete the draft to avoid orphaned drafts
+        try {
+          await apiRequest(`/api/groups-draft/draft/${createdGroupId}`, 'DELETE', null, token);
+          console.log('Cleaned up draft group after invitation failure');
+        } catch (cleanupErr) {
+          console.error('Failed to cleanup draft:', cleanupErr);
+        }
+
         // Handle specific enrollment errors
         if (inviteRes.errors?.invalid_enrollments) {
           const invalidEnrollments = inviteRes.errors.invalid_enrollments;
-          const errorMessages = invalidEnrollments.map(item => 
-            `${item.enrollment}: ${item.error}`
-          ).join('\n• ');
-          throw new Error(`Cannot send invitations:\n• ${errorMessages}`);
+          const errorMessages = invalidEnrollments.map(item => {
+            const errorText = item.error || '';
+            // Convert error message to user-friendly format
+            if (errorText.toLowerCase().includes('finalized group') || errorText.toLowerCase().includes('already in')) {
+              return `${item.enrollment} is already in a PBL group`;
+            } else if (errorText.toLowerCase().includes('pending') || errorText.toLowerCase().includes('invitation')) {
+              return `${item.enrollment} already has a pending invitation`;
+            }
+            return `${item.enrollment}: ${errorText}`;
+          }).join('\n• ');
+          throw new Error(`Cannot create group:\n• ${errorMessages}`);
         }
         throw new Error(inviteRes.message || 'Failed to send invitations');
       }
@@ -459,7 +502,7 @@ const CreateGroup = () => {
                       <strong>Group ID:</strong> {groupId || 'N/A'}
                     </p>
                     <p className="text-sm text-gray-700">
-                      <strong>Guide Name:</strong> {guideName || 'N/A'}
+                      <strong>Mentor:</strong> {guideName || 'Not Assigned'}
                     </p>
                   </div>
                 </div>

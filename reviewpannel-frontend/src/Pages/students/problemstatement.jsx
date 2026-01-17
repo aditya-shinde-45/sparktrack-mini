@@ -435,8 +435,8 @@ const ProblemStatementSih = () => {
                     <p className="text-lg font-bold text-gray-900">{groupData.team_name || 'Not Set'}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-gray-600 text-sm mb-1">Guide</p>
-                    <p className="text-lg font-bold text-gray-900">{groupData.guide_name || 'Not Assigned'}</p>
+                    <p className="text-gray-600 text-sm mb-1">Mentor</p>
+                    <p className="text-lg font-bold text-gray-900">{groupData.mentor_code || 'Not Assigned'}</p>
                   </div>
                 </div>
               </div>

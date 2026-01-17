@@ -92,7 +92,7 @@ const InternshipDetails = () => {
               if (previousGroup && members && members.length > 0) {
                 const groupData = {
                   group_id: previousGroup.group_id,
-                  guide_name: previousGroup.guide_name,
+                  mentor_code: previousGroup.mentor_code,
                   members: members
                 };
                 console.log("Setting groupDetails:", groupData);
@@ -154,7 +154,7 @@ const InternshipDetails = () => {
       formData.append("student_name", student?.name_of_students || student?.name || "");
       if (groupDetails) {
         formData.append("group_id", groupDetails.group_id || "");
-        formData.append("guide", groupDetails.guide_name || "");
+        formData.append("mentor", groupDetails.mentor_code || "");
       }
       if (form.file) {
         formData.append("internship_document", form.file);
@@ -717,10 +717,10 @@ const InternshipDetails = () => {
                   <span className="text-gray-800 font-semibold">{groupDetails.group_id}</span>
                 </div>
                 
-                {groupDetails.guide_name && (
+                {groupDetails.mentor_code && (
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500 font-medium">Guide:</span>
-                    <span className="text-gray-800 font-semibold">{groupDetails.guide_name}</span>
+                    <span className="text-gray-500 font-medium">Mentor:</span>
+                    <span className="text-gray-800 font-semibold">{groupDetails.mentor_code}</span>
                   </div>
                 )}
                 

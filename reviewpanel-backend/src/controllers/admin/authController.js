@@ -102,12 +102,16 @@ class AuthController {
         }
       } else {
         // Admin token should have id, username, role
-        if (decoded.id && decoded.username && decoded.role) {
+        // Support both regular admin and role-based admin
+        if (decoded.id && (decoded.username || decoded.user_id) && decoded.role) {
           isValid = true;
           userInfo = {
             id: decoded.id,
-            username: decoded.username,
-            role: decoded.role
+            user_id: decoded.user_id,
+            username: decoded.username || decoded.user_id,
+            role: decoded.role,
+            isRoleBased: decoded.isRoleBased || false,
+            tablePermissions: decoded.tablePermissions || []
           };
         }
       }

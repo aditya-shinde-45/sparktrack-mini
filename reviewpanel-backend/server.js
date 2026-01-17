@@ -39,6 +39,8 @@ import externalAssignmentRoutes from "./src/routes/external/externalAssignmentRo
 import creategroupRoutes from "./src/routes/students/creategroupRoutes.js";
 import groupDraftRoutes from "./src/routes/students/groupDraftRoutes.js";
 import internshipRoutes from "./src/routes/students/internshipRoutes.js";
+import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
+import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
@@ -106,6 +108,8 @@ app.use("/api/reviews", pblReviewRoutes);
 app.use("/api/evaluation", pblEvaluationRoutes); // Added PBL evaluation routes
 app.use("/api/pbl3", pbl3Routes); // Added PBL3 routes
 app.use("/api/reviewer-admin", reviewerAdminRoutes); // Added ReviewerAdmin routes
+app.use("/api/roles", rolesRoutes); // Role management routes
+app.use("/api/role-access", roleAccessRoutes); // Role-based table access for sub-admins
 
 // Newly migrated routes
 app.use("/api/external-auth", externalAuthRoutes);

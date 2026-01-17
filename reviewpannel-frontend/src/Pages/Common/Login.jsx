@@ -74,24 +74,90 @@ const Login = () => {
     // Standardize role format for API (lowercase)
     const apiRole = role.toLowerCase();
 
-    if (role === "Admin") {
-      endpoint = "/api/auth/login";
-      payload = { username, password, role: apiRole };
-    } else if (role === "External") {
-      endpoint = "/api/external-auth/login";
-      payload = { external_id: username, password };
-    } else if (role === "Mentor") {
-      // For mentor login, send credentials directly
-      // Backend will handle first-time login with default password 'ideabliss2305'
-      endpoint = "/api/mentors/login";
-      payload = { username, password };
-    } else {
-      setErrorMsg("Selected role is not supported for login.");
-      return;
-    }
-
     try {
       setLoading(true);
+      
+      // Handle Admin login with role-based authentication first
+      if (role === "Admin") {
+        // Try role login first for all admin logins
+        console.log("Attempting role login for username:", username);
+        try {
+          const roleLoginResponse = await apiRequest("/api/roles/login", "POST", {
+            userId: username,
+            password: password
+          });
+
+          console.log("Role login response:", roleLoginResponse);
+
+          // If we get here without exception, check success
+          if (roleLoginResponse && roleLoginResponse.success) {
+            // This is a role-based login - SUCCESS
+            const token = roleLoginResponse.data?.token || roleLoginResponse.token;
+            const user = roleLoginResponse.data?.user || roleLoginResponse.user;
+            
+            console.log("Role login successful, token:", token ? "received" : "missing");
+            
+            if (!token) {
+              setErrorMsg("Login successful but no token received");
+              return;
+            }
+            
+            localStorage.setItem("token", token);
+            localStorage.setItem("role", "admin");
+            localStorage.setItem("user_id", username);
+            localStorage.setItem("name", username);
+            localStorage.setItem("isAuthenticated", "true");
+            
+            // Check if this is the main admin (8698078603) or sub-admin
+            if (username === "8698078603") {
+              localStorage.setItem("isMainAdmin", "true");
+              console.log("Redirecting to main admin dashboard");
+              window.location.href = "/admin-dashboard";
+            } else {
+              localStorage.setItem("isMainAdmin", "false");
+              console.log("Redirecting to sub-admin dashboard");
+              window.location.href = "/sub-admin-dashboard";
+            }
+            return;
+          } else if (roleLoginResponse && !roleLoginResponse.success) {
+            // Role exists but wrong password - show error immediately
+            console.log("Role login failed:", roleLoginResponse.message);
+            setErrorMsg(roleLoginResponse.message || "Invalid credentials");
+            return;
+          }
+        } catch (roleError) {
+          // Role login threw error - check if it's 401 (user not found) or other error
+          console.log("Role login caught error:", roleError);
+          
+          // If the error message explicitly says "Invalid credentials", it means
+          // the user exists but password is wrong - don't try regular admin login
+          if (roleError.message && roleError.message.includes("Invalid credentials")) {
+            console.log("Invalid credentials for role user, not trying regular admin");
+            setErrorMsg("Invalid credentials");
+            return;
+          }
+          
+          // Otherwise, user might not exist in roles table, try regular admin login
+          console.log("User not found in roles table, trying regular admin login");
+        }
+        
+        // Try regular admin login only if role user not found
+        console.log("Attempting regular admin login for username:", username);
+        endpoint = "/api/auth/login";
+        payload = { username, password, role: apiRole };
+      } else if (role === "External") {
+        endpoint = "/api/external-auth/login";
+        payload = { external_id: username, password };
+      } else if (role === "Mentor") {
+        // For mentor login, send credentials directly
+        // Backend will handle first-time login with default password 'ideabliss2305'
+        endpoint = "/api/mentors/login";
+        payload = { username, password };
+      } else {
+        setErrorMsg("Selected role is not supported for login.");
+        return;
+      }
+
       const data = await apiRequest(endpoint, "POST", payload);
       
       // Check for success flag to determine if request was successful
@@ -213,21 +279,37 @@ const Login = () => {
       }
 
       if (role === "Admin") {
-        // Store admin-specific data
+        // Admin login already handled above before the apiRequest
+        // This code should only run if regular admin login succeeded
+        console.log("Regular admin login response:", data);
+        
+        if (!data || data.success === false) {
+          setErrorMsg(data?.message || "Login failed. Invalid credentials.");
+          return;
+        }
+
+        const token = data.token || (data.data && data.data.token);
+        if (!token) {
+          setErrorMsg("Login successful but no token received");
+          return;
+        }
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", "admin");
+        
         const user = data.user || (data.data && data.data.user);
         if (user) {
           localStorage.setItem("name", user.username);
           localStorage.setItem("id", user.id);
+          localStorage.setItem("user_id", user.username);
         } else {
           localStorage.setItem("name", username);
+          localStorage.setItem("user_id", username);
         }
         
-        // Set an auth flag to track successful authentication
         localStorage.setItem("isAuthenticated", "true");
-        
-        // Create a clean state by forcing a page reload to admin dashboard
-        // This ensures all React components re-render with the new auth state
-        console.log("Redirecting to admin dashboard...");
+        localStorage.setItem("isMainAdmin", "true");
+        console.log("Regular admin login successful, redirecting to admin dashboard");
         window.location.href = "/admin-dashboard";
       }
     } catch (error) {

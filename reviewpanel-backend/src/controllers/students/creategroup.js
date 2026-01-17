@@ -112,9 +112,7 @@ export const createGroup = async (req, res) => {
       class: student.class,
       email_id: student.email_id,
       contact: student.contact,
-      guide_name: student.guide_name || null,
-      guide_contact: student.guide_contact || null,
-      guide_email: student.guide_email || null,
+      mentor_code: null, // Will be assigned later by admin
       ps_id: null,
       review1: null,
       review2: null,
