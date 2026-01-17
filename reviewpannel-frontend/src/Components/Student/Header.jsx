@@ -33,7 +33,8 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
     const fetchStudent = async () => {
       try {
         const token = localStorage.getItem("student_token");
-        if (!token) return;
+        const enrollmentNo = localStorage.getItem("enrollmentNumber") || id;
+        if (!token || !enrollmentNo) return;
         
         // Check localStorage first (for immediate display)
         const savedStudent = localStorage.getItem("student");
@@ -43,13 +44,23 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
           setProfilePicture(parsedStudent.profile_picture_url);
         }
 
-        const res = await apiRequest("/api/student-auth/profile", "GET", null, token);
+        const res = await apiRequest(`/api/students/student/profile/${enrollmentNo}`, "GET", null, token);
         
         // Check for API success
-        if (res && res.success !== false && res.profile) {          
-          setStudent(res.profile);
-          setProfilePicture(res.profile.profile_picture_url);
-          localStorage.setItem("student", JSON.stringify(res.profile));
+        if (res && res.success !== false) {
+          // Extract profile from the correct location
+          const profileData = res.data?.profile || res.profile || res;
+          
+          setStudent(profileData);
+          
+          // Handle profile picture URL (if it exists)
+          if (profileData.profile_picture_url) {
+            setProfilePicture(profileData.profile_picture_url);
+          } else {
+            setProfilePicture(null); // Explicitly set to null if not available
+          }
+          
+          localStorage.setItem("student", JSON.stringify(profileData));
         }
       } catch (err) {
         // Fallback to localStorage if API fails

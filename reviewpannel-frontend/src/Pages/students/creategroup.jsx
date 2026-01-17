@@ -90,28 +90,55 @@ const CreateGroup = () => {
   };
 
   const fetchMemberData = async (enrollmentNo, index) => {
+    if (!enrollmentNo || enrollmentNo.trim() === '') {
+      return;
+    }
+    
     setMemberEnrollments(prev => ({ ...prev, [index]: enrollmentNo }));
     try {
       const token = localStorage.getItem('student_token');
-      const res = await apiRequest(`/api/groups/${enrollmentNo}`, 'GET', null, token);
       
-      if (res.success && res.student) {
-        const studentData = res.student;
-        const updatedData = { 
-          ...memberData, 
-          [index]: {
+      // Use direct fetch to avoid apiRequest wrapper issues
+      const API_BASE_URL = import.meta.env.MODE === "development" 
+        ? import.meta.env.VITE_API_BASE_URL 
+        : import.meta.env.VITE_API_BASE_URL_PROD;
+        
+      const response = await fetch(`${API_BASE_URL}/api/groups/${enrollmentNo}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const res = await response.json();
+      console.log(`Member ${index} raw API response:`, res);
+      
+      // Check for student data in response
+      const studentData = res.student;
+      
+      if (res.success && studentData) {
+        console.log(`Member ${index} student data:`, studentData);
+        
+        const newMemberData = {
             enrollment_no: studentData.enrollment_no,
             name_of_students: studentData.student_name,
             class: studentData.class,
             contact: studentData.contact
-          }
-        };
-        setMemberData(updatedData);
+          };
+        
+        console.log(`New member data for index ${index}:`, newMemberData);
+        
+        setMemberData(prev => {
+          const updated = { ...prev, [index]: newMemberData };
+          console.log(`Updated memberData state:`, updated);
+          return updated;
+        });
+      } else {
+        console.log(`No student data found for member ${index}`);
+        setMemberData(prev => ({ ...prev, [index]: null }));
       }
     } catch (err) {
       console.error(`Error fetching member ${index}:`, err);
-      const updatedData = { ...memberData, [index]: null };
-      setMemberData(updatedData);
+      setMemberData(prev => ({ ...prev, [index]: null }));
     }
   };
 
@@ -232,6 +259,14 @@ const CreateGroup = () => {
       const inviteRes = await apiRequest('/api/groups-draft/invite', 'POST', inviteBody, token);
       
       if (!inviteRes.success) {
+        // Handle specific enrollment errors
+        if (inviteRes.errors?.invalid_enrollments) {
+          const invalidEnrollments = inviteRes.errors.invalid_enrollments;
+          const errorMessages = invalidEnrollments.map(item => 
+            `${item.enrollment}: ${item.error}`
+          ).join('\n• ');
+          throw new Error(`Cannot send invitations:\n• ${errorMessages}`);
+        }
         throw new Error(inviteRes.message || 'Failed to send invitations');
       }
       
@@ -247,7 +282,9 @@ const CreateGroup = () => {
         setDeadlinePassed(true);
         setMessage('⚠️ Group creation deadline has passed. This feature is currently disabled.');
       } else {
-        setMessage(`❌ ${err.message || 'Submission failed'}`);
+        // Display multi-line error messages properly
+        const errorMsg = err.message || 'Submission failed';
+        setMessage(`❌ ${errorMsg}`);
       }
     }
   };
@@ -316,11 +353,11 @@ const CreateGroup = () => {
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               )}
-              <p className={`text-sm font-medium ${
+              <div className={`text-sm font-medium whitespace-pre-line ${
                 message.includes('✅') ? 'text-green-800' : message.includes('⚠️') ? 'text-amber-800' : 'text-red-800'
               }`}>
                 {message}
-              </p>
+              </div>
             </div>
           )}
 
@@ -510,6 +547,10 @@ const MemberForm = ({ id, member, initialValue, onBlur, onChange, disabled }) =>
   useEffect(() => {
     setEnrollment(initialValue);
   }, [initialValue]);
+  
+  useEffect(() => {
+    console.log(`MemberForm ${id} - member prop:`, member);
+  }, [id, member]);
 
   const handleChange = (e) => {
     const val = e.target.value;
