@@ -259,8 +259,8 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
         )}
         <h2 className="text-xl font-semibold mb-4 text-gray-900">Group: {groupDetails.group_id}</h2>
         <p className="text-base text-gray-800 mb-6">
-          <strong>Guide Name:</strong> 
-          <span className="text-purple-700 ml-2">{groupDetails.guide_name || "Not Assigned"}</span>
+          <strong>Mentor:</strong> 
+          <span className="text-purple-700 ml-2">{groupDetails.mentor_code || "Not Assigned"}</span>
         </p>
         
         <div className="mb-6">

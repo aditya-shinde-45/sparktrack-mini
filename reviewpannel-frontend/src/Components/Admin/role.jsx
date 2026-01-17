@@ -8,19 +8,11 @@ import {
   Save, 
   X, 
   Check,
-  Lock,
-  Unlock,
   AlertCircle,
   Search,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  Settings,
+  Database,
   Eye,
-  EyeOff,
-  UserPlus,
-  Key,
-  TrendingUp
+  EyeOff
 } from "lucide-react";
 import { apiRequest } from "../../api";
 
@@ -31,83 +23,25 @@ const RolePermissionManager = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all");
-  const [expandedRoles, setExpandedRoles] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    permissions: [],
-    isActive: true,
-    priority: 0,
-    users: [] // Add users array
-  });
-
-  // Add user credentials state
-  const [userCredentials, setUserCredentials] = useState({
-    username: "",
-    email: "",
+    userId: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    tablePermissions: []
   });
 
-  const [showAddUser, setShowAddUser] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Available permissions categorized
-  const permissionCategories = {
-    "User Management": [
-      { id: "users.view", label: "View Users", description: "View user list and profiles" },
-      { id: "users.create", label: "Create Users", description: "Add new users" },
-      { id: "users.edit", label: "Edit Users", description: "Modify user information" },
-      { id: "users.delete", label: "Delete Users", description: "Remove users from system" },
-      { id: "users.manage_roles", label: "Manage User Roles", description: "Assign/remove user roles" }
-    ],
-    "Student Management": [
-      { id: "students.view", label: "View Students", description: "View student profiles" },
-      { id: "students.edit", label: "Edit Students", description: "Modify student data" },
-      { id: "students.grades", label: "Manage Grades", description: "View and edit grades" },
-      { id: "students.reports", label: "Generate Reports", description: "Create student reports" }
-    ],
-    "Project Management": [
-      { id: "projects.view", label: "View Projects", description: "View all projects" },
-      { id: "projects.create", label: "Create Projects", description: "Add new projects" },
-      { id: "projects.edit", label: "Edit Projects", description: "Modify project details" },
-      { id: "projects.delete", label: "Delete Projects", description: "Remove projects" },
-      { id: "projects.assign", label: "Assign Projects", description: "Assign projects to students" },
-      { id: "projects.review", label: "Review Projects", description: "Review and grade projects" }
-    ],
-    "Mentor Management": [
-      { id: "mentors.view", label: "View Mentors", description: "View mentor list" },
-      { id: "mentors.create", label: "Create Mentors", description: "Add new mentors" },
-      { id: "mentors.edit", label: "Edit Mentors", description: "Modify mentor data" },
-      { id: "mentors.delete", label: "Delete Mentors", description: "Remove mentors" },
-      { id: "mentors.assign", label: "Assign Groups", description: "Assign student groups to mentors" }
-    ],
-    "External Evaluators": [
-      { id: "externals.view", label: "View Externals", description: "View external evaluators" },
-      { id: "externals.create", label: "Create Externals", description: "Add external evaluators" },
-      { id: "externals.edit", label: "Edit Externals", description: "Modify external data" },
-      { id: "externals.delete", label: "Delete Externals", description: "Remove externals" }
-    ],
-    "System Settings": [
-      { id: "settings.view", label: "View Settings", description: "View system settings" },
-      { id: "settings.edit", label: "Edit Settings", description: "Modify system configuration" },
-      { id: "deadlines.manage", label: "Manage Deadlines", description: "Set and modify deadlines" },
-      { id: "notifications.send", label: "Send Notifications", description: "Send system notifications" }
-    ],
-    "Reports & Analytics": [
-      { id: "reports.view", label: "View Reports", description: "Access all reports" },
-      { id: "reports.export", label: "Export Reports", description: "Export data and reports" },
-      { id: "analytics.view", label: "View Analytics", description: "Access analytics dashboard" }
-    ],
-    "Role Management": [
-      { id: "roles.view", label: "View Roles", description: "View all roles" },
-      { id: "roles.create", label: "Create Roles", description: "Create new roles" },
-      { id: "roles.edit", label: "Edit Roles", description: "Modify roles" },
-      { id: "roles.delete", label: "Delete Roles", description: "Remove roles" }
-    ]
-  };
+  // Available table permissions
+  const availableTables = [
+    { id: "students", label: "Students Table", description: "Manage student records and data", icon: Users },
+    { id: "pbl", label: "PBL Table", description: "Manage PBL groups and projects", icon: Database },
+    { id: "mentors", label: "Mentors Table", description: "Manage mentor information", icon: Shield }
+  ];
 
   useEffect(() => {
     fetchRoles();
@@ -116,444 +50,380 @@ const RolePermissionManager = () => {
   const fetchRoles = async () => {
     try {
       setLoading(true);
-      // Replace with actual API endpoint
-      const response = await apiRequest("/api/roles", "GET");
-      setRoles(response.data || []);
+      const token = localStorage.getItem("token");
+      const response = await apiRequest("/api/roles", "GET", null, token);
+      
+      if (response.success) {
+        // Transform snake_case to camelCase
+        const transformedRoles = (response.data || []).map(role => ({
+          id: role.id,
+          userId: role.user_id,
+          tablePermissions: role.table_permissions || [],
+          isActive: role.is_active,
+          createdAt: role.created_at,
+          lastLogin: role.last_login
+        }));
+        setRoles(transformedRoles);
+      } else {
+        console.error("Failed to fetch roles:", response.message);
+        setRoles([]);
+      }
     } catch (error) {
       console.error("Error fetching roles:", error);
-      // Mock data for demonstration
-      setRoles([
-        {
-          id: 1,
-          name: "Super Admin",
-          description: "Full system access with all permissions",
-          permissions: Object.values(permissionCategories).flat().map(p => p.id),
-          isActive: true,
-          priority: 100,
-          userCount: 2,
-          createdAt: "2024-01-15"
-        },
-        {
-          id: 2,
-          name: "Project Coordinator",
-          description: "Manages projects and student assignments",
-          permissions: ["projects.view", "projects.create", "projects.edit", "projects.assign", "students.view"],
-          isActive: true,
-          priority: 50,
-          userCount: 5,
-          createdAt: "2024-02-01"
-        },
-        {
-          id: 3,
-          name: "Mentor",
-          description: "Reviews and grades assigned projects",
-          permissions: ["projects.view", "projects.review", "students.view", "students.grades"],
-          isActive: true,
-          priority: 30,
-          userCount: 15,
-          createdAt: "2024-02-10"
-        }
-      ]);
+      setRoles([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.userId.trim()) {
+      newErrors.userId = "User ID is required";
+    } else if (formData.userId.length < 4) {
+      newErrors.userId = "User ID must be at least 4 characters";
+    }
+
+    if (!showEditModal) {
+      // Password is required for create
+      if (!formData.password) {
+        newErrors.password = "Password is required";
+      } else if (formData.password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      }
+
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = "Please confirm password";
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      }
+    } else {
+      // For edit, password is optional but must be valid if provided
+      if (formData.password) {
+        if (formData.password.length < 6) {
+          newErrors.password = "Password must be at least 6 characters";
+        }
+        if (formData.confirmPassword && formData.password !== formData.confirmPassword) {
+          newErrors.confirmPassword = "Passwords do not match";
+        }
+      }
+    }
+
+    if (formData.tablePermissions.length === 0) {
+      newErrors.tablePermissions = "Select at least one table permission";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleCreateRole = async () => {
+    if (!validateForm()) return;
+
     try {
-      // Replace with actual API call
-      const newRole = {
-        ...formData,
-        id: Date.now(),
-        userCount: 0,
-        createdAt: new Date().toISOString()
-      };
-      setRoles([...roles, newRole]);
-      setShowCreateModal(false);
-      resetForm();
+      const token = localStorage.getItem("token");
+      const response = await apiRequest(
+        "/api/roles",
+        "POST",
+        {
+          userId: formData.userId,
+          password: formData.password,
+          tablePermissions: formData.tablePermissions
+        },
+        token
+      );
+
+      if (response.success) {
+        // Refresh the roles list
+        await fetchRoles();
+        setShowCreateModal(false);
+        resetForm();
+        alert("Role created successfully!");
+      } else {
+        alert(response.message || "Failed to create role");
+      }
     } catch (error) {
       console.error("Error creating role:", error);
+      alert("Failed to create role. Please try again.");
     }
   };
 
   const handleUpdateRole = async () => {
+    if (!validateForm()) return;
+
     try {
-      // Replace with actual API call
-      setRoles(roles.map(role => 
-        role.id === selectedRole.id 
-          ? { ...role, ...formData }
-          : role
-      ));
-      setShowEditModal(false);
-      resetForm();
+      const token = localStorage.getItem("token");
+      const updateData = {
+        userId: formData.userId,
+        tablePermissions: formData.tablePermissions
+      };
+
+      // Only include password if it's provided
+      if (formData.password) {
+        updateData.password = formData.password;
+      }
+
+      const response = await apiRequest(
+        `/api/roles/${selectedRole.id}`,
+        "PUT",
+        updateData,
+        token
+      );
+
+      if (response.success) {
+        // Refresh the roles list
+        await fetchRoles();
+        setShowEditModal(false);
+        resetForm();
+        alert("Role updated successfully!");
+      } else {
+        alert(response.message || "Failed to update role");
+      }
     } catch (error) {
       console.error("Error updating role:", error);
+      alert("Failed to update role. Please try again.");
     }
   };
 
   const handleDeleteRole = async (roleId) => {
-    if (window.confirm("Are you sure you want to delete this role?")) {
+    if (window.confirm("Are you sure you want to delete this role? This action cannot be undone.")) {
       try {
-        // Replace with actual API call
-        setRoles(roles.filter(role => role.id !== roleId));
+        const token = localStorage.getItem("token");
+        const response = await apiRequest(
+          `/api/roles/${roleId}`,
+          "DELETE",
+          null,
+          token
+        );
+
+        if (response.success) {
+          // Refresh the roles list
+          await fetchRoles();
+          alert("Role deleted successfully!");
+        } else {
+          alert(response.message || "Failed to delete role");
+        }
       } catch (error) {
         console.error("Error deleting role:", error);
+        alert("Failed to delete role. Please try again.");
       }
     }
   };
 
-  const togglePermission = (permissionId) => {
+  const toggleTablePermission = (tableId) => {
     setFormData(prev => ({
       ...prev,
-      permissions: prev.permissions.includes(permissionId)
-        ? prev.permissions.filter(p => p !== permissionId)
-        : [...prev.permissions, permissionId]
+      tablePermissions: prev.tablePermissions.includes(tableId)
+        ? prev.tablePermissions.filter(p => p !== tableId)
+        : [...prev.tablePermissions, tableId]
     }));
-  };
-
-  const selectAllInCategory = (category) => {
-    const categoryPermissions = permissionCategories[category].map(p => p.id);
-    const allSelected = categoryPermissions.every(p => formData.permissions.includes(p));
-    
-    if (allSelected) {
-      setFormData(prev => ({
-        ...prev,
-        permissions: prev.permissions.filter(p => !categoryPermissions.includes(p))
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        permissions: [...new Set([...prev.permissions, ...categoryPermissions])]
-      }));
-    }
+    setErrors(prev => ({ ...prev, tablePermissions: undefined }));
   };
 
   const resetForm = () => {
     setFormData({
-      name: "",
-      description: "",
-      permissions: [],
-      isActive: true,
-      priority: 0,
-      users: []
-    });
-    setUserCredentials({
-      username: "",
-      email: "",
+      userId: "",
       password: "",
-      confirmPassword: ""
+      confirmPassword: "",
+      tablePermissions: []
     });
-    setShowAddUser(false);
+    setErrors({});
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setSelectedRole(null);
-  };
-
-  const handleAddUser = () => {
-    if (!userCredentials.username || !userCredentials.email || !userCredentials.password) {
-      alert("Please fill all user fields");
-      return;
-    }
-    if (userCredentials.password !== userCredentials.confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      users: [...prev.users, {
-        id: Date.now(),
-        username: userCredentials.username,
-        email: userCredentials.email,
-        createdAt: new Date().toISOString()
-      }]
-    }));
-
-    setUserCredentials({
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: ""
-    });
-    setShowAddUser(false);
-  };
-
-  const removeUser = (userId) => {
-    setFormData(prev => ({
-      ...prev,
-      users: prev.users.filter(u => u.id !== userId)
-    }));
   };
 
   const openEditModal = (role) => {
     setSelectedRole(role);
     setFormData({
-      name: role.name,
-      description: role.description,
-      permissions: role.permissions,
-      isActive: role.isActive,
-      priority: role.priority
+      userId: role.userId,
+      password: "",
+      confirmPassword: "",
+      tablePermissions: role.tablePermissions
     });
     setShowEditModal(true);
   };
 
-  const toggleRoleExpansion = (roleId) => {
-    setExpandedRoles(prev => 
-      prev.includes(roleId) 
-        ? prev.filter(id => id !== roleId)
-        : [...prev, roleId]
-    );
-  };
-
-  const getPermissionLabel = (permissionId) => {
-    for (const category of Object.values(permissionCategories)) {
-      const perm = category.find(p => p.id === permissionId);
-      if (perm) return perm.label;
-    }
-    return permissionId;
+  const getTableLabel = (tableId) => {
+    const table = availableTables.find(t => t.id === tableId);
+    return table ? table.label : tableId;
   };
 
   const filteredRoles = roles.filter(role => {
-    const matchesSearch = role.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         role.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterType === "all" || 
-                         (filterType === "active" && role.isActive) ||
-                         (filterType === "inactive" && !role.isActive);
-    return matchesSearch && matchesFilter;
+    const matchesSearch = role.userId?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading roles...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Shield className="w-8 h-8 text-purple-600" />
-              Role & Permission Management
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Create roles and assign permissions to control system access
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+                <div className="p-3 bg-purple-600 rounded-xl shadow-lg">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+                Role Management
+              </h1>
+              <p className="text-gray-600 text-lg ml-1">
+                Create and manage user roles with table permissions
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium"
+            >
+              <Plus className="w-5 h-5" />
+              Create New Role
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            Create New Role
-          </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Total Roles</p>
-                <p className="text-2xl font-bold text-gray-900">{roles.length}</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Shield className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Active Roles</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {roles.filter(r => r.isActive).length}
-                </p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Check className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Total Users</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {roles.reduce((sum, role) => sum + role.userCount, 0)}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Permission Sets</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {Object.keys(permissionCategories).length}
-                </p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <Key className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        {/* Search Bar */}
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200 mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search roles..."
+              placeholder="Search by User ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 placeholder:text-gray-400 bg-white"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterType("all")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterType === "all"
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              All Roles
-            </button>
-            <button
-              onClick={() => setFilterType("active")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterType === "active"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => setFilterType("inactive")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                filterType === "inactive"
-                  ? "bg-red-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Inactive
-            </button>
+        </div>
+
+        {/* Roles Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gradient-to-r from-purple-600 to-purple-700">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">User ID</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Table Permissions</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Created Date</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-white">Last Login</th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredRoles.map((role, index) => (
+                  <tr 
+                    key={role.id}
+                    className={`hover:bg-gray-50 transition-colors ${
+                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                    }`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Users className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <span className="font-semibold text-gray-900">{role.userId}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {role.tablePermissions.map(tableId => (
+                          <span
+                            key={tableId}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium"
+                          >
+                            <Database className="w-4 h-4" />
+                            {getTableLabel(tableId)}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-gray-600">
+                        {new Date(role.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {role.lastLogin ? (
+                        <span className="text-gray-600">
+                          {new Date(role.lastLogin).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">Never</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openEditModal(role)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Role"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRole(role.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Role"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredRoles.length === 0 && (
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+                  <AlertCircle className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Roles Found</h3>
+                <p className="text-gray-600 mb-4">
+                  {searchQuery 
+                    ? "No roles match your search criteria" 
+                    : "Get started by creating your first role"}
+                </p>
+                {!searchQuery && (
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Create First Role
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Roles List */}
-      <div className="space-y-4">
-        {filteredRoles.map(role => (
-          <div
-            key={role.id}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-          >
-            <div className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{role.name}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      role.isActive 
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
-                    }`}>
-                      {role.isActive ? "Active" : "Inactive"}
-                    </span>
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                      Priority: {role.priority}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 mb-3">{role.description}</p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      {role.userCount} users
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Key className="w-4 h-4" />
-                      {role.permissions.length} permissions
-                    </span>
-                    <span>
-                      Created: {new Date(role.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggleRoleExpansion(role.id)}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    {expandedRoles.includes(role.id) ? (
-                      <ChevronUp className="w-5 h-5" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => openEditModal(role)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteRole(role.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Expanded Permissions */}
-              {expandedRoles.includes(role.id) && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h4 className="font-semibold text-gray-900 mb-3">Assigned Permissions:</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {role.permissions.map(perm => (
-                      <div
-                        key={perm}
-                        className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg text-sm"
-                      >
-                        <Check className="w-4 h-4 text-purple-600" />
-                        <span className="text-gray-700">{getPermissionLabel(perm)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {filteredRoles.length === 0 && (
-          <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
-            <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Roles Found</h3>
-            <p className="text-gray-600">
-              Try adjusting your search or filter criteria
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Create/Edit Modal - Redesigned as Pop-up */}
+      {/* Create/Edit Modal */}
       {(showCreateModal || showEditModal) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop with blur */}
+          {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => {
@@ -564,9 +434,9 @@ const RolePermissionManager = () => {
           ></div>
           
           {/* Modal Container */}
-          <div className="relative bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-fadeIn">
-            {/* Header - Gradient with theme colors */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+          <div className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -578,8 +448,8 @@ const RolePermissionManager = () => {
                     </h2>
                     <p className="text-purple-100 text-sm mt-1">
                       {showCreateModal 
-                        ? "Define a new role with custom permissions" 
-                        : "Modify role settings and permissions"}
+                        ? "Assign table permissions to new user" 
+                        : "Update user table permissions"}
                     </p>
                   </div>
                 </div>
@@ -596,191 +466,261 @@ const RolePermissionManager = () => {
               </div>
             </div>
 
-            {/* Content - Scrollable */}
-            <div className="overflow-y-auto max-h-[calc(90vh-180px)] p-6">
-              <div className="space-y-6">
-                {/* Step 1: Role Information */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-purple-600 text-white rounded-full font-bold text-sm">1</div>
-                    <h3 className="text-lg font-bold text-gray-900">Role Information</h3>
-                  </div>
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* User ID */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  User ID *
+                </label>
+                <input
+                  type="text"
+                  value={formData.userId}
+                  onChange={(e) => {
+                    setFormData({ ...formData, userId: e.target.value });
+                    setErrors({ ...errors, userId: undefined });
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all text-gray-900 placeholder:text-gray-400 ${
+                    errors.userId 
+                      ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                      : 'border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                  }`}
+                  placeholder="e.g., coordinator001, mentor_admin"
+                />
+                {errors.userId && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.userId}
+                  </p>
+                )}
+              </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                        <Shield className="w-4 h-4 text-purple-600" />
-                        Role Name *
-                      </label>
+              {/* Password Fields - Only for Create */}
+              {showCreateModal && (
+                <>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                      <Shield className="w-4 h-4 text-purple-600" />
+                      Password *
+                    </label>
+                    <div className="relative">
                       <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
-                        placeholder="e.g., Project Coordinator, Faculty Member"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password}
+                        onChange={(e) => {
+                          setFormData({ ...formData, password: e.target.value });
+                          setErrors({ ...errors, password: undefined });
+                        }}
+                        className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:outline-none transition-all text-gray-900 placeholder:text-gray-400 bg-white ${
+                          errors.password 
+                            ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                            : 'border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                        }`}
+                        placeholder="Enter password"
                       />
-                    </div>
-
-                    <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                        <Settings className="w-4 h-4 text-purple-600" />
-                        Description *
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none"
-                        rows="2"
-                        placeholder="Brief description of this role..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 2: Quick Permission Selection */}
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-purple-600 text-white rounded-full font-bold text-sm">2</div>
-                    <h3 className="text-lg font-bold text-gray-900">Select Permissions</h3>
-                  </div>
-                  
-                  {/* Quick selection buttons */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                    {Object.keys(permissionCategories).map(category => {
-                      const categoryPerms = permissionCategories[category].map(p => p.id);
-                      const isSelected = categoryPerms.every(p => formData.permissions.includes(p));
-                      return (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => selectAllInCategory(category)}
-                          className={`p-3 rounded-lg text-sm font-medium transition-all ${
-                            isSelected
-                              ? "bg-purple-600 text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          <Lock className="w-4 h-4 mx-auto mb-1" />
-                          {category.split(' ')[0]}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                    <p className="text-sm text-purple-800">
-                      <strong>{formData.permissions.length}</strong> of {Object.values(permissionCategories).flat().length} permissions selected
-                    </p>
-                  </div>
-                </div>
-
-                {/* Step 3: Add Users */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center w-8 h-8 bg-purple-600 text-white rounded-full font-bold text-sm">3</div>
-                      <h3 className="text-lg font-bold text-gray-900">Assign Users (Optional)</h3>
-                    </div>
-                    {!showAddUser && (
                       <button
                         type="button"
-                        onClick={() => setShowAddUser(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
                       >
-                        <UserPlus className="w-4 h-4" />
-                        Add User
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
+                    </div>
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.password}
+                      </p>
                     )}
                   </div>
 
-                  {showAddUser && (
-                    <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 mb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                      <Shield className="w-4 h-4 text-purple-600" />
+                      Confirm Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={formData.confirmPassword}
+                        onChange={(e) => {
+                          setFormData({ ...formData, confirmPassword: e.target.value });
+                          setErrors({ ...errors, confirmPassword: undefined });
+                        }}
+                        className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:outline-none transition-all text-gray-900 placeholder:text-gray-400 bg-white ${
+                          errors.confirmPassword 
+                            ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                            : 'border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                        }`}
+                        placeholder="Confirm password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Password Fields - Optional for Edit */}
+              {showEditModal && (
+                <>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                      <Shield className="w-4 h-4 text-purple-600" />
+                      New Password (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password}
+                        onChange={(e) => {
+                          setFormData({ ...formData, password: e.target.value });
+                          setErrors({ ...errors, password: undefined });
+                        }}
+                        className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:outline-none transition-all text-gray-900 placeholder:text-gray-400 bg-white ${
+                          errors.password 
+                            ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                            : 'border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                        }`}
+                        placeholder="Leave blank to keep current password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.password}
+                      </p>
+                    )}
+                  </div>
+
+                  {formData.password && (
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                        <Shield className="w-4 h-4 text-purple-600" />
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
                         <input
-                          type="text"
-                          placeholder="Username *"
-                          value={userCredentials.username}
-                          onChange={(e) => setUserCredentials({ ...userCredentials, username: e.target.value })}
-                          className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
-                        />
-                        <input
-                          type="email"
-                          placeholder="Email *"
-                          value={userCredentials.email}
-                          onChange={(e) => setUserCredentials({ ...userCredentials, email: e.target.value })}
-                          className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Password *"
-                          value={userCredentials.password}
-                          onChange={(e) => setUserCredentials({ ...userCredentials, password: e.target.value })}
-                          className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
-                        />
-                        <input
-                          type="password"
-                          placeholder="Confirm Password *"
-                          value={userCredentials.confirmPassword}
-                          onChange={(e) => setUserCredentials({ ...userCredentials, confirmPassword: e.target.value })}
-                          className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2 mt-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAddUser(false);
-                            setUserCredentials({ username: "", email: "", password: "", confirmPassword: "" });
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={formData.confirmPassword}
+                          onChange={(e) => {
+                            setFormData({ ...formData, confirmPassword: e.target.value });
+                            setErrors({ ...errors, confirmPassword: undefined });
                           }}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
-                        >
-                          Cancel
-                        </button>
+                          className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:outline-none transition-all text-gray-900 placeholder:text-gray-400 bg-white ${
+                            errors.confirmPassword 
+                              ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-200' 
+                              : 'border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200'
+                          }`}
+                          placeholder="Confirm new password"
+                        />
                         <button
                           type="button"
-                          onClick={handleAddUser}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
                         >
-                          Add User
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
+                      {errors.confirmPassword && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          {errors.confirmPassword}
+                        </p>
+                      )}
                     </div>
                   )}
+                </>
+              )}
 
-                  {/* Users List */}
-                  {formData.users.length > 0 && (
-                    <div className="space-y-2">
-                      {formData.users.map(user => (
-                        <div key={user.id} className="flex items-center justify-between p-3 bg-white border-2 border-gray-200 rounded-lg">
-                          <div>
-                            <p className="font-medium text-gray-900">{user.username}</p>
-                            <p className="text-sm text-gray-600">{user.email}</p>
+              {/* Table Permissions */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                  <Database className="w-4 h-4 text-purple-600" />
+                  Table Permissions *
+                </label>
+                <div className="space-y-3">
+                  {availableTables.map((table) => {
+                    const Icon = table.icon;
+                    const isSelected = formData.tablePermissions.includes(table.id);
+                    return (
+                      <div
+                        key={table.id}
+                        onClick={() => toggleTablePermission(table.id)}
+                        className={`p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                          isSelected
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            isSelected ? 'bg-purple-600' : 'bg-gray-200'
+                          }`}>
+                            <Icon className={`w-5 h-5 ${
+                              isSelected ? 'text-white' : 'text-gray-600'
+                            }`} />
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeUser(user.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex-1">
+                            <h4 className={`font-semibold ${
+                              isSelected ? 'text-purple-900' : 'text-gray-900'
+                            }`}>
+                              {table.label}
+                            </h4>
+                            <p className="text-sm text-gray-600">{table.description}</p>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? 'border-purple-600 bg-purple-600'
+                              : 'border-gray-300'
+                          }`}>
+                            {isSelected && <Check className="w-4 h-4 text-white" />}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {formData.users.length === 0 && !showAddUser && (
-                    <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
-                      <Users className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">No users assigned yet</p>
-                      <p className="text-xs text-gray-500 mt-1">You can add users now or later</p>
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {errors.tablePermissions && (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.tablePermissions}
+                  </p>
+                )}
               </div>
+
+              {/* Selected Count */}
+              {formData.tablePermissions.length > 0 && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                  <p className="text-sm text-purple-800 font-medium">
+                    <Check className="w-4 h-4 inline mr-1" />
+                    {formData.tablePermissions.length} table{formData.tablePermissions.length > 1 ? 's' : ''} selected
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Footer - Sticky */}
-            <div className="border-t-2 border-gray-200 bg-gray-50 p-6">
+            {/* Footer */}
+            <div className="border-t-2 border-gray-200 bg-gray-50 p-6 rounded-b-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <AlertCircle className="w-4 h-4" />
@@ -801,8 +741,7 @@ const RolePermissionManager = () => {
                   <button
                     type="button"
                     onClick={showCreateModal ? handleCreateRole : handleUpdateRole}
-                    disabled={!formData.name || !formData.description || formData.permissions.length === 0}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all font-medium shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
                     <Save className="w-5 h-5" />
                     {showCreateModal ? "Create Role" : "Update Role"}

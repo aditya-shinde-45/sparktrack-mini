@@ -14,6 +14,12 @@ router.get('/pbl/gp/:enrollment_no',
   studentController.getGroupDetails
 );
 
+// Check if student is in a finalized group
+router.get('/check-membership/:enrollment_no',
+  authMiddleware.authenticateUser,
+  studentController.checkGroupMembership
+);
+
 router.get('/admintools/class/:classPrefix',
   authMiddleware.authenticateUser,
   studentController.getAnnouncements

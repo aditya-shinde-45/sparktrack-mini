@@ -17,6 +17,7 @@ import MentorSelection from '../Pages/External/MentorSelection';
 
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
+import SubAdminDashboard from '../Pages/Admin/SubAdminDashboard';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
@@ -101,6 +102,11 @@ const AppRoutes = () => {
       <Route path="/admin-dashboard" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/sub-admin-dashboard" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <SubAdminDashboard />
         </ProtectedRoute>
       } />
       <Route path="/assign-external" element={
