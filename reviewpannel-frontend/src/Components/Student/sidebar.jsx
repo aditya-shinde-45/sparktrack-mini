@@ -155,7 +155,7 @@ const Sidebar = ({ isOpen, onClose, isMobile }) => {
                     </Link>
                   </li>
                 );
-              })}}
+              })}
               <li>
                 <button
                   onClick={() => { handleLogout(); onClose(); }}
