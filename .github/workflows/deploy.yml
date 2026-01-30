@@ -1,64 +1,21 @@
-name: Deploy Node App
+name: Deploy via Depclick
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
+      - name: Trigger deployment
         run: |
-          if [ -n "${{ secrets.ROOT_DIR }}" ]; then cd "${{ secrets.ROOT_DIR }}"; fi
-          npm ci
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            REPO_URL="https://github.com/${{ github.repository }}.git"
-            APP_DIR="${{ secrets.APP_DIR }}"
-            ROOT_DIR="${{ secrets.ROOT_DIR }}"
-            SERVICE_NAME="${{ secrets.SERVICE_NAME }}"
-            BRANCH="${{ github.ref_name }}"
-
-            sudo mkdir -p "$APP_DIR"
-            if [ ! -d "$APP_DIR/.git" ]; then
-              git clone "$REPO_URL" "$APP_DIR"
-            fi
-
-            cd "$APP_DIR"
-            git fetch --all
-            git checkout "$BRANCH"
-            git pull origin "$BRANCH"
-
-            if [ -n "$ROOT_DIR" ]; then cd "$APP_DIR/$ROOT_DIR"; fi
-
-            if [ -n "${{ secrets.ENV_VARS }}" ]; then
-              echo "${{ secrets.ENV_VARS }}" > .env
-            fi
-
-            npm install
-
-            if [ -n "${{ secrets.BUILD_COMMAND }}" ]; then
-              eval "${{ secrets.BUILD_COMMAND }}"
-            fi
-
-            sudo systemctl daemon-reload
-            sudo systemctl restart "$SERVICE_NAME"
-            sudo systemctl status "$SERVICE_NAME" --no-pager
+          curl -X POST https://http://13.201.46.41:8000/api/deploy/github \
+            -H "Content-Type: application/json" \
+            -H "X-DEPCLICK-SECRET: ${{ secrets.DEPCLICK_SECRET }}" \
+            -d '{
+              "repo": "${{ github.repository }}",
+              "branch": "main",
+              "commit": "${{ github.sha }}"
+            }'
