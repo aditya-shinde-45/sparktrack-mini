@@ -9,7 +9,7 @@ const config = {
   cors: {
     allowedOrigins: [
     
-      "https://sparktrack-mini-five.vercel.app",
+      "http://13.201.46.41/frontend",
       "http://localhost:5173"
     ]
   },
