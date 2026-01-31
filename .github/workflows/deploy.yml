@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - master
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,11 +13,11 @@ jobs:
     steps:
       - name: Trigger deployment
         run: |
-          curl -X POST https://http://13.201.46.41:8000/api/deploy/github \
+          curl -f -X POST http://13.201.46.41:8000/api/deploy/github \
             -H "Content-Type: application/json" \
             -H "X-DEPCLICK-SECRET: ${{ secrets.DEPCLICK_SECRET }}" \
             -d '{
               "repo": "${{ github.repository }}",
-              "branch": "main",
+              "branch": "${{ github.ref_name }}",
               "commit": "${{ github.sha }}"
             }'
