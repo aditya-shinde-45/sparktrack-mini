@@ -2,9 +2,6 @@
 import React, { useState, useEffect } from "react";
 import Header from "../../Components/Common/Header";
 import Sidebar from "../../Components/External/Sidebar";
-import EvaluationForm_1 from "../../Components/External/EvaluationForm_1";
-import EvaluationForm_2 from "../../Components/External/EvaluationForm_2";
-import EvaluationForm_3 from "../../Components/External/EvaluationForm_3";
 import { apiRequest } from "../../api";
 
 const ExternalHome = () => {
@@ -43,19 +40,7 @@ const ExternalHome = () => {
     fetchDeadlineControls();
   }, []);
 
-  // Determine which evaluation form to show based on deadline controls
-  const getActiveEvaluationForm = () => {
-    if (deadlineControls.pbl_review_3) {
-      return "pbl_review_3";
-    } else if (deadlineControls.pbl_review_2) {
-      return "pbl_review_2";
-    } else if (deadlineControls.pbl_review_1) {
-      return "pbl_review_1";
-    }
-    return "standard";
-  };
-
-  const activeEvaluationForm = getActiveEvaluationForm();
+  const activeEvaluationForm = "standard";
 
   // Handle successful form submission
   const handleSubmitSuccess = (groupId) => {
@@ -146,41 +131,17 @@ const ExternalHome = () => {
         
         {/* Render appropriate evaluation form based on deadline controls */}
         {!loading && (
-          <>
-            {activeEvaluationForm === "pbl_review_1" && (
-              <EvaluationForm_1 groupId={selectedGroupId} role={role} />
-            )}
-            {activeEvaluationForm === "pbl_review_2" && (
-              <EvaluationForm_2 
-                groupId={selectedGroupId} 
-                role={role} 
-                onSubmitSuccess={handleSubmitSuccess}
-              />
-            )}
-            {activeEvaluationForm === "pbl_review_3" && (
-              <EvaluationForm_3 
-                groupId={selectedGroupId} 
-                role={role} 
-                onSubmitSuccess={handleSubmitSuccess}
-              />
-            )}
-            {activeEvaluationForm === "standard" && (
-              <>
-                {/* Show EvaluationForm_1 as default when no specific review is active */}
-                <div className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
-                  <div className="text-center mb-6">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent mb-2">
-                      Evaluation Form
-                    </h1>
-                    <div className="w-24 h-1 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full mx-auto"></div>
-                    <p className="text-gray-600 mt-4">
-                      No active PBL review period. Default evaluation form is displayed.
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </>
+          <div className="flex-1 p-4 sm:p-6 bg-white m-4 lg:ml-72 rounded-lg shadow-lg space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent mb-2">
+                Evaluation Form
+              </h1>
+              <div className="w-24 h-1 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full mx-auto"></div>
+              <p className="text-gray-600 mt-4">
+                Legacy evaluation forms have been removed. Use the new dynamic evaluation system.
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>

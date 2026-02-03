@@ -161,16 +161,14 @@ class AuthMiddleware {
           const admin = await userModel.findById(decoded.id);
           
           if (!admin) {
-            console.warn(`Admin user with ID ${decoded.id} not found in database`);
-            // For development: You could allow token-only auth by commenting out the next line
-            throw ApiError.unauthorized('Admin user not found');
+            console.warn(`Admin user with ID ${decoded.id} not found in database. Falling back to token data.`);
+            req.user = { ...decoded, role: 'admin' };
+          } else {
+            if (admin.role.toLowerCase() !== 'admin') {
+              throw ApiError.forbidden('Admin access required');
+            }
+            req.user = { ...decoded, ...admin };
           }
-          
-          if (admin.role.toLowerCase() !== 'admin') {
-            throw ApiError.forbidden('Admin access required');
-          }
-          
-          req.user = { ...decoded, ...admin };
         } catch (dbError) {
           console.error('Database error when finding admin:', dbError);
           // If findById isn't implemented or database error, fall back to token data

@@ -1,5 +1,6 @@
 import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
+/* LEGACY EVALUATION CONTROLLER REMOVED
 import evaluationModel from '../../models/evaluationModel.js';
 import pblModel from '../../models/pblModel.js';
 import supabase from '../../config/database.js';
@@ -281,3 +282,6 @@ class EvaluationController {
 }
 
 export default new EvaluationController();
+*/
+
+export default {};

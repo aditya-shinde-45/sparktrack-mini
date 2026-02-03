@@ -1,3 +1,4 @@
+/* LEGACY EVALUATION FORM REMOVED
 import React, { useEffect, useState } from "react";
 import { apiRequest, uploadFile } from "../../api.js";
 
@@ -1027,3 +1028,8 @@ const EvaluationForm_2 = ({ groupId, role, onSubmitSuccess }) => {
 };
 
 export default EvaluationForm_2;
+*/
+
+export default function EvaluationFormLegacy() {
+  return null;
+}

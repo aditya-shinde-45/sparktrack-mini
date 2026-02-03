@@ -48,7 +48,7 @@ function App() {
       onReset={() => window.location.reload()}
     >
       {/* 🔑 THIS IS THE FIX */}
-      <Router basename="/frontend">
+      <Router>
         <AppRoutes />
       </Router>
     </ErrorBoundary>

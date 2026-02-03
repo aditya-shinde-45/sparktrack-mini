@@ -1,3 +1,4 @@
+/* LEGACY EVALUATION ROUTES REMOVED
 import express from 'express';
 import pblEvaluationController from '../../controllers/admin/pblEvaluationController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
@@ -92,3 +93,6 @@ router.get(
 );
 
 export default router;
+*/
+
+export default {};

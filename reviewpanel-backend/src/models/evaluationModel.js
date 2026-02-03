@@ -1,3 +1,4 @@
+/* LEGACY EVALUATION MODEL REMOVED
 import supabase from '../config/database.js';
 
 /**
@@ -426,3 +427,6 @@ class EvaluationModel {
 }
 
 export default new EvaluationModel();
+*/
+
+export default {};

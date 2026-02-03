@@ -11,9 +11,7 @@ import Download from '../Pages/Common/Download';
 import Students from '../Pages/Common/students';
 import LoadingTest from '../Pages/Common/LoadingTest';
 
-// External Pages
-import ExternalHome from '../Pages/External/ExternalHome';
-import MentorSelection from '../Pages/External/MentorSelection';
+// External Pages removed
 
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
@@ -22,6 +20,7 @@ import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
 import Mentor from '../Pages/Admin/mentors';
+import EvaluationFormBuilder from '../Pages/Admin/EvaluationFormBuilder';
 
 // Admin Tools (parent and children)
 import AdminToolTabs from '../Components/Admin/admintools';
@@ -49,10 +48,8 @@ import InternshipDetails from '../Pages/students/InternshipDetails';
 // Mentor Pages
 import MentorDashboard from '../Pages/Mentor/MentorDashboard';
 import ZerothReview from '../Pages/Mentor/ZerothReview';
+import MentorEvaluation from '../Pages/Mentor/MentorEvaluation';
 
-// Reviewer Admin Pages
-import ReviewerAdminLogin from '../Pages/ReviewerAdmin/ReviewerAdminLogin';
-import ReviewerAdminDashboard from '../Pages/ReviewerAdmin/ReviewerAdminDashboard';
 
 const AppRoutes = () => {
   return (
@@ -81,22 +78,13 @@ const AppRoutes = () => {
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />
       <Route path="/mentor/groups" element={<MentorDashboard />} />
       <Route path="/mentor/reviews" element={<MentorDashboard />} />
+      <Route path="/mentor/evaluation" element={<MentorEvaluation />} />
       <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
       <Route path="/mentor/schedule" element={<MentorDashboard />} />
       <Route path="/mentor/settings" element={<MentorDashboard />} />
 
 
-      {/* External Routes */}
-      <Route path="/mentor-selection" element={
-        <ProtectedRoute allowedRoles={['External']}>
-          <MentorSelection />
-        </ProtectedRoute>
-      } />
-      <Route path="/external-home" element={
-        <ProtectedRoute allowedRoles={['External']}>
-          <ExternalHome />
-        </ProtectedRoute>
-      } />
+      {/* External Routes removed */}
 
       {/* Admin Routes */}
       <Route path="/admin-dashboard" element={
@@ -129,6 +117,11 @@ const AppRoutes = () => {
           <Mentor />
         </ProtectedRoute>
       } />
+      <Route path="/admin-evaluation-forms" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <EvaluationFormBuilder />
+        </ProtectedRoute>
+      } />
 
       {/* Nested Admin Tools Routes */}
       <Route path="/admintools" element={
@@ -145,13 +138,7 @@ const AppRoutes = () => {
         <Route path="classlead" element={<ClassLead />} />
       </Route>
 
-      {/* Reviewer Admin Routes */}
-      <Route path="/reviewer-admin/login" element={<ReviewerAdminLogin />} />
-      <Route path="/reviewer-admin/dashboard" element={
-        <ProtectedRoute allowedRoles={['reviewerAdmin']}>
-          <ReviewerAdminDashboard />
-        </ProtectedRoute>
-      } />
+      {/* Reviewer Admin Routes removed */}
     </Routes>
   );
 };

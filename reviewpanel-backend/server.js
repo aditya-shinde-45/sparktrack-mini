@@ -17,25 +17,21 @@ import mentorRoutes from "./src/routes/mentor/mentorRoutes.js";
 import announcementRoutes from "./src/routes/admin/announcementRoutes.js";
 import deadlineRoutes from "./src/routes/admin/deadlineRoutes.js";
 import pblRoutes from "./src/routes/admin/pblRoutes.js";
-import externalRoutes from "./src/routes/external/externalRoutes.js";
 import postRoutes from "./src/routes/admin/postRoutes.js";
-import pblEvaluationRoutes from "./src/routes/admin/pblEvaluationRoutes.js";
 
 // Routes we just created
 import adminRoutes from "./src/routes/admin/adminRoutes.js";
 import studentRoutes from "./src/routes/students/studentRoutes.js";
 import dashboardRoutes from "./src/routes/admin/dashboardRoutes.js";
 import pblReviewRoutes from "./src/routes/admin/pblReviewRoutes.js";
-import pbl3Routes from "./src/routes/mentor/pbl3Routes.js";
-import reviewerAdminRoutes from "./src/routes/reviewerAdmin/reviewerAdminRoutes.js";
+import evaluationFormRoutes from "./src/routes/admin/evaluationFormRoutes.js";
+import mentorEvaluationFormRoutes from "./src/routes/mentor/evaluationFormRoutes.js";
+import mentorGroupRoutes from "./src/routes/mentor/mentorGroupRoutes.js";
 
 // New routes from recent migration
-import externalAuthRoutes from "./src/routes/external/externalAuthRoutes.js";
-import evaluationRoutes from "./src/routes/external/evaluationRoutes.js";
 import studentAuthRoutes from "./src/routes/students/studentAuthRoutes.js";
 import problemStatementRoutes from "./src/routes/students/problemStatementRoutes.js";
 import studentProfileRoutes from "./src/routes/students/studentProfileRoutes.js";
-import externalAssignmentRoutes from "./src/routes/external/externalAssignmentRoutes.js";
 import creategroupRoutes from "./src/routes/students/creategroupRoutes.js";
 import groupDraftRoutes from "./src/routes/students/groupDraftRoutes.js";
 import internshipRoutes from "./src/routes/students/internshipRoutes.js";
@@ -92,28 +88,24 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", dashboardRoutes);  // Added admin dashboard routes
 app.use("/api/mentors", mentorRoutes);
+app.use("/api/mentors", mentorEvaluationFormRoutes);
+app.use("/api/mentors", mentorGroupRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/pbl", pblRoutes);
-app.use("/api/external", externalRoutes);
 // IMPORTANT: Register more specific routes BEFORE generic ones
 app.use("/api/students/internship", internshipRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/students", studentProfileRoutes);
 app.use("/api/students", problemStatementRoutes);
-app.use("/api/admin", externalAssignmentRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reviews", pblReviewRoutes);
-app.use("/api/evaluation", pblEvaluationRoutes); // Added PBL evaluation routes
-app.use("/api/pbl3", pbl3Routes); // Added PBL3 routes
-app.use("/api/reviewer-admin", reviewerAdminRoutes); // Added ReviewerAdmin routes
 app.use("/api/roles", rolesRoutes); // Role management routes
 app.use("/api/role-access", roleAccessRoutes); // Role-based table access for sub-admins
+app.use("/api/admin", evaluationFormRoutes); // Admin evaluation form routes
 
 // Newly migrated routes
-app.use("/api/external-auth", externalAuthRoutes);
-app.use("/api/evaluation", evaluationRoutes);
 app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes

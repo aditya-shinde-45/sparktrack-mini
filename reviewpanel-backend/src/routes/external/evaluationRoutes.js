@@ -1,3 +1,4 @@
+/* LEGACY EVALUATION ROUTES REMOVED
 import express from 'express';
 import multer from 'multer';
 import evaluationController from '../../controllers/externals/evaluationController.js';
@@ -108,3 +109,6 @@ router.post('/upload-screenshot',
 );
 
 export default router;
+*/
+
+export default {};

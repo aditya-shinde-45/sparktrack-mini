@@ -14,8 +14,6 @@ const Header = ({ name, id }) => {
   const menuRef = useRef(null);
 
   const role = localStorage.getItem("role");
-  const externalId = localStorage.getItem("external_id");
-  const isMITADT = role?.toLowerCase() === "external" && externalId?.toUpperCase() === "MITADT";
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -27,13 +25,6 @@ const Header = ({ name, id }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const handleUpdate = () => {
-    // Remove groups from localStorage but keep other data
-    localStorage.removeItem("groups");
-    setShowMenu(false);
-    navigate("/mentor-selection");
-  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -175,20 +166,6 @@ const Header = ({ name, id }) => {
         {/* Dropdown Menu */}
         {showMenu && (
           <div className="absolute right-0 top-full mt-2 w-48 bg-white text-gray-800 rounded-xl shadow-xl ring-1 ring-black/5 animate-fadeIn">
-            {/* ✅ Show Update option only for MITADT externals */}
-            {isMITADT && (
-              <>
-                <button
-                  onClick={handleUpdate}
-                  className="block w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition flex items-center gap-2"
-                >
-                  <span className="material-icons text-base">edit</span>
-                  Update
-                </button>
-                <div className="border-t border-gray-200"></div>
-              </>
-            )}
-
             {/* ✅ Show Change Password option for admin role */}
             {role === "admin" && (
               <>

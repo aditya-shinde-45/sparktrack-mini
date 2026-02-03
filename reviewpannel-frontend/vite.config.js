@@ -6,9 +6,6 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     react(),
-  ],
-
-  // 🔑 REQUIRED when serving from /<project-id>/
-  base: '/frontend/',
+  ]
 
 })

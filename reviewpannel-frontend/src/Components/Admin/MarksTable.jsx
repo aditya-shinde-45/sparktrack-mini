@@ -1,9 +1,10 @@
 import React from "react";
 import { Eye } from "lucide-react";
 
-const MarksTable = ({ students, loading, error, reviewType = "review1" }) => {
+const MarksTable = ({ students, loading, error, reviewType = "review1", formFields = [], totalMarks = 0 }) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
+  const isForm = reviewType === "form";
 
   const handleViewDocument = (fileUrl) => {
     if (fileUrl && fileUrl !== 'pending_upload') {
@@ -39,7 +40,27 @@ const MarksTable = ({ students, loading, error, reviewType = "review1" }) => {
                 Organization
               </th>
             )}
-            {isZeroReview ? (
+            {isForm ? (
+              <>
+                {formFields.map((field) => (
+                  <th
+                    key={field.key}
+                    className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500"
+                  >
+                    {field.label}
+                  </th>
+                ))}
+                <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+                  Total
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+                  External
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">
+                  Feedback
+                </th>
+              </>
+            ) : isZeroReview ? (
               <>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">M1</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">M2</th>
@@ -120,7 +141,24 @@ const MarksTable = ({ students, loading, error, reviewType = "review1" }) => {
                     {student.organization_name || "-"}
                   </td>
                 )}
-                {isZeroReview ? (
+                {isForm ? (
+                  <>
+                    {formFields.map((field) => (
+                      <td key={field.key} className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
+                        {student.marks?.[field.key] ?? "-"}
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
+                      {student.total ?? totalMarks ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
+                      {student.external_name || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {student.feedback || "-"}
+                    </td>
+                  </>
+                ) : isZeroReview ? (
                   <>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
                       {student.m1 ?? "-"}
