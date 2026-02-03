@@ -1,6 +1,6 @@
 import express from 'express';
 import mentorController from '../../controllers/mentor/mentorController.js';
-import pbl3Controller from '../../controllers/mentor/pbl3Controller.js';
+import mentorAuthController from '../../controllers/mentor/mentorAuthController.js';
 import zerothReviewController from '../../controllers/mentor/zerothReviewController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
@@ -11,21 +11,21 @@ const router = express.Router();
  * @desc    Check if mentor exists and has set password
  * @access  Public
  */
-router.post('/check-status', pbl3Controller.checkMentorStatus);
+router.post('/check-status', mentorAuthController.checkMentorStatus);
 
 /**
  * @route   POST /api/mentors/set-password
  * @desc    Set password for first-time mentor login
  * @access  Public
  */
-router.post('/set-password', pbl3Controller.setMentorPassword);
+router.post('/set-password', mentorAuthController.setMentorPassword);
 
 /**
  * @route   POST /api/mentors/login
  * @desc    Mentor login with phone number and password
  * @access  Public
  */
-router.post('/login', pbl3Controller.mentorLogin);
+router.post('/login', mentorAuthController.mentorLogin);
 
 /**
  * @route   GET /api/mentors/groups
@@ -35,7 +35,7 @@ router.post('/login', pbl3Controller.mentorLogin);
 router.get(
   '/groups',
   authMiddleware.verifyToken,
-  pbl3Controller.getMentorGroups
+  mentorAuthController.getMentorGroups
 );
 
 // Zeroth Review Routes

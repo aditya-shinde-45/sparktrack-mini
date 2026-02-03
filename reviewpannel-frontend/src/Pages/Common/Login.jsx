@@ -12,9 +12,6 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const [isExternalEnabled, setIsExternalEnabled] = useState(false);
-  const [savedExternals, setSavedExternals] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Mentor password setup states
   const [showMentorPasswordModal, setShowMentorPasswordModal] = useState(false);
@@ -23,41 +20,7 @@ const Login = () => {
   const [mentorContactNumber, setMentorContactNumber] = useState("");
   const [mentorName, setMentorName] = useState("");
 
-  // Load saved external credentials on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("saved_external_logins");
-    if (saved) {
-      try {
-        const parsedSaved = JSON.parse(saved);
-        setSavedExternals(parsedSaved || []);
-      } catch (e) {
-        console.error("Error parsing saved logins:", e);
-      }
-    }
-  }, []);
-
-  // Check if external login should be enabled based on deadline controls
-  useEffect(() => {
-    const checkDeadlineControls = async () => {
-      try {
-        const response = await apiRequest("/api/deadlines", "GET");
-        
-        if (response && response.data) {
-          const pblReview1 = response.data.find(d => d.key === 'pbl_review_1');
-          const pblReview2 = response.data.find(d => d.key === 'pbl_review_2');
-          
-          const isEnabled = (pblReview1 && pblReview1.enabled) || (pblReview2 && pblReview2.enabled);
-          setIsExternalEnabled(isEnabled);
-        } else {
-          setIsExternalEnabled(false);
-        }
-      } catch (error) {
-        setIsExternalEnabled(false);
-      }
-    };
-
-    checkDeadlineControls();
-  }, []);
+  // External login removed
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -145,9 +108,6 @@ const Login = () => {
         console.log("Attempting regular admin login for username:", username);
         endpoint = "/api/auth/login";
         payload = { username, password, role: apiRole };
-      } else if (role === "External") {
-        endpoint = "/api/external-auth/login";
-        payload = { external_id: username, password };
       } else if (role === "Mentor") {
         // For mentor login, send credentials directly
         // Backend will handle first-time login with default password 'ideabliss2305'
@@ -236,46 +196,6 @@ const Login = () => {
         // Redirect to mentor dashboard
         window.location.href = "/mentor/dashboard";
         return;
-      }
-
-      if (role === "External") {
-        // Get external data from response
-        const externalId = data.user?.external_id || username;
-        const externalName = data.user?.name || externalId;
-        
-        // Store BOTH the name (for display) and external_id (for identification)
-        localStorage.setItem("name", externalName);
-        localStorage.setItem("external_id", externalId);
-        
-        // Save this external login for future hints (max 5 entries)
-        const newEntry = { 
-          email: username, 
-          name: externalName, 
-          lastLogin: new Date().toISOString() 
-        };
-        const existingSaved = JSON.parse(localStorage.getItem("saved_external_logins") || "[]");
-        const filtered = existingSaved.filter(e => e.email !== username);
-        const updated = [newEntry, ...filtered].slice(0, 5);
-        localStorage.setItem("saved_external_logins", JSON.stringify(updated));
-        
-        // Check if this is MITADT external login using external_id
-        const isMITADT = externalId.toUpperCase() === "MITADT";
-        
-        if (isMITADT) {
-          // For MITADT, redirect to mentor selection page
-          window.location.href = "/mentor-selection";
-          return; // Important: exit early to prevent further execution
-        }
-        
-        // For other externals, proceed with normal group assignment
-        const groupData = await apiRequest(
-          "/api/external-auth/groups",
-          "GET",
-          null,
-          data.token
-        );
-        localStorage.setItem("groups", JSON.stringify(groupData.groups || []));
-        navigate("/external-home");
       }
 
       if (role === "Admin") {
@@ -411,17 +331,13 @@ const Login = () => {
                            text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
                            focus:border-white/60 transition-all duration-300 shadow-lg"
                   placeholder={
-                    role === "External" 
-                      ? "Email (e.g., john@example.com)" 
-                      : role === "Mentor"
+                    role === "Mentor"
                       ? "Phone Number (10 digits)"
                       : "Username"
                   }
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  onFocus={() => role === "External" && savedExternals.length > 0 && setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   required
                 />
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
@@ -431,34 +347,6 @@ const Login = () => {
                 </div>
                 
                 {/* Suggestions Dropdown */}
-                {role === "External" && showSuggestions && savedExternals.length > 0 && (
-                  <div className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-2xl border-2 border-purple-200 overflow-hidden">
-                    <div className="px-4 py-2 bg-purple-50 border-b border-purple-200">
-                      <p className="text-xs font-semibold text-purple-700">💡 Recently used accounts</p>
-                    </div>
-                    {savedExternals.map((saved, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setUsername(saved.email);
-                          setShowSuggestions(false);
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-0"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">{saved.name}</p>
-                            <p className="text-xs text-gray-500">{saved.email}</p>
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {new Date(saved.lastLogin).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Password Input */}
@@ -499,9 +387,6 @@ const Login = () => {
                 >
                   <option value="" className="bg-[#5D3FD3] text-white">Select Role</option>
                   <option value="Admin" className="bg-[#5D3FD3] text-white">Admin</option>
-                  {isExternalEnabled && (
-                    <option value="External" className="bg-[#5D3FD3] text-white">External</option>
-                  )}
                   <option value="Mentor" className="bg-[#5D3FD3] text-white">Mentor</option>
                 </select>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -549,19 +434,6 @@ const Login = () => {
                 )}
               </button>
 
-              {/* Reviewer Admin Link */}
-              <div className="mt-6 text-center">
-                <button
-                  type="button"
-                  onClick={() => navigate('/reviewer-admin/login')}
-                  className="text-white/90 hover:text-white text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2 mx-auto"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Reviewer Admin Login
-                </button>
-              </div>
             </form>
           </div>
         </div>

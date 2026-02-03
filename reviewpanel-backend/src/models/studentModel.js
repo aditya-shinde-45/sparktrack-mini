@@ -213,12 +213,17 @@ class StudentModel {
   async getStudentsByGroup(groupId) {
     const { data, error } = await supabase
       .from(this.pblTable)
-      .select('enrollement_no, name_of_student, class, email_id, contact')
+      .select('enrollment_no, student_name, class, email_id, contact')
       .eq('group_id', groupId)
-      .order('enrollement_no', { ascending: true });
+      .order('enrollment_no', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    return (data || []).map((student) => ({
+      ...student,
+      enrollement_no: student.enrollment_no,
+      name_of_student: student.student_name,
+      name_of_students: student.student_name
+    }));
   }
 
   /**

@@ -195,14 +195,14 @@ const MentorDashboard = () => {
                               className="flex items-center gap-3 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 p-3 rounded-xl transition-colors"
                             >
                               <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center text-purple-700 font-bold text-base flex-shrink-0">
-                                {student.name_of_students?.charAt(0) || 'S'}
+                                {(student.student_name || student.name_of_students || student.name)?.charAt(0) || 'S'}
                               </div>
                               <div className="flex-1 overflow-hidden">
                                 <p className="font-semibold truncate text-gray-800">
-                                  {student.name_of_students || student.name}
+                                  {student.student_name || student.name_of_students || student.name}
                                 </p>
                                 <p className="text-xs text-gray-500 font-medium">
-                                  {student.enrollment_no}
+                                  {student.enrollment_no || student.enrollement_no || "-"}
                                 </p>
                               </div>
                             </div>
