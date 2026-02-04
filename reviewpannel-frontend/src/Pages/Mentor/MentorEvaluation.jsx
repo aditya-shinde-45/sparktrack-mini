@@ -17,6 +17,7 @@ const MentorEvaluation = () => {
   const [externalName, setExternalName] = useState(() => localStorage.getItem("mentor_external_name") || "");
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [groupBooleans, setGroupBooleans] = useState({});
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,6 +30,12 @@ const MentorEvaluation = () => {
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
+  }, [fields]);
+
+  const orderedFields = useMemo(() => {
+    const numericFields = fields.filter((field) => field.type !== "boolean");
+    const booleanFields = fields.filter((field) => field.type === "boolean");
+    return { numericFields, booleanFields };
   }, [fields]);
 
   const loadForms = async () => {
@@ -58,6 +65,7 @@ const MentorEvaluation = () => {
     setStudents([]);
     setProblemStatement(null);
     setStatusMessage("");
+    setGroupBooleans({});
 
     if (!formId) {
       setFormName("");
@@ -72,7 +80,11 @@ const MentorEvaluation = () => {
       setFormName(form?.name || "");
       setTotalMarks(form?.total_marks || 0);
       const incomingFields = Array.isArray(form?.fields) ? form.fields : [];
-      const sortedFields = [...incomingFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const normalizedFields = incomingFields.map((field) => ({
+        ...field,
+        type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
+      }));
+      const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
     }
   };
@@ -100,7 +112,7 @@ const MentorEvaluation = () => {
 
     const freshStudents = (response.data?.students || []).map((student) => {
       const marks = fields.reduce((acc, field) => {
-        acc[field.key] = "";
+        acc[field.key] = field.type === "boolean" ? false : "";
         return acc;
       }, {});
 
@@ -114,6 +126,11 @@ const MentorEvaluation = () => {
     });
 
     setStudents(freshStudents);
+    const initialGroupBooleans = orderedFields.booleanFields.reduce((acc, field) => {
+      acc[field.key] = false;
+      return acc;
+    }, {});
+    setGroupBooleans(initialGroupBooleans);
     setProblemStatement(response.data?.problem_statement || null);
 
     const submissionResponse = await apiRequest(
@@ -134,7 +151,10 @@ const MentorEvaluation = () => {
         if (!existing) return student;
 
         const marks = { ...student.marks, ...(existing.marks || {}) };
-        const total = existing.total ?? fields.reduce((sum, field) => sum + (Number(marks[field.key]) || 0), 0);
+        const total = existing.total ?? fields.reduce((sum, field) => {
+          if (field.type === "boolean") return sum;
+          return sum + (Number(marks[field.key]) || 0);
+        }, 0);
 
         return {
           ...student,
@@ -145,6 +165,12 @@ const MentorEvaluation = () => {
       });
 
       setStudents(mapped);
+      const fromSubmission = orderedFields.booleanFields.reduce((acc, field) => {
+        const firstRow = evaluationRows[0];
+        acc[field.key] = Boolean(firstRow?.marks?.[field.key]);
+        return acc;
+      }, {});
+      setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
       setIsReadOnly(true);
@@ -163,8 +189,21 @@ const MentorEvaluation = () => {
     student.marks[fieldKey] = numericValue;
     student.total = student.absent
       ? "AB"
-      : fields.reduce((sum, field) => sum + (Number(student.marks[field.key]) || 0), 0);
+      : fields.reduce((sum, field) => {
+          if (field.type === "boolean") return sum;
+          return sum + (Number(student.marks[field.key]) || 0);
+        }, 0);
 
+    setStudents(updated);
+  };
+
+  const toggleBoolean = (fieldKey, isChecked) => {
+    if (isReadOnly) return;
+    setGroupBooleans((prev) => ({ ...prev, [fieldKey]: isChecked }));
+    const updated = [...students];
+    updated.forEach((student) => {
+      student.marks[fieldKey] = isChecked;
+    });
     setStudents(updated);
   };
 
@@ -180,7 +219,10 @@ const MentorEvaluation = () => {
       });
       student.total = "AB";
     } else {
-      student.total = fields.reduce((sum, field) => sum + (Number(student.marks[field.key]) || 0), 0);
+      student.total = fields.reduce((sum, field) => {
+        if (field.type === "boolean") return sum;
+        return sum + (Number(student.marks[field.key]) || 0);
+      }, 0);
     }
 
     setStudents(updated);
@@ -297,9 +339,12 @@ const MentorEvaluation = () => {
               {fields.length === 0 && (
                 <li className="text-gray-500">Select a form to view criteria.</li>
               )}
-              {fields.map((field) => (
+              {[...orderedFields.numericFields, ...orderedFields.booleanFields].map((field) => (
                 <li key={field.key}>
-                  {field.label} <b>({field.max_marks} Marks)</b>
+                  {field.label}{" "}
+                  <b>
+                    ({field.type === "boolean" ? "Yes/No" : `${field.max_marks} Marks`})
+                  </b>
                 </li>
               ))}
             </ul>
@@ -310,60 +355,114 @@ const MentorEvaluation = () => {
           )}
 
           {students.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
-              <table className="w-full border-collapse text-sm text-center min-w-[700px]">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border border-gray-300 px-3 py-4">Enrollment No.</th>
-                    <th className="border border-gray-300 px-3 py-4">Name of Students</th>
-                    {fields.map((field) => (
-                      <th key={field.key} className="border border-gray-300 px-2 py-4">
-                        {field.label}
-                      </th>
-                    ))}
-                    <th className="border border-gray-300 px-3 py-4">Total Marks ({totalMarks || computedTotal})</th>
-                    <th className="border border-gray-300 px-3 py-4">Absent</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map((student, index) => (
-                    <tr
-                      key={student.enrollment_no}
-                      className={`hover:bg-gray-50 ${student.absent ? "text-gray-500 bg-gray-100" : ""}`}
-                    >
-                      <td className={`border border-gray-300 px-3 py-4 ${student.absent ? "line-through" : ""}`}>
-                        {student.enrollment_no}
-                      </td>
-                      <td className={`border border-gray-300 px-3 py-4 ${student.absent ? "line-through" : ""}`}>
-                        {student.student_name}
-                      </td>
-                      {fields.map((field) => (
-                        <td key={field.key} className="border border-gray-300 px-3 py-4">
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800">Marks Table</h3>
+                    <p className="text-xs text-gray-500">Enter numeric scores for each rubric.</p>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+                    {orderedFields.numericFields.length} fields
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm text-center min-w-[900px]">
+                  <thead className="bg-gradient-to-r from-gray-50 to-purple-50">
+                    <tr>
+                      <th className="border border-gray-200 px-4 py-3 text-left">Enrollment No.</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left">Name of Students</th>
+                      {orderedFields.numericFields.map((field) => (
+                        <th key={field.key} className="border border-gray-200 px-3 py-3">
+                          <div className="text-xs uppercase tracking-wide text-gray-500">{field.label}</div>
+                          <div className="text-[11px] text-gray-400">Max {field.max_marks}</div>
+                        </th>
+                      ))}
+                      <th className="border border-gray-200 px-3 py-3">Total ({totalMarks || computedTotal})</th>
+                      <th className="border border-gray-200 px-3 py-3">Absent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((student, index) => (
+                      <tr
+                        key={student.enrollment_no}
+                        className={`hover:bg-gray-50 ${student.absent ? "text-gray-500 bg-gray-100" : ""}`}
+                      >
+                        <td className={`border border-gray-200 px-4 py-3 text-left ${student.absent ? "line-through" : ""}`}>
+                          {student.enrollment_no}
+                        </td>
+                        <td className={`border border-gray-200 px-4 py-3 text-left ${student.absent ? "line-through" : ""}`}>
+                          {student.student_name}
+                        </td>
+                        {orderedFields.numericFields.map((field) => (
+                          <td key={field.key} className="border border-gray-200 px-3 py-3">
+                            <div className="flex flex-col items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max={field.max_marks}
+                                value={student.marks[field.key]}
+                                onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
+                                disabled={student.absent || isReadOnly}
+                                className="w-16 border border-gray-300 rounded-lg p-1.5 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                              />
+                              <input
+                                type="range"
+                                min="0"
+                                max={field.max_marks}
+                                value={student.marks[field.key] === "" ? 0 : Number(student.marks[field.key])}
+                                onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
+                                disabled={student.absent || isReadOnly}
+                                className="w-24 accent-purple-600 disabled:cursor-not-allowed"
+                              />
+                              <span className="text-[10px] text-gray-400">0 - {field.max_marks}</span>
+                            </div>
+                          </td>
+                        ))}
+                        <td className="border border-gray-200 px-3 py-3 font-semibold">{student.total}</td>
+                        <td className="border border-gray-200 px-3 py-3 text-center">
                           <input
-                            type="number"
-                            min="0"
-                            max={field.max_marks}
-                            value={student.marks[field.key]}
-                            onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
-                            disabled={student.absent || isReadOnly}
-                            className="w-14 border border-gray-300 rounded p-1 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                            type="checkbox"
+                            checked={student.absent}
+                            onChange={(e) => toggleAbsent(index, e.target.checked)}
+                            disabled={isReadOnly}
+                            className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
                           />
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+
+              {orderedFields.booleanFields.length > 0 && (
+                <div className="bg-white rounded-2xl border border-purple-200 shadow-sm">
+                  <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 text-sm font-semibold text-purple-700">
+                    Group Checklist (Yes/No)
+                  </div>
+                  <div className="p-4">
+                    <div className="flex flex-wrap gap-4">
+                      {orderedFields.booleanFields.map((field) => (
+                        <label
+                          key={field.key}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border border-purple-200 bg-purple-50/40 text-sm text-purple-900 shadow-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(groupBooleans[field.key])}
+                            onChange={(e) => toggleBoolean(field.key, e.target.checked)}
+                            disabled={isReadOnly}
+                            className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
+                          />
+                          <span className="font-medium">{field.label}</span>
+                        </label>
                       ))}
-                      <td className="border border-gray-300 px-3 py-4 font-semibold">{student.total}</td>
-                      <td className="border border-gray-300 px-3 py-4 text-center">
-                        <input
-                          type="checkbox"
-                          checked={student.absent}
-                          onChange={(e) => toggleAbsent(index, e.target.checked)}
-                          disabled={isReadOnly}
-                          className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                    <p className="text-xs text-purple-500 mt-3">Checklist applies to the entire group.</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
