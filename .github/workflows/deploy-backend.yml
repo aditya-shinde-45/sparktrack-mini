@@ -41,3 +41,9 @@ jobs:
         aws lambda update-function-code \
           --function-name sparktrack \
           --zip-file fileb://deployment.zip
+          
+    - name: Update Lambda Environment Variables
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sparktrack \
+          --environment Variables='{"SUPABASE_URL":"https://gmtajoqjbetveyluklpa.supabase.co","SUPABASE_ANON_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtdGFqb3FqYmV0dmV5bHVrbHBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3Mzg5MTEsImV4cCI6MjA3MDMxNDkxMX0.DFqIihnH9kTS1LBHJ3gSRjYueHn8uSx1hdpOfKlx0uM","SUPABASE_SERVICE_ROLE_KEY":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdtdGFqb3FqYmV0dmV5bHVrbHBhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDczODkxMSwiZXhwIjoyMDcwMzE0OTExfQ.GOkDckkgt7b9DLxfA6L2bAxwM7IpXbEvoDDmQJa67yw","JWT_SECRET":"supersecretkey123","NODE_ENV":"lambda"}'
