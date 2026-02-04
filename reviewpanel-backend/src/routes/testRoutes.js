@@ -5,7 +5,7 @@ const router = express.Router();
 router.get('/test', (req, res) => {
   res.json({
     success: true,
-    message: '🚀 CI/CD Pipeline Working Successfully!',
+    message: '🚀 CI/CD Pipeline not Working Successfully!',
     deployment: {
       timestamp: new Date().toISOString(),
       version: '2.0.0',
