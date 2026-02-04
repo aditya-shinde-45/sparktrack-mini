@@ -41,9 +41,3 @@ jobs:
         aws lambda update-function-code \
           --function-name sparktrack \
           --zip-file fileb://deployment.zip
-          
-    - name: Update Lambda Environment Variables
-      run: |
-        aws lambda update-function-configuration \
-          --function-name sparktrack \
-          --environment 'Variables={"SUPABASE_URL":"${{ secrets.SUPABASE_URL }}","SUPABASE_ANON_KEY":"${{ secrets.SUPABASE_ANON_KEY }}","SUPABASE_SERVICE_ROLE_KEY":"${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}","JWT_SECRET":"${{ secrets.JWT_SECRET }}","NODE_ENV":"lambda","EMAIL_USER":"${{ secrets.EMAIL_USER }}","EMAIL_PASSWORD":"${{ secrets.EMAIL_PASSWORD }}"}'
