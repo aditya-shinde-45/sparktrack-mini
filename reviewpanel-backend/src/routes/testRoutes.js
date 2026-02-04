@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // Test API for CI/CD verification
@@ -11,4 +11,4 @@ router.get('/test', (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;
