@@ -5,6 +5,10 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
   const isForm = reviewType === "form";
+  const normalizedFormFields = formFields.map((field) => ({
+    ...field,
+    type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
+  }));
 
   const handleViewDocument = (fileUrl) => {
     if (fileUrl && fileUrl !== 'pending_upload') {
@@ -42,12 +46,17 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
             )}
             {isForm ? (
               <>
-                {formFields.map((field) => (
+                {normalizedFormFields.map((field) => (
                   <th
                     key={field.key}
                     className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500"
                   >
-                    {field.label}
+                    <div className="flex flex-col items-center gap-1">
+                      <span>{field.label}</span>
+                      {field.type === "boolean" && (
+                        <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">Yes/No</span>
+                      )}
+                    </div>
                   </th>
                 ))}
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
@@ -143,9 +152,18 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 )}
                 {isForm ? (
                   <>
-                    {formFields.map((field) => (
+                    {normalizedFormFields.map((field) => (
                       <td key={field.key} className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                        {student.marks?.[field.key] ?? "-"}
+                        {field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(student.marks?.[field.key])}
+                            readOnly
+                            className="w-4 h-4 accent-purple-600"
+                          />
+                        ) : (
+                          student.marks?.[field.key] ?? "-"
+                        )}
                       </td>
                     ))}
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
