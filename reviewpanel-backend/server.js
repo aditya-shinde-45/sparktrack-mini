@@ -149,7 +149,12 @@ const testConnection = async () => {
 };
 
 // Start server
-app.listen(PORT, () => {
-  logger.serverStarted(PORT, config.server.env);
-  testConnection();
-});
+if (process.env.NODE_ENV !== 'lambda') {
+  app.listen(PORT, () => {
+    logger.serverStarted(PORT, config.server.env);
+    testConnection();
+  });
+}
+
+// Export app for serverless
+export default app;
