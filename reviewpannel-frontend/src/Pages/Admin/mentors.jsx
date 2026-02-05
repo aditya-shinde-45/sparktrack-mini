@@ -72,7 +72,7 @@ const MentorsPage = () => {
         <Sidebar />
         <div className="flex-1 flex flex-col">
           <Header />
-          <main className="flex-1 flex items-center justify-center lg:ml-72 mt-20">
+          <main className="flex-1 flex items-center justify-center lg:ml-72 mb-16 lg:mb-0 mt-20">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading mentors...</p>
@@ -94,7 +94,7 @@ const MentorsPage = () => {
         <Header />
 
         {/* Page Content */}
-        <main className="flex-1 p-3 md:p-6 lg:ml-72 space-y-6 mt-20">
+        <main className="flex-1 p-3 md:p-6 lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-20">
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">

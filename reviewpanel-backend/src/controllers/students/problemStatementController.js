@@ -16,14 +16,35 @@ class ProblemStatementController {
       throw ApiError.badRequest('Group ID and title are required.');
     }
 
-    const problemStatement = await problemStatementModel.create({
+    const existing = await problemStatementModel.findByGroup(group_id);
+
+    const payload = {
       group_id,
       title,
       type: type || null,
       technologybucket: technologyBucket || null,
       domain: domain || null,
       description: description || null,
-    });
+    };
+
+    let problemStatement;
+    let statusCode = 201;
+    let message = 'Problem statement submitted successfully.';
+
+    if (existing) {
+      const updates = {
+        title: payload.title,
+        type: payload.type,
+        technologybucket: payload.technologybucket,
+        domain: payload.domain,
+        description: payload.description,
+      };
+      problemStatement = await problemStatementModel.update(group_id, updates);
+      statusCode = 200;
+      message = 'Problem statement updated successfully.';
+    } else {
+      problemStatement = await problemStatementModel.create(payload);
+    }
 
     // Update ps_id in pbl table for all group members
     if (problemStatement && problemStatement.ps_id) {
@@ -32,9 +53,9 @@ class ProblemStatementController {
 
     return ApiResponse.success(
       res,
-      'Problem statement submitted successfully.',
+      message,
       { problemStatement },
-      201,
+      statusCode,
     );
   });
 

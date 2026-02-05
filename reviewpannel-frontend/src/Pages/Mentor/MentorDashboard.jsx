@@ -189,7 +189,7 @@ const MentorDashboard = () => {
                       
                       {group.students.length > 0 ? (
                         <div className="space-y-3">
-                          {group.students.slice(0, 3).map((student, idx) => (
+                          {group.students.slice(0, 4).map((student, idx) => (
                             <div 
                               key={idx}
                               className="flex items-center gap-3 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 p-3 rounded-xl transition-colors"
@@ -207,9 +207,9 @@ const MentorDashboard = () => {
                               </div>
                             </div>
                           ))}
-                          {group.studentCount > 3 && (
+                          {group.studentCount > 4 && (
                             <p className="text-sm text-purple-600 font-semibold text-center pt-3 border-t border-gray-100">
-                              +{group.studentCount - 3} more {group.studentCount - 3 === 1 ? 'student' : 'students'}
+                              +{group.studentCount - 4} more {group.studentCount - 4 === 1 ? 'student' : 'students'}
                             </p>
                           )}
                         </div>

@@ -115,7 +115,7 @@ const AdminDashboard = () => {
         <Header name={name} id={id} />
         <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
           <Sidebar />
-          <main className="flex-1 lg:ml-72 px-4 sm:px-8 py-6">
+          <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6">
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl mx-auto border border-red-200">
                 <div className="flex justify-center mb-6">
@@ -164,7 +164,7 @@ const AdminDashboard = () => {
       <Header name={name} id={id} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
         <Sidebar />
-        <main className="flex-1 lg:ml-72 px-4 sm:px-8 py-6">
+        <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6">
           {/* Dashboard Header */}
           <div className="mb-12">
             <div className="flex items-center justify-between">

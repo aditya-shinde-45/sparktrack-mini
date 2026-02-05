@@ -113,7 +113,7 @@ const AddGroup = () => {
         <Header />
         <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
           <Sidebar />
-          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6 mt-16">
+          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-16">
             <h1 className="text-2xl font-bold text-purple-700">
               Add New Group
             </h1>

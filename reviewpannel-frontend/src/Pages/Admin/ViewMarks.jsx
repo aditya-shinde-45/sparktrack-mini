@@ -144,7 +144,7 @@ const ViewMarks = () => {
         <Header />
         <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
           <Sidebar />
-          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6 mt-16">
+          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-16">
             {/* Header with Form Selection */}
             <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-lg p-6 mb-6">
               <h1 className="text-3xl font-bold text-white mb-4">View Marks</h1>
