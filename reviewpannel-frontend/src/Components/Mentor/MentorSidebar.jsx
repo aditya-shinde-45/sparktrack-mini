@@ -16,7 +16,7 @@ const mentorRoutes = [
   { name: "Dashboard", path: "/mentor/dashboard", icon: LayoutDashboard, disabled: false },
   { name: "My Groups", path: "/mentor/groups", icon: Users, disabled: true },
   { name: "Reviews", path: "/mentor/evaluation", icon: FileCheck, disabled: false },
-  { name: "Zeroth Review", path: "/mentor/zeroth-review", icon: ClipboardCheck, disabled: false },
+  { name: "Zeroth Review", path: "/mentor/zeroth-review", icon: ClipboardCheck, disabled: true },
   { name: "Schedule", path: "/mentor/schedule", icon: Calendar, disabled: true },
   { name: "Settings", path: "/mentor/settings", icon: Settings, disabled: true },
 ];

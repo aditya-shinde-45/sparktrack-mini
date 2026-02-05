@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
+import mitLogo from "../../assets/mitlogo2.png";
 
 const MentorEvaluation = () => {
   const [forms, setForms] = useState([]);
@@ -14,6 +15,7 @@ const MentorEvaluation = () => {
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [students, setStudents] = useState([]);
   const [problemStatement, setProblemStatement] = useState(null);
+  const [projectTitle, setProjectTitle] = useState("");
   const [externalName, setExternalName] = useState(() => localStorage.getItem("mentor_external_name") || "");
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -132,6 +134,7 @@ const MentorEvaluation = () => {
     }, {});
     setGroupBooleans(initialGroupBooleans);
     setProblemStatement(response.data?.problem_statement || null);
+    setProjectTitle(response.data?.problem_statement?.title || "");
 
     const submissionResponse = await apiRequest(
       `/api/mentors/evaluation-forms/${selectedFormId}/group/${groupId}/submission`,
@@ -267,11 +270,11 @@ const MentorEvaluation = () => {
       <MentorHeader name={mentorName} id={mentorId} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
         <MentorSidebar />
-        <main className="flex-1 p-4 sm:p-6 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-6 mt-1 sm:mt-16 lg:mt-24 text-gray-900">
-          <div className="flex flex-col gap-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-5">
+        <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mt-0 sm:mt-1 lg:mt-2 text-gray-900">
+          <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block font-semibold text-sm mb-1">Select Evaluation Form</label>
+                  <label className="block font-semibold text-sm mb-1">Select Evaluation Form <span className="text-red-600">*</span></label>
                 <select
                   value={selectedFormId}
                   onChange={(e) => handleSelectForm(e.target.value)}
@@ -286,7 +289,7 @@ const MentorEvaluation = () => {
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-sm mb-1">Select Group</label>
+                  <label className="block font-semibold text-sm mb-1">Select Group <span className="text-red-600">*</span></label>
                 <select
                   value={selectedGroupId}
                   onChange={(e) => {
@@ -316,178 +319,202 @@ const MentorEvaluation = () => {
             )}
           </div>
 
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] bg-clip-text text-transparent mb-2">
-              {formName || "Evaluation Form"}
-            </h1>
-            <div className="w-24 h-1 bg-gradient-to-r from-[#5D3FD3] to-[#7B74EF] rounded-full mx-auto"></div>
-          </div>
-
-          {problemStatement && (
-            <div className="border border-purple-100 rounded-lg p-4 bg-purple-50">
-              <h2 className="font-bold text-lg mb-1 text-purple-700">Problem Statement</h2>
-              <p className="text-sm text-gray-700">{problemStatement.title || "Untitled"}</p>
-              {problemStatement.description && (
-                <p className="text-sm text-gray-600 mt-2">{problemStatement.description}</p>
-              )}
-            </div>
-          )}
-
-          <section className="bg-white rounded-xl border border-gray-100 p-4">
-            <h2 className="font-bold text-lg mb-2">Rubrics for Evaluation</h2>
-            <ul className="list-disc pl-5 text-sm leading-6">
-              {fields.length === 0 && (
-                <li className="text-gray-500">Select a form to view criteria.</li>
-              )}
-              {[...orderedFields.numericFields, ...orderedFields.booleanFields].map((field) => (
-                <li key={field.key}>
-                  {field.label}{" "}
-                  <b>
-                    ({field.type === "boolean" ? "Yes/No" : `${field.max_marks} Marks`})
-                  </b>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {isLoading && (
-            <div className="text-center text-gray-500">Loading group details...</div>
-          )}
-
-          {students.length > 0 && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800">Marks Table</h3>
-                    <p className="text-xs text-gray-500">Enter numeric scores for each rubric.</p>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
-                    {orderedFields.numericFields.length} fields
-                  </span>
+          <section className="bg-white rounded-2xl border border-gray-300 shadow-sm">
+            <div className="border-b border-gray-300">
+              <div className="grid grid-cols-1 md:grid-cols-[140px_1fr_160px] gap-4 items-center p-4">
+                <div className="flex items-center justify-center">
+                  <img src={mitLogo} alt="MIT-ADT" className="w-20 h-20 object-contain" />
                 </div>
-                <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm text-center min-w-[900px]">
-                  <thead className="bg-gradient-to-r from-gray-50 to-purple-50">
-                    <tr>
-                      <th className="border border-gray-200 px-4 py-3 text-left">Enrollment No.</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left">Name of Students</th>
-                      {orderedFields.numericFields.map((field) => (
-                        <th key={field.key} className="border border-gray-200 px-3 py-3">
-                          <div className="text-xs uppercase tracking-wide text-gray-500">{field.label}</div>
-                          <div className="text-[11px] text-gray-400">Max {field.max_marks}</div>
-                        </th>
-                      ))}
-                      <th className="border border-gray-200 px-3 py-3">Total ({totalMarks || computedTotal})</th>
-                      <th className="border border-gray-200 px-3 py-3">Absent</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((student, index) => (
-                      <tr
-                        key={student.enrollment_no}
-                        className={`hover:bg-gray-50 ${student.absent ? "text-gray-500 bg-gray-100" : ""}`}
-                      >
-                        <td className={`border border-gray-200 px-4 py-3 text-left ${student.absent ? "line-through" : ""}`}>
-                          {student.enrollment_no}
-                        </td>
-                        <td className={`border border-gray-200 px-4 py-3 text-left ${student.absent ? "line-through" : ""}`}>
-                          {student.student_name}
-                        </td>
-                        {orderedFields.numericFields.map((field) => (
-                          <td key={field.key} className="border border-gray-200 px-3 py-3">
-                            <div className="flex flex-col items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max={field.max_marks}
-                                value={student.marks[field.key]}
-                                onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
-                                disabled={student.absent || isReadOnly}
-                                className="w-16 border border-gray-300 rounded-lg p-1.5 text-center focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
-                              />
-                              <input
-                                type="range"
-                                min="0"
-                                max={field.max_marks}
-                                value={student.marks[field.key] === "" ? 0 : Number(student.marks[field.key])}
-                                onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
-                                disabled={student.absent || isReadOnly}
-                                className="w-24 accent-purple-600 disabled:cursor-not-allowed"
-                              />
-                              <span className="text-[10px] text-gray-400">0 - {field.max_marks}</span>
-                            </div>
-                          </td>
-                        ))}
-                        <td className="border border-gray-200 px-3 py-3 font-semibold">{student.total}</td>
-                        <td className="border border-gray-200 px-3 py-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={student.absent}
-                            onChange={(e) => toggleAbsent(index, e.target.checked)}
-                            disabled={isReadOnly}
-                            className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="text-center">
+                  <p className="text-xs font-semibold text-gray-500">MIT School of Computing</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-purple-700">IdeaSpark Evaluation Sheet</h1>
+                </div>
+                <div className="text-sm text-gray-700">
+                  <label className="block font-semibold">Date:</label>
+                  <input
+                    type="date"
+                    disabled={isReadOnly || !isFormSelected}
+                    className="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
+                  />
                 </div>
               </div>
-
-              {orderedFields.booleanFields.length > 0 && (
-                <div className="bg-white rounded-2xl border border-purple-200 shadow-sm">
-                  <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 text-sm font-semibold text-purple-700">
-                    Group Checklist (Yes/No)
-                  </div>
-                  <div className="p-4">
-                    <div className="flex flex-wrap gap-4">
-                      {orderedFields.booleanFields.map((field) => (
-                        <label
-                          key={field.key}
-                          className="flex items-center gap-3 px-4 py-3 rounded-xl border border-purple-200 bg-purple-50/40 text-sm text-purple-900 shadow-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(groupBooleans[field.key])}
-                            onChange={(e) => toggleBoolean(field.key, e.target.checked)}
-                            disabled={isReadOnly}
-                            className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
-                          />
-                          <span className="font-medium">{field.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <p className="text-xs text-purple-500 mt-3">Checklist applies to the entire group.</p>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
 
-          <div>
-            <label className="block font-semibold text-sm">External Examiner Name:</label>
-            <input
-              type="text"
-              value={externalName}
-              onChange={(e) => setExternalName(e.target.value)}
-              disabled={isReadOnly || !isFormSelected}
-              className="w-full border border-gray-300 p-2 mt-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b border-gray-300 text-sm">
+              <div className="p-2 border-r border-gray-300">
+                <span className="font-semibold">Class:</span>
+                <span className="ml-2 text-gray-600">—</span>
+              </div>
+              <div className="p-2 border-r border-gray-300">
+                <span className="font-semibold">Project ID:</span>
+                <span className="ml-2 text-gray-600">{selectedGroupId || "—"}</span>
+              </div>
+              <div className="p-2">
+                <span className="font-semibold">Project Review:</span>
+                <span className="ml-2 text-gray-600">{formName || "—"}</span>
+              </div>
+            </div>
 
-          <div>
-            <label className="block font-semibold text-sm">
-              Feedback by Evaluator <span className="text-gray-500">(Feedback based Learning)</span>
-            </label>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              disabled={isReadOnly || !isFormSelected}
-              className="w-full border border-gray-300 p-2 mt-1 rounded-lg h-24 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
-          </div>
+            <div className="border-b border-gray-300 p-3">
+              <label className="block font-semibold text-sm mb-2">Project Title:</label>
+              <input
+                type="text"
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                disabled={isReadOnly}
+                placeholder="Enter project title"
+                className="w-full h-12 border border-gray-300 rounded-md p-3 text-base focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            <div className="border-b border-gray-300 p-3 text-sm">
+              <div className="font-semibold mb-2">Rubrics for Evaluation:</div>
+              <div className="space-y-1">
+                {fields.length === 0 && (
+                  <p className="text-gray-500">Select a form to view criteria.</p>
+                )}
+                {orderedFields.numericFields.map((field, index) => (
+                  <div key={field.key} className="flex gap-2">
+                    <span className="font-semibold">{String.fromCharCode(65 + index)}.</span>
+                    <span className="flex-1">{field.label}</span>
+                    <span className="font-semibold">({field.max_marks} Marks)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {isLoading && (
+              <div className="text-center text-gray-500 py-4">Loading group details...</div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm text-center min-w-[900px]">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="border border-gray-300 px-3 py-2 text-left">Enrolment No.</th>
+                    <th className="border border-gray-300 px-3 py-2 text-left">Name of Students</th>
+                    {orderedFields.numericFields.map((field, index) => (
+                      <th key={field.key} className="border border-gray-300 px-3 py-2">
+                        <div className="text-xs font-semibold">{String.fromCharCode(65 + index)}</div>
+                        <div className="text-[10px] text-gray-500">{field.max_marks}</div>
+                      </th>
+                    ))}
+                    <th className="border border-gray-300 px-3 py-2">Total Marks ({totalMarks || computedTotal})</th>
+                    <th className="border border-gray-300 px-3 py-2">Absent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.length === 0 && (
+                    <tr>
+                      <td colSpan={4 + orderedFields.numericFields.length} className="border border-gray-300 px-3 py-4 text-gray-500">
+                        Select a form and group to load students.
+                      </td>
+                    </tr>
+                  )}
+                  {students.map((student, index) => (
+                    <tr
+                      key={student.enrollment_no}
+                      className={`hover:bg-gray-50 ${student.absent ? "text-gray-500 bg-gray-100" : ""}`}
+                    >
+                      <td className={`border border-gray-300 px-3 py-2 text-left ${student.absent ? "line-through" : ""}`}>
+                        {student.enrollment_no}
+                      </td>
+                      <td className={`border border-gray-300 px-3 py-2 text-left ${student.absent ? "line-through" : ""}`}>
+                        {student.student_name}
+                      </td>
+                      {orderedFields.numericFields.map((field) => (
+                        <td key={field.key} className="border border-gray-300 px-2 py-2">
+                          <div className="flex flex-col items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max={field.max_marks}
+                              value={student.marks[field.key]}
+                              onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
+                              disabled={student.absent || isReadOnly}
+                              className="w-12 border border-gray-300 rounded-md p-1 text-center text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                            />
+                            <input
+                              type="range"
+                              min="0"
+                              max={field.max_marks}
+                              value={student.marks[field.key] === "" ? 0 : Number(student.marks[field.key])}
+                              onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
+                              disabled={student.absent || isReadOnly}
+                              className="w-16 h-1 accent-purple-600 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                        </td>
+                      ))}
+                      <td className="border border-gray-300 px-3 py-2 font-semibold">{student.total}</td>
+                      <td className="border border-gray-300 px-3 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={student.absent}
+                          onChange={(e) => toggleAbsent(index, e.target.checked)}
+                          disabled={isReadOnly}
+                          className="w-4 h-4 accent-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-t border-gray-300 text-sm">
+              <div>
+                <label className="block font-semibold">Name of Faculty Guide:</label>
+                <input
+                  type="text"
+                  value={mentorName}
+                  readOnly
+                  className="w-full border border-gray-300 p-2 mt-1 rounded-md bg-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold">External Examiner Name:</label>
+                <input
+                  type="text"
+                  value={externalName}
+                  onChange={(e) => setExternalName(e.target.value)}
+                  disabled={isReadOnly || !isFormSelected}
+                  className="w-full border border-gray-300 p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-gray-300 p-4 text-sm">
+              <label className="block font-semibold">
+                Feedback by Evaluator <span className="text-gray-500">(Feedback based Learning)</span>
+              </label>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                disabled={isReadOnly || !isFormSelected}
+                className="w-full border border-gray-300 p-2 mt-1 rounded-md h-24 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {orderedFields.booleanFields.length > 0 && (
+              <div className="border-t border-gray-300 p-4 text-sm">
+                <div className="flex flex-wrap gap-3">
+                  {orderedFields.booleanFields.map((field) => (
+                    <label key={field.key} className="flex items-center gap-2 border border-gray-300 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(groupBooleans[field.key])}
+                        onChange={(e) => toggleBoolean(field.key, e.target.checked)}
+                        disabled={isReadOnly}
+                        className="w-4 h-4 accent-purple-600"
+                      />
+                      <span className="text-xs font-semibold uppercase tracking-wide">{field.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
 
           <div className="pt-4 flex flex-col items-center gap-3">
             <button
