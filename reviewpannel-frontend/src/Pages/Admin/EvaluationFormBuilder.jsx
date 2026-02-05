@@ -146,7 +146,7 @@ const EvaluationFormBuilder = () => {
       <Header name={name} id={id} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
         <Sidebar />
-        <main className="flex-1 lg:ml-72 px-4 sm:px-8 py-6">
+        <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6">
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl ring-1 ring-slate-200 p-6 mb-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
               <div>

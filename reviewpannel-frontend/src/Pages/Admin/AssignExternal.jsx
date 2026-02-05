@@ -17,7 +17,7 @@ const AssignExternal = () => {
         <Header />
 
         {/* Page Content */}
-        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6 mt-20">
+        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-20">
 
           <AssignedExternalTable />
         </main>
