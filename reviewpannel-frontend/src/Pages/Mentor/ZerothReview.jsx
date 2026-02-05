@@ -156,6 +156,7 @@ const ZerothReview = () => {
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
   const [selectedStudentName, setSelectedStudentName] = useState("");
@@ -240,6 +241,7 @@ const ZerothReview = () => {
     
     try {
       setLoading(true);
+      setIsReadOnly(false);
       const token = localStorage.getItem("mentor_token");
       
       // Fetch existing internship data for this group from internship_details table
@@ -251,6 +253,12 @@ const ZerothReview = () => {
       );
       
       const existingInternships = internshipRes?.data?.internships || [];
+      
+      // Check if zeroth review is already submitted
+      if (existingInternships.length > 0 && internshipRes?.data?.submitted) {
+        setIsReadOnly(true);
+        setMessage({ type: "info", text: "This Zeroth Review has already been submitted. View-only mode." });
+      }
       
       // If we have existing data, use it to populate students
       let groupStudents = [];
@@ -711,6 +719,12 @@ const ZerothReview = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Check if form is read-only
+    if (isReadOnly) {
+      setMessage({ type: "warning", text: "This evaluation has been submitted and is locked." });
+      return;
+    }
+    
     // Validation
     if (!selectedGroup) {
       setMessage({ type: "error", text: "Please select a group" });
@@ -773,11 +787,7 @@ const ZerothReview = () => {
           type: "success", 
           text: "Zeroth Review submitted successfully!" 
         });
-        
-        // Reset form after 2 seconds
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        setIsReadOnly(true);
       } else {
         setMessage({ 
           type: "error", 
@@ -876,8 +886,9 @@ const ZerothReview = () => {
                       name="expert_name"
                       value={formData.expert_name}
                       onChange={handleInputChange}
+                      disabled={isReadOnly}
                       placeholder="Enter expert name"
-                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base"
+                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -890,8 +901,9 @@ const ZerothReview = () => {
                       name="expert_phone"
                       value={formData.expert_phone}
                       onChange={handleInputChange}
+                      disabled={isReadOnly}
                       placeholder="Enter phone number"
-                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base"
+                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -904,8 +916,9 @@ const ZerothReview = () => {
                       name="expert_email"
                       value={formData.expert_email}
                       onChange={handleInputChange}
+                      disabled={isReadOnly}
                       placeholder="Enter email address"
-                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base"
+                      className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm sm:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -921,7 +934,8 @@ const ZerothReview = () => {
                 <select
                   value={selectedGroup}
                   onChange={handleGroupChange}
-                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 text-sm sm:text-base"
+                  disabled={isReadOnly}
+                  className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 text-sm sm:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="" disabled>Select a Project Group</option>
