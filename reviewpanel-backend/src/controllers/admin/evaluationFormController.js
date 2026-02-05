@@ -73,7 +73,7 @@ class EvaluationFormController {
 
     const { data, error } = await supabase
       .from('pbl')
-      .select('group_id, enrollment_no, student_name, class, email_id, contact, mentor_code, ps_id')
+      .select('group_id, enrollment_no, student_name, class, mentor_code, ps_id')
       .eq('group_id', groupId);
 
     if (error) throw error;

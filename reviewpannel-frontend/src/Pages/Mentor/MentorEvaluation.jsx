@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
+import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
 const MentorEvaluation = () => {
@@ -231,6 +232,11 @@ const MentorEvaluation = () => {
     setStudents(updated);
   };
 
+  const handleProblemStatementSuccess = (savedData) => {
+    setProjectTitle(savedData.title);
+    setProblemStatement(savedData);
+  };
+
   const handleSubmit = async () => {
     if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly) return;
 
@@ -333,8 +339,9 @@ const MentorEvaluation = () => {
                   <label className="block font-semibold">Date:</label>
                   <input
                     type="date"
-                    disabled={isReadOnly || !isFormSelected}
-                    className="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100"
+                    value={new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).toISOString().split('T')[0]}
+                    readOnly
+                    className="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-100"
                   />
                 </div>
               </div>
@@ -343,7 +350,7 @@ const MentorEvaluation = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b border-gray-300 text-sm">
               <div className="p-2 border-r border-gray-300">
                 <span className="font-semibold">Class:</span>
-                <span className="ml-2 text-gray-600">—</span>
+                <span className="ml-2 text-gray-600">{selectedGroupId ? selectedGroupId.slice(0, -2) : "—"}</span>
               </div>
               <div className="p-2 border-r border-gray-300">
                 <span className="font-semibold">Project ID:</span>
@@ -356,15 +363,18 @@ const MentorEvaluation = () => {
             </div>
 
             <div className="border-b border-gray-300 p-3">
-              <label className="block font-semibold text-sm mb-2">Project Title:</label>
-              <input
-                type="text"
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-                disabled={isReadOnly}
-                placeholder="Enter project title"
-                className="w-full h-12 border border-gray-300 rounded-md p-3 text-base focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <label className="block font-semibold text-sm mb-2">Project Title:</label>
+                  <p className="text-base text-gray-800 font-medium">{projectTitle || "—"}</p>
+                </div>
+                <ProblemStatementModal
+                  selectedGroupId={selectedGroupId}
+                  problemStatement={problemStatement}
+                  onSuccess={handleProblemStatementSuccess}
+                  isReadOnly={isReadOnly}
+                />
+              </div>
             </div>
 
             <div className="border-b border-gray-300 p-3 text-sm">
@@ -462,16 +472,7 @@ const MentorEvaluation = () => {
               </table>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-t border-gray-300 text-sm">
-              <div>
-                <label className="block font-semibold">Name of Faculty Guide:</label>
-                <input
-                  type="text"
-                  value={mentorName}
-                  readOnly
-                  className="w-full border border-gray-300 p-2 mt-1 rounded-md bg-gray-100"
-                />
-              </div>
+            <div className="p-4 border-t border-gray-300 text-sm">
               <div>
                 <label className="block font-semibold">External Examiner Name:</label>
                 <input
