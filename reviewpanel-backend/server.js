@@ -49,32 +49,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = config.server.port;
 
-// CORS configuration
+// CORS configuration - Allow all origins for serverless
 app.use(cors({
-  origin: function(origin, callback){
-    // Allow requests with no origin (like mobile apps, Postman, curl)
-    if(!origin) return callback(null, true);
-    
-    // Check if origin is in allowed list
-    if(config.cors.allowedOrigins.indexOf(origin) !== -1){
-      return callback(null, true);
-    }
-    
-    // In development, log the rejected origin but allow it anyway
-    if(config.server.env === 'development'){
-      console.warn('⚠️  CORS: Allowing origin in development:', origin);
-      return callback(null, true);
-    }
-    
-    // In production, reject unknown origins
-    return callback(null, false);
-  },
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  credentials: false,
 }));
 
-// Add CORS error handling
 
 // Basic middleware
 app.use(express.json());
