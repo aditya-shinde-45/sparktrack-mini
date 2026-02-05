@@ -122,6 +122,23 @@ app.get("/db-test", async (req, res) => {
 // Global error handling middleware
 app.use(errorHandler);
 
+// Catch-all route for debugging
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+    requestedPath: req.originalUrl,
+    method: req.method,
+    availableRoutes: [
+      'GET /',
+      'GET /health',
+      'POST /api/mentors/login',
+      'POST /api/auth/login',
+      'GET /api/test'
+    ]
+  });
+});
+
 // Startup connection check
 const testConnection = async () => {
   try {
