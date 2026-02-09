@@ -16,6 +16,7 @@ import LoadingTest from '../Pages/Common/LoadingTest';
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import SubAdminDashboard from '../Pages/Admin/SubAdminDashboard';
+import SubAdminEvaluationManagement from '../Pages/Admin/SubAdminEvaluationManagement';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
@@ -95,6 +96,11 @@ const AppRoutes = () => {
       <Route path="/sub-admin-dashboard" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <SubAdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/sub-admin-evaluation" element={
+        <ProtectedRoute allowedRoles={['Admin']}>
+          <SubAdminEvaluationManagement />
         </ProtectedRoute>
       } />
       <Route path="/assign-external" element={
