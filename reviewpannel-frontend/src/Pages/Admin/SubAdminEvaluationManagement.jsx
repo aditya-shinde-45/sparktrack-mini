@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Common/Header";
+import Sidebar from "../../Components/Admin/Sidebar";
 import { Database, Edit, Search, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { apiRequest } from "../../api";
 
@@ -158,7 +159,7 @@ const SubAdminEvaluationManagement = () => {
   };
 
   const handleResetMarks = async (student) => {
-    if (!window.confirm(`Are you sure you want to reset marks for ${student.student_name}?`)) {
+    if (!window.confirm(`Are you sure you want to reset marks for the ENTIRE GROUP ${student.group_id}?\n\nThis will delete all marks for all students in this group as marks are stored together.`)) {
       return;
     }
 
@@ -172,7 +173,7 @@ const SubAdminEvaluationManagement = () => {
       );
 
       if (response?.success) {
-        alert("Marks reset successfully!");
+        alert("Group marks reset successfully!");
         fetchStudents(selectedFormId, currentPage, searchQuery);
       } else {
         alert(`Failed to reset marks: ${response.message || "Unknown error"}`);
@@ -225,11 +226,20 @@ const SubAdminEvaluationManagement = () => {
 
   if (loading && !selectedFormId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Header name={userName} id={userId} />
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+        <div className="flex pt-24 lg:pt-28">
+          <Sidebar />
+          <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6 overflow-x-hidden">
+            <div className="max-w-full">
+              <div className="text-center flex items-center justify-center min-h-[60vh]">
+                <div>
+                  <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading...</p>
+                </div>
+              </div>
+            </div>
+          </main>
         </div>
       </div>
     );
@@ -238,8 +248,10 @@ const SubAdminEvaluationManagement = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header name={userName} id={userId} />
-      
-      <div className="pt-24 px-8 pb-8">
+      <div className="flex pt-24 lg:pt-28">
+        <Sidebar />
+        <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6 overflow-x-hidden">
+        <div className="max-w-full">
         {/* User Info Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -353,28 +365,28 @@ const SubAdminEvaluationManagement = () => {
             {/* Table */}
             {!loading && !error && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="overflow-x-auto max-w-full">
+                  <table className="min-w-full table-auto">
                     <thead>
                       <tr className="bg-gradient-to-r from-purple-600 to-purple-700">
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">Group ID</th>
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">Enrollment No</th>
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">Student Name</th>
-                        {formFields.map((field) => (
-                          <th key={field.key} className="px-4 py-4 text-center text-sm font-semibold text-white">
-                            {field.label}
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">Actions</th>
+                        <th className="px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">Group ID</th>
+                        <th className="px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">Enrollment No</th>
+                        <th className="px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">Student Name</th>
+                        {formFields.map((field, index) => (
+                          <th key={field.key} className="px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap" title={field.label}>
+                            {String.fromCharCode(65 + index)}
                             <br />
                             <span className="text-xs text-purple-200">({field.max_marks})</span>
                           </th>
                         ))}
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">
                           Total
                           <br />
                           <span className="text-xs text-purple-200">({formTotalMarks || computedTotal})</span>
                         </th>
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">External</th>
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">Feedback</th>
-                        <th className="px-4 py-4 text-center text-sm font-semibold text-white">Actions</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">External</th>
+                        <th className="px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap">Feedback</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -386,22 +398,7 @@ const SubAdminEvaluationManagement = () => {
                               index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                             }`}
                           >
-                            <td className="px-4 py-4 text-center text-gray-900">{student.group_id || "-"}</td>
-                            <td className="px-4 py-4 text-center text-gray-900">{student.enrollment_no || "-"}</td>
-                            <td className="px-4 py-4 text-center text-gray-900">{student.student_name || "-"}</td>
-                            {formFields.map((field) => (
-                              <td key={field.key} className="px-4 py-4 text-center text-gray-900">
-                                {student.marks?.[field.key] ?? "-"}
-                              </td>
-                            ))}
-                            <td className="px-4 py-4 text-center text-gray-900 font-semibold">
-                              {student.total || 0}
-                            </td>
-                            <td className="px-4 py-4 text-center text-gray-900">{student.external_name || "-"}</td>
-                            <td className="px-4 py-4 text-center text-gray-600 text-sm max-w-xs truncate">
-                              {student.feedback || "-"}
-                            </td>
-                            <td className="px-4 py-4">
+                            <td className="px-2 py-3">
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => handleEditMarks(student)}
@@ -418,6 +415,21 @@ const SubAdminEvaluationManagement = () => {
                                   <RotateCcw className="w-5 h-5" />
                                 </button>
                               </div>
+                            </td>
+                            <td className="px-3 py-3 text-center text-gray-900 text-sm whitespace-nowrap">{student.group_id || "-"}</td>
+                            <td className="px-3 py-3 text-center text-gray-900 text-sm whitespace-nowrap">{student.enrollment_no || "-"}</td>
+                            <td className="px-3 py-3 text-center text-gray-900 text-sm whitespace-nowrap">{student.student_name || "-"}</td>
+                            {formFields.map((field) => (
+                              <td key={field.key} className="px-2 py-3 text-center text-gray-900 text-sm whitespace-nowrap">
+                                {student.marks?.[field.key] ?? "-"}
+                              </td>
+                            ))}
+                            <td className="px-2 py-3 text-center text-gray-900 text-sm font-semibold whitespace-nowrap">
+                              {student.total || 0}
+                            </td>
+                            <td className="px-2 py-3 text-center text-gray-900 text-sm whitespace-nowrap">{student.external_name || "-"}</td>
+                            <td className="px-2 py-3 text-center text-gray-600 text-xs max-w-[150px] truncate">
+                              {student.feedback || "-"}
                             </td>
                           </tr>
                         ))
@@ -525,7 +537,7 @@ const SubAdminEvaluationManagement = () => {
             </p>
           </div>
         )}
-      </div>
+        </div>
 
       {/* Edit Marks Modal */}
       {showEditModal && selectedStudent && (
@@ -606,6 +618,8 @@ const SubAdminEvaluationManagement = () => {
           </div>
         </div>
       )}
+        </main>
+      </div>
     </div>
   );
 };
