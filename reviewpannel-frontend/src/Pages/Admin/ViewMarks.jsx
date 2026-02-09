@@ -18,7 +18,12 @@ const ViewMarks = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [allStudentsForCSV, setAllStudentsForCSV] = useState([]);
+  const [sortBy, setSortBy] = useState("group_id");
+  const [sortOrder, setSortOrder] = useState("asc");
   const rowsPerPage = 50;
+  const csvLinkRef = React.useRef(null);
 
   const computedTotal = React.useMemo(() => {
     return formFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
@@ -45,8 +50,31 @@ const ViewMarks = () => {
     ];
   }, [formFields]);
 
+  const sortedStudents = React.useMemo(() => {
+    const dataToSort = [...students];
+    return dataToSort.sort((a, b) => {
+      let aVal = a[sortBy];
+      let bVal = b[sortBy];
+
+      // Handle numeric sorting for total
+      if (sortBy === "total") {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else {
+        // String sorting (case-insensitive)
+        aVal = String(aVal || "").toLowerCase();
+        bVal = String(bVal || "").toLowerCase();
+      }
+
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [students, sortBy, sortOrder]);
+
   const csvData = React.useMemo(() => {
-    return students.map((student) => {
+    const dataToUse = allStudentsForCSV.length > 0 ? allStudentsForCSV : students;
+    return dataToUse.map((student) => {
       const flattened = {
         group_id: student.group_id,
         enrollment_no: student.enrollment_no,
@@ -62,7 +90,7 @@ const ViewMarks = () => {
 
       return flattened;
     });
-  }, [students, formFields]);
+  }, [students, allStudentsForCSV, formFields]);
 
   const fetchForms = async () => {
     const token = localStorage.getItem("token");
@@ -88,6 +116,32 @@ const ViewMarks = () => {
     } else {
       setFormFields([]);
       setFormTotalMarks(0);
+    }
+  };
+
+  // Fetch all students for CSV export (no pagination)
+  const fetchAllStudentsForCSV = async (formId, search = "") => {
+    setExportingCSV(true);
+    try {
+      const token = localStorage.getItem("token");
+      let url = `/api/admin/evaluation-forms/${formId}/submissions?page=1&limit=10000`;
+      if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+      }
+      
+      const response = await apiRequest(url, "GET", null, token);
+      
+      if (response && response.data) {
+        const studentsData = response.data.data || response.data;
+        setAllStudentsForCSV(Array.isArray(studentsData) ? studentsData : []);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to fetch all students for CSV:", err);
+      return false;
+    } finally {
+      setExportingCSV(false);
     }
   };
 
@@ -190,15 +244,66 @@ const ViewMarks = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
                   />
                 </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Sort By
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                    >
+                      <option value="group_id">Group ID</option>
+                      <option value="enrollment_no">Enrollment No</option>
+                      <option value="student_name">Student Name</option>
+                      <option value="total">Total Marks</option>
+                      <option value="external_name">External Name</option>
+                    </select>
+                    <button
+                      onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 font-semibold"
+                      title={`Sort ${sortOrder === "asc" ? "Ascending" : "Descending"}`}
+                    >
+                      {sortOrder === "asc" ? "↑ ASC" : "↓ DESC"}
+                    </button>
+                  </div>
+                </div>
                 <div className="flex items-end">
                   <CSVLink
                     data={csvData}
                     headers={csvHeaders}
                     filename={`EvaluationForm_${selectedFormId || "marks"}.csv`}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md"
+                    ref={csvLinkRef}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!selectedFormId) {
+                        alert("Please select an evaluation form first");
+                        return;
+                      }
+                      const success = await fetchAllStudentsForCSV(selectedFormId, searchQuery);
+                      if (success) {
+                        setTimeout(() => {
+                          csvLinkRef.current?.link.click();
+                        }, 100);
+                      } else {
+                        alert("Failed to fetch data for CSV export");
+                      }
+                    }}
+                    disabled={exportingCSV || !selectedFormId}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Export CSV
-                  </CSVLink>
+                    {exportingCSV ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Exporting...</span>
+                      </>
+                    ) : (
+                      "Export CSV"
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -226,7 +331,7 @@ const ViewMarks = () => {
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="overflow-x-auto">
                   <MarksTable
-                    students={students}
+                    students={sortedStudents}
                     loading={loading}
                     error={error}
                     reviewType="form"
