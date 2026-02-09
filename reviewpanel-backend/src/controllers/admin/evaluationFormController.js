@@ -134,6 +134,7 @@ class EvaluationFormController {
     const flattened = submissions.flatMap((submission) => {
       const evaluations = Array.isArray(submission.evaluations) ? submission.evaluations : [];
       return evaluations.map((evaluation) => ({
+        submission_id: submission.id, // Include submission ID for delete/reset operations
         group_id: submission.group_id,
         external_name: submission.external_name,
         feedback: submission.feedback,
@@ -186,6 +187,22 @@ class EvaluationFormController {
     }
 
     return ApiResponse.success(res, 'Evaluation submission retrieved successfully', submission);
+  });
+
+  deleteSubmission = asyncHandler(async (req, res) => {
+    const { formId, submissionId } = req.params;
+
+    if (!formId || !submissionId) {
+      throw ApiError.badRequest('Form ID and Submission ID are required');
+    }
+
+    const result = await evaluationFormModel.deleteSubmission(submissionId, formId);
+
+    if (!result) {
+      throw ApiError.notFound('Submission not found');
+    }
+
+    return ApiResponse.success(res, 'Evaluation submission deleted successfully', null);
   });
 }
 

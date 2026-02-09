@@ -57,6 +57,7 @@ class RoleAccessController {
         break;
 
       case 'pbl':
+        // Fetch PBL groups
         const { data: pblGroups, error: pblError } = await supabase
           .from('pbl')
           .select('*');
@@ -65,7 +66,29 @@ class RoleAccessController {
           console.error('PBL fetch error:', pblError);
           throw ApiError.internalError(`Failed to fetch PBL groups: ${pblError.message}`);
         }
-        records = pblGroups;
+
+        // Fetch all mentors to map mentor_code to mentor_name
+        const { data: mentors, error: mentorsError } = await supabase
+          .from('mentors')
+          .select('mentor_code, mentor_name');
+        
+        if (mentorsError) {
+          console.error('Mentors fetch error:', mentorsError);
+        }
+
+        // Create mentor map for quick lookup
+        const mentorMap = {};
+        if (mentors) {
+          mentors.forEach(mentor => {
+            mentorMap[mentor.mentor_code] = mentor.mentor_name;
+          });
+        }
+        
+        // Add mentor_name to records
+        records = pblGroups?.map(record => ({
+          ...record,
+          mentor_name: record.mentor_code ? mentorMap[record.mentor_code] : null,
+        })) || [];
         break;
 
       default:
@@ -122,6 +145,7 @@ class RoleAccessController {
         if (pblError || !pblRecord) {
           throw ApiError.notFound('PBL record not found');
         }
+        
         record = pblRecord;
         break;
 
@@ -209,34 +233,45 @@ class RoleAccessController {
 
       case 'pbl':
         // Validate required PBL fields
-        const { group_id: pblGroupId, enrollment_no: pblEnrollmentNo, student_name, team_name } = recordData;
-        if (!pblGroupId || !pblEnrollmentNo || !student_name || !team_name) {
-          throw ApiError.badRequest('group_id, enrollment_no, student_name, and team_name are required');
+        const { group_id: pblGroupId, enrollment_no: pblEnrollmentNo, student_name } = recordData;
+        if (!pblGroupId || !pblEnrollmentNo || !student_name) {
+          throw ApiError.badRequest('group_id, enrollment_no, and student_name are required');
         }
+
+        const pblInsertData = {
+          group_id: pblGroupId,
+          enrollment_no: pblEnrollmentNo,
+          student_name: student_name,
+          class: recordData.class || null,
+          team_name: recordData.team_name || null,
+          is_leader: recordData.is_leader || false,
+          mentor_code: recordData.mentor_code || null,
+        };
+
+        console.log('Attempting to insert PBL record:', pblInsertData);
 
         const { data: pblGroup, error: pblError } = await supabase
           .from('pbl')
-          .insert([{
-            group_id: pblGroupId,
-            enrollment_no: pblEnrollmentNo,
-            student_name,
-            team_name,
-            class: recordData.class || null,
-            email_id: recordData.email_id || null,
-            contact: recordData.contact || null,
-            is_leader: recordData.is_leader || false,
-            mentor_code: recordData.mentor_code || null,
-            ps_id: recordData.ps_id || null,
-          }])
+          .insert([pblInsertData])
           .select()
           .single();
         
         if (pblError) {
+          console.error('PBL insert error details:', {
+            message: pblError.message,
+            details: pblError.details,
+            hint: pblError.hint,
+            code: pblError.code,
+            fullError: pblError
+          });
           if (pblError.code === '23505') {
             throw ApiError.badRequest('PBL record with this enrollment number already exists');
           }
-          throw ApiError.internalError('Failed to create PBL record');
+          throw ApiError.internalError(`Failed to create PBL record: ${pblError.message || JSON.stringify(pblError)}`);
         }
+        
+        console.log('PBL record created successfully:', pblGroup);
+        
         newRecord = pblGroup;
         break;
 
@@ -327,6 +362,7 @@ class RoleAccessController {
           .single();
         
         if (pblError) throw ApiError.internalError('Failed to update PBL record');
+        
         updatedRecord = pblGroup;
         break;
 

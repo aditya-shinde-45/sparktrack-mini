@@ -21,6 +21,8 @@ const SubAdminDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(50); // Show 50 records per page
   const [showPassword, setShowPassword] = useState(false);
+  const [mentorList, setMentorList] = useState([]);
+  const [showMentorDropdown, setShowMentorDropdown] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -82,10 +84,14 @@ const SubAdminDashboard = () => {
     try {
       const response = await apiRequest(`/api/role-access/${selectedTable}`, 'GET', null, token);
 
+      console.log('Fetch table data response:', response);
+      console.log('Selected table:', selectedTable);
+      console.log('Records:', response?.data?.records);
+
       if (response.success && response.data) {
         setTableData(response.data.records || []);
       } else {
-        console.error("Failed to fetch table data");
+        console.error("Failed to fetch table data", response);
         setTableData([]);
       }
     } catch (error) {
@@ -99,11 +105,20 @@ const SubAdminDashboard = () => {
   useEffect(() => {
     // Filter data based on search query
     if (searchQuery) {
-      const filtered = tableData.filter(row =>
-        Object.values(row).some(value =>
-          String(value).toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
+      const filtered = tableData.filter(row => {
+        // Convert all values to strings and search, handling nested objects
+        const searchableText = Object.entries(row)
+          .filter(([key]) => !key.includes('mentors')) // Exclude nested mentor objects
+          .map(([_, value]) => {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
+          })
+          .join(' ')
+          .toLowerCase();
+        
+        return searchableText.includes(searchQuery.toLowerCase());
+      });
       setFilteredData(filtered);
     } else {
       setFilteredData(tableData);
@@ -116,6 +131,45 @@ const SubAdminDashboard = () => {
     setCurrentPage(1);
     setSearchQuery('');
   }, [selectedTable]);
+
+  // Fetch mentors when PBL table is selected and modal is opened
+  useEffect(() => {
+    if (selectedTable === 'pbl' && (showAddModal || showEditModal)) {
+      fetchMentors();
+    }
+  }, [selectedTable, showAddModal, showEditModal]);
+
+  const fetchMentors = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await apiRequest('/api/role-access/mentors', 'GET', null, token);
+      if (response.success && response.data) {
+        setMentorList(response.data.records || []);
+      }
+    } catch (error) {
+      console.error("Error fetching mentors:", error);
+    }
+  };
+
+  const handleMentorSelect = (mentor) => {
+    setFormData({
+      ...formData,
+      mentor_name: mentor.mentor_name,
+      mentor_code: mentor.mentor_code  // Store mentor_code but don't display it
+    });
+    setShowMentorDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMentorDropdown && !event.target.closest('.mentor-dropdown-container')) {
+        setShowMentorDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMentorDropdown]);
 
   const handleAddRecord = () => {
     setFormData({});
@@ -169,7 +223,17 @@ const SubAdminDashboard = () => {
     const token = localStorage.getItem("token");
 
     try {
-      const response = await apiRequest(`/api/role-access/${selectedTable}`, 'POST', formData, token);
+      // For PBL, ensure mentor_code is included in the payload
+      const dataToSubmit = { ...formData };
+      
+      // Remove mentor_name from payload if it's PBL (it's just for display, not in DB)
+      // mentor_code is what gets stored in the database
+      if (selectedTable === 'pbl' && dataToSubmit.mentor_name && dataToSubmit.mentor_code) {
+        // mentor_code will be sent, mentor_name is just for selection UI
+        delete dataToSubmit.mentor_name;
+      }
+      
+      const response = await apiRequest(`/api/role-access/${selectedTable}`, 'POST', dataToSubmit, token);
 
       if (response.success) {
         alert("Record created successfully!");
@@ -239,7 +303,7 @@ const SubAdminDashboard = () => {
       case 'mentors':
         return ['mentor_code', 'mentor_name', 'contact_number', 'group_id'];
       case 'pbl':
-        return ['group_id', 'enrollment_no', 'student_name', 'team_name', 'class', 'is_leader', 'mentor_code'];
+        return ['group_id', 'enrollment_no', 'student_name', 'team_name', 'class', 'is_leader', 'mentor_name'];
       default:
         return [];
     }
@@ -248,20 +312,47 @@ const SubAdminDashboard = () => {
   const renderFormFields = () => {
     const fields = getTableColumns();
     return fields.map(field => {
-      // Skip auto-generated or ID fields in add modal
-      if ((field === 'id' || field === 'mentor_id' || field === 'mentor_code' || (field === 'enrollment_no' && selectedTable === 'pbl')) && showAddModal) return null;
+      // Skip auto-generated or ID fields in add modal, and mentor_name for PBL (will be handled separately)
+      if ((field === 'id' || field === 'mentor_id' || (field === 'mentor_code' && selectedTable === 'mentors')) && showAddModal) return null;
+      
+      // Skip mentor_name in PBL add modal - it will be handled with special dropdown
+      if (field === 'mentor_name' && selectedTable === 'pbl' && showAddModal) return null;
+      
+      // Make mentor_name read-only in edit modal for PBL
+      const isReadOnly = (field === 'mentor_name' && selectedTable === 'pbl' && showEditModal);
+      
+      // Special handling for mentor_name in PBL add modal
+      if (field === 'mentor_name' && selectedTable === 'pbl' && !showAddModal) {
+        return (
+          <div key={field} className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2 capitalize">
+              Mentor Name
+              {isReadOnly && <span className="text-xs text-gray-500 ml-2">(from mentors table)</span>}
+            </label>
+            <input
+              type="text"
+              value={formData[field] || ''}
+              readOnly={isReadOnly}
+              className={`w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            />
+          </div>
+        );
+      }
       
       return (
         <div key={field} className="mb-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2 capitalize">
             {field.replace(/_/g, ' ')}
+            {isReadOnly && field === 'mentor_name' && <span className="text-xs text-gray-500 ml-2">(from mentors table)</span>}
+            {isReadOnly && field === 'guide_contact' && <span className="text-xs text-gray-500 ml-2">(auto-filled from mentor)</span>}
           </label>
           <input
             type="text"
             value={formData[field] || ''}
             onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
-            required={field !== 'contact' && field !== 'contact_number' && field !== 'phone' && field !== 'department' && field !== 'specialization' && field !== 'class_prefix' && field !== 'group_id' && field !== 'mentor_code' && field !== 'status' && field !== 'is_leader' && field !== 'ps_id' && field !== 'review1' && field !== 'review2' && field !== 'final'}
+            className={`w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            required={field !== 'contact' && field !== 'contact_number' && field !== 'phone' && field !== 'department' && field !== 'specialization' && field !== 'class_prefix' && field !== 'mentor_code' && field !== 'status' && field !== 'is_leader' && field !== 'ps_id' && field !== 'review1' && field !== 'review2' && field !== 'final' && field !== 'email_id' && field !== 'guide_name' && field !== 'guide_contact' && field !== 'class' && field !== 'mentor_name'}
+            readOnly={isReadOnly}
           />
         </div>
       );
@@ -591,6 +682,62 @@ const SubAdminDashboard = () => {
             </div>
             <form onSubmit={handleSubmitAdd}>
               {renderFormFields()}
+              
+              {/* Mentor Name Dropdown for PBL */}
+              {selectedTable === 'pbl' && (
+                <div className="mb-4 relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Mentor Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.mentor_name || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, mentor_name: value });
+                      if (value.length > 0) {
+                        fetchMentors();
+                        setShowMentorDropdown(true);
+                      } else {
+                        setShowMentorDropdown(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if ((formData.mentor_name || '').length > 0) {
+                        fetchMentors();
+                        setShowMentorDropdown(true);
+                      }
+                    }}
+                    placeholder="Start typing mentor name..."
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                    autoComplete="off"
+                    required
+                  />
+                  {showMentorDropdown && mentorList.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {mentorList
+                        .filter(mentor => 
+                          mentor.mentor_name.toLowerCase().includes((formData.mentor_name || '').toLowerCase())
+                        )
+                        .map((mentor) => (
+                          <div
+                            key={mentor.mentor_code}
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // Prevent input blur
+                              handleMentorSelect(mentor);
+                            }}
+                            className="px-4 py-2 hover:bg-purple-50 cursor-pointer transition-colors"
+                          >
+                            <div className="font-medium text-gray-900">{mentor.mentor_name}</div>
+                            <div className="text-sm text-gray-500">Code: {mentor.mentor_code}</div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="flex items-center gap-3 mt-6">
                 <button
                   type="submit"

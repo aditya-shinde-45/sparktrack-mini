@@ -7,7 +7,8 @@ import {
   PlusSquare, 
   Edit, 
   GraduationCap,
-  Settings
+  Settings,
+  ClipboardCheck
 } from "lucide-react";
 
 const routes = [
@@ -16,6 +17,7 @@ const routes = [
   { name: "Assigned External", path: "/assign-external", icon: UserCheck },
   { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
   { name: "Evaluation Forms", path: "/admin-evaluation-forms", icon: Edit },
+  { name: "Manage Evaluations", path: "/sub-admin-evaluation", icon: ClipboardCheck },
   { name: "Tools", path: "/admintools", icon: Settings },
 ];
 

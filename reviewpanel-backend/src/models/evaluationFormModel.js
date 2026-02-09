@@ -107,6 +107,19 @@ class EvaluationFormModel {
     if (error) throw error;
     return data || null;
   }
+
+  async deleteSubmission(submissionId, formId) {
+    const { data, error } = await supabase
+      .from(this.submissionsTable)
+      .delete()
+      .eq('id', submissionId)
+      .eq('form_id', formId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
 }
 
 export default new EvaluationFormModel();

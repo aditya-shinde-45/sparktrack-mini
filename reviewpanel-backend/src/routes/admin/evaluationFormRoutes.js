@@ -88,4 +88,16 @@ router.get(
   evaluationFormController.getFormSubmissions
 );
 
+/**
+ * @route   DELETE /api/admin/evaluation-forms/:formId/submissions/:submissionId
+ * @desc    Delete/reset a submission (resets entire group's marks)
+ * @access  Private (Admin)
+ */
+router.delete(
+  '/evaluation-forms/:formId/submissions/:submissionId',
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
+  evaluationFormController.deleteSubmission
+);
+
 export default router;
