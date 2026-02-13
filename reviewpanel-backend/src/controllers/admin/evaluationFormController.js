@@ -4,6 +4,16 @@ import evaluationFormModel from '../../models/evaluationFormModel.js';
 import problemStatementModel from '../../models/problemStatementModel.js';
 import supabase from '../../config/database.js';
 
+const YEAR_OPTIONS = ['SY', 'TY', 'LY'];
+
+const normalizeAllowedYears = (years) => {
+  if (!Array.isArray(years)) return [];
+  const normalized = years
+    .map((value) => String(value || '').trim().toUpperCase())
+    .filter((value) => YEAR_OPTIONS.includes(value));
+  return Array.from(new Set(normalized));
+};
+
 class EvaluationFormController {
   listForms = asyncHandler(async (req, res) => {
     const forms = await evaluationFormModel.listForms();
@@ -19,12 +29,13 @@ class EvaluationFormController {
   });
 
   createForm = asyncHandler(async (req, res) => {
-    const { name, total_marks, fields } = req.body;
+    const { name, total_marks, fields, allowed_years } = req.body;
     if (!name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Name, total marks, and at least one field are required');
     }
 
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
+    const normalizedYears = normalizeAllowedYears(allowed_years);
 
     const sanitizedFields = fields.map((field, index) => ({
       key: field.key || `field_${index + 1}`,
@@ -37,15 +48,32 @@ class EvaluationFormController {
       name: name.trim(),
       total_marks: Number(total_marks),
       fields: sanitizedFields,
-      created_by
+      created_by,
+      allowed_years: normalizedYears
     });
+
+    const deadlineKey = `evaluation_form_${form.id}`;
+    try {
+      await supabase
+        .from('deadlines_control')
+        .upsert(
+          {
+            key: deadlineKey,
+            label: `Evaluation: ${form.name}`,
+            enabled: true
+          },
+          { onConflict: 'key', ignoreDuplicates: true }
+        );
+    } catch (deadlineError) {
+      console.error('Failed to create deadline toggle for evaluation form:', deadlineError);
+    }
 
     return ApiResponse.success(res, 'Evaluation form created successfully', form, 201);
   });
 
   updateForm = asyncHandler(async (req, res) => {
     const { formId } = req.params;
-    const { name, total_marks, fields } = req.body;
+    const { name, total_marks, fields, allowed_years } = req.body;
 
     if (!formId || !name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Form ID, name, total marks, and fields are required');
@@ -58,11 +86,32 @@ class EvaluationFormController {
       order: typeof field.order === 'number' ? field.order : index
     }));
 
+    const normalizedYears = normalizeAllowedYears(allowed_years);
+
     const updated = await evaluationFormModel.updateForm(formId, {
       name: name.trim(),
       total_marks: Number(total_marks),
-      fields: sanitizedFields
+      fields: sanitizedFields,
+      allowed_years: normalizedYears
     });
+
+    const deadlineKey = `evaluation_form_${formId}`;
+    const updatedLabel = `Evaluation: ${name.trim()}`;
+    try {
+      const { data: deadlineUpdate } = await supabase
+        .from('deadlines_control')
+        .update({ label: updatedLabel })
+        .eq('key', deadlineKey)
+        .select('key');
+
+      if (!deadlineUpdate || deadlineUpdate.length === 0) {
+        await supabase
+          .from('deadlines_control')
+          .insert({ key: deadlineKey, label: updatedLabel, enabled: true });
+      }
+    } catch (deadlineError) {
+      console.error('Failed to update deadline label for evaluation form:', deadlineError);
+    }
 
     return ApiResponse.success(res, 'Evaluation form updated successfully', updated);
   });

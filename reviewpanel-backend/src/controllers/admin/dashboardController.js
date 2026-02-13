@@ -24,15 +24,15 @@ class DashboardController {
       .select('*', { count: 'exact', head: true })
       .match(filters);
       
-    if (studentError) throw new ApiError(500, `Error counting students: ${studentError.message}`);
+    if (studentError) throw ApiError.internalError(`Error counting students: ${studentError.message}`);
     
     // Count distinct groups from pbl1 table (previously was pbl)
-    const { data: groupData, error: groupError } = await supabase
-      .from('pbl1')
+      const { data: groupData, error: groupError } = await supabase
+        .from('pbl')
       .select('group_id')
       .not('group_id', 'is', null);
       
-    if (groupError) throw new ApiError(500, `Error counting groups: ${groupError.message}`);
+    if (groupError) throw ApiError.internalError(`Error counting groups: ${groupError.message}`);
     
     // Get distinct group count
     const uniqueGroups = new Set();
@@ -45,17 +45,17 @@ class DashboardController {
     
     // Count mentors (internal guides)
     const { data: mentorData, error: mentorError } = await supabase
-      .from('pbl1')
-      .select('guide_name')
-      .not('guide_name', 'is', null);
+      .from('pbl')
+      .select('mentor_code')
+      .not('mentor_code', 'is', null);
       
-    if (mentorError) throw new ApiError(500, `Error counting mentors: ${mentorError.message}`);
+    if (mentorError) throw ApiError.internalError(`Error counting mentors: ${mentorError.message}`);
     
     // Get unique mentors count
     const uniqueMentors = new Set();
     mentorData.forEach(item => {
-      if (item.guide_name) {
-        uniqueMentors.add(item.guide_name);
+      if (item.mentor_code) {
+        uniqueMentors.add(item.mentor_code);
       }
     });
     const mentorCount = uniqueMentors.size;
@@ -65,7 +65,7 @@ class DashboardController {
       .from('externals')
       .select('*', { count: 'exact', head: true });
       
-    if (externalError) throw new ApiError(500, `Error counting externals: ${externalError.message}`);
+    if (externalError) throw ApiError.internalError(`Error counting externals: ${externalError.message}`);
     
     return ApiResponse.success(res, 'Dashboard statistics retrieved successfully', {
       counts: {
@@ -290,7 +290,7 @@ class DashboardController {
       .select('*', { count: 'exact', head: true })
       .match(filters);
       
-    if (studentError) throw new ApiError(500, `Error counting students: ${studentError.message}`);
+    if (studentError) throw ApiError.internalError(`Error counting students: ${studentError.message}`);
     
     // Count distinct groups from selected table
     const { data: groupData, error: groupError } = await supabase
@@ -298,7 +298,7 @@ class DashboardController {
       .select('group_id')
       .not('group_id', 'is', null);
       
-    if (groupError) throw new ApiError(500, `Error counting groups: ${groupError.message}`);
+    if (groupError) throw ApiError.internalError(`Error counting groups: ${groupError.message}`);
     
     // Get distinct group count
     const uniqueGroups = new Set();
@@ -569,15 +569,15 @@ class DashboardController {
       .select('*', { count: 'exact', head: true })
       .match(filters);
       
-    if (studentError) throw new ApiError(500, `Error counting students: ${studentError.message}`);
+    if (studentError) throw ApiError.internalError(`Error counting students: ${studentError.message}`);
     
     // Count distinct groups from pbl1 table
-    const { data: groupData, error: groupError } = await supabase
-      .from('pbl1')
+      const { data: groupData, error: groupError } = await supabase
+        .from('pbl')
       .select('group_id')
       .not('group_id', 'is', null);
       
-    if (groupError) throw new ApiError(500, `Error counting groups: ${groupError.message}`);
+    if (groupError) throw ApiError.internalError(`Error counting groups: ${groupError.message}`);
     
     // Get distinct group count
     const uniqueGroups = new Set();
@@ -588,18 +588,18 @@ class DashboardController {
     });
     const groupCount = uniqueGroups.size;
     
-    // Count unique guides from pbl1 table (previously was pbl)
+    // Count unique mentors from pbl table
     const { data: guideData, error: guideError } = await supabase
-      .from('pbl1')
-      .select('guide_name')
-      .not('guide_name', 'is', null);
+      .from('pbl')
+      .select('mentor_code')
+      .not('mentor_code', 'is', null);
       
-    if (guideError) throw new ApiError(500, `Error counting guides: ${guideError.message}`);
+    if (guideError) throw ApiError.internalError(`Error counting guides: ${guideError.message}`);
     
     // Get unique guide count
     const uniqueGuides = new Set();
     guideData.forEach(group => {
-      if (group.guide_name) uniqueGuides.add(group.guide_name);
+      if (group.mentor_code) uniqueGuides.add(group.mentor_code);
     });
     
     // Count externals
@@ -607,7 +607,7 @@ class DashboardController {
       .from('externals')
       .select('*', { count: 'exact', head: true });
       
-    if (examinerError) throw new ApiError(500, `Error counting examiners: ${examinerError.message}`);
+    if (examinerError) throw ApiError.internalError(`Error counting examiners: ${examinerError.message}`);
     
     return ApiResponse.success(res, 'Stat cards data retrieved successfully', {
       data: {

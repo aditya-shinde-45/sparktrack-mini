@@ -64,23 +64,25 @@ class DeadlineModel {
    * @param {string} key - Deadline control key
    * @param {boolean} enabled - Whether the function is enabled
    */
-  async update(key, enabled) {
+  async update(key, enabled, label = null) {
     try {
+      const payload = label !== null
+        ? { key, label, enabled }
+        : { key, enabled };
+
       const { data, error } = await supabase
         .from(this.table)
-        .update({ enabled })
-        .eq('key', key)
+        .upsert(payload, { onConflict: 'key' })
         .select('key, label, enabled');
 
       if (error) {
         throw new ApiError(500, `Database error: ${error.message}`);
       }
 
-      // If no rows were updated, the key doesn't exist
       if (!data || data.length === 0) {
         throw new ApiError(404, `Deadline control with key '${key}' not found`);
       }
-      
+
       return data[0];
     } catch (error) {
       console.error(`Error updating deadline ${key}:`, error);

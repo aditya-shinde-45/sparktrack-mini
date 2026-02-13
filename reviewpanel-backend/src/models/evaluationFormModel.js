@@ -6,12 +6,13 @@ class EvaluationFormModel {
     this.submissionsTable = 'evaluation_form_submissions';
   }
 
-  async createForm({ name, total_marks, fields, created_by }) {
+  async createForm({ name, total_marks, fields, created_by, allowed_years }) {
     const payload = {
       name,
       total_marks,
       fields,
-      created_by
+      created_by,
+      allowed_years
     };
 
     const { data, error } = await supabase
@@ -27,7 +28,7 @@ class EvaluationFormModel {
   async listForms() {
     const { data, error } = await supabase
       .from(this.formsTable)
-      .select('id, name, total_marks, created_at')
+      .select('id, name, total_marks, created_at, allowed_years')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -45,11 +46,12 @@ class EvaluationFormModel {
     return data;
   }
 
-  async updateForm(formId, { name, total_marks, fields }) {
+  async updateForm(formId, { name, total_marks, fields, allowed_years }) {
     const payload = {
       name,
       total_marks,
-      fields
+      fields,
+      allowed_years
     };
 
     const { data, error } = await supabase

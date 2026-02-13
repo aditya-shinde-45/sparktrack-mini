@@ -7,17 +7,15 @@ import {
   PlusSquare, 
   Edit, 
   GraduationCap,
-  Settings,
-  ClipboardCheck
+  Settings
 } from "lucide-react";
 
 const routes = [
   { name: "Dashboard", path: "/admin-dashboard", icon: LayoutDashboard },
   { name: "Mentors", path: "/mentor", icon: GraduationCap }, 
-  { name: "Assigned External", path: "/assign-external", icon: UserCheck },
+  { name: "Industry Mentors", path: "/assign-external", icon: UserCheck },
   { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
   { name: "Evaluation Forms", path: "/admin-evaluation-forms", icon: Edit },
-  { name: "Manage Evaluations", path: "/sub-admin-evaluation", icon: ClipboardCheck },
   { name: "Tools", path: "/admintools", icon: Settings },
 ];
 

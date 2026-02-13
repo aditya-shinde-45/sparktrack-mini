@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CalendarCheck, FileText, Users, ClipboardList, BadgeCheck, BadgeDollarSign } from "lucide-react";
+import { CalendarCheck, FileText, Users, ClipboardList } from "lucide-react";
 import { apiRequest } from "../../api";
 
 const DEADLINE_TASKS = [
@@ -23,51 +23,44 @@ const DEADLINE_TASKS = [
         label: "Final Presentation",
         icon: <CalendarCheck className="w-6 h-6 text-green-500" />,
     },
-    {
-        key: "pbl_review_1",
-        label: "PBL Review 1",
-        icon: <BadgeCheck className="w-6 h-6 text-orange-500" />,
-    },
-    {
-        key: "pbl_review_2",
-        label: "PBL Review 2",
-        icon: <BadgeCheck className="w-6 h-6 text-indigo-500" />,
-    },
-    {
-        key: "pbl_review_3",
-        label: "PBL Review 3",
-        icon: <BadgeCheck className="w-6 h-6 text-teal-500" />,
-    },
 ];
 
 const DeadlineAdmin = () => {
     const [activeTasks, setActiveTasks] = useState({});
+    const [evaluationTasks, setEvaluationTasks] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Fetch current deadline toggles from backend on mount
     useEffect(() => {
         const token = localStorage.getItem("admin_token");
         setLoading(true);
-        apiRequest("/api/deadlines", "GET", null, token).then((res) => {
+        Promise.all([
+            apiRequest("/api/deadlines", "GET", null, token),
+            apiRequest("/api/admin/evaluation-forms", "GET", null, token)
+        ]).then(([deadlineRes, formsRes]) => {
             setLoading(false);
-            console.log("Deadlines API Response:", res);
             
-            // Handle new response structure with data array
             let deadlinesData = [];
-            if (res?.data && Array.isArray(res.data)) {
-                deadlinesData = res.data;
-            } else if (res?.deadlines && Array.isArray(res.deadlines)) {
-                deadlinesData = res.deadlines;
+            if (deadlineRes?.data && Array.isArray(deadlineRes.data)) {
+                deadlinesData = deadlineRes.data;
+            } else if (deadlineRes?.deadlines && Array.isArray(deadlineRes.deadlines)) {
+                deadlinesData = deadlineRes.deadlines;
             }
-            
-            if (deadlinesData.length > 0) {
-                const toggles = {};
-                DEADLINE_TASKS.forEach(task => {
-                    const found = deadlinesData.find(d => d.key === task.key);
-                    toggles[task.key] = found ? !!found.enabled : false;
-                });
-                setActiveTasks(toggles);
-            }
+
+            const forms = formsRes?.data || [];
+            const evalTasks = forms.map((form) => ({
+                key: `evaluation_form_${form.id}`,
+                label: form.name,
+                icon: <FileText className="w-6 h-6 text-indigo-500" />
+            }));
+            setEvaluationTasks(evalTasks);
+
+            const toggles = {};
+            [...DEADLINE_TASKS, ...evalTasks].forEach(task => {
+                const found = deadlinesData.find(d => d.key === task.key);
+                toggles[task.key] = found ? !!found.enabled : true;
+            });
+            setActiveTasks(toggles);
         }).catch((err) => {
             setLoading(false);
             console.error("Error fetching deadlines:", err);
@@ -78,15 +71,6 @@ const DeadlineAdmin = () => {
         const token = localStorage.getItem("admin_token");
         const newStatus = !activeTasks[key];
         
-        // Block toggle if trying to enable PBL review when another review is already enabled
-        if ((key === "pbl_review_1" || key === "pbl_review_2" || key === "pbl_review_3") && newStatus) {
-            const otherReviewKeys = ["pbl_review_1", "pbl_review_2", "pbl_review_3"].filter(k => k !== key);
-            const isAnyOtherEnabled = otherReviewKeys.some(k => activeTasks[k]);
-            if (isAnyOtherEnabled) {
-                return; // Block the toggle
-            }
-        }
-        
         setActiveTasks((prev) => ({
             ...prev,
             [key]: newStatus,
@@ -95,7 +79,7 @@ const DeadlineAdmin = () => {
         await apiRequest(
             `/api/deadlines/${key}`,
             "PUT",
-            { enabled: newStatus },
+            { enabled: newStatus, label: [...DEADLINE_TASKS, ...evaluationTasks].find(task => task.key === key)?.label },
             token
         );
     };
@@ -106,7 +90,7 @@ const DeadlineAdmin = () => {
                 <div className="text-center text-purple-500 font-semibold text-lg">Loading...</div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {DEADLINE_TASKS.map((task) => (
+                    {[...DEADLINE_TASKS, ...evaluationTasks].map((task) => (
                         <div
                             key={task.key}
                             className={`flex items-center justify-between bg-white rounded-lg shadow-lg p-6 border border-gray-100 transition-all duration-200

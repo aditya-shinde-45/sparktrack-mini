@@ -3,7 +3,6 @@ import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { 
   Users, 
   Clock, 
-  Edit3, 
   UserCheck, 
   Megaphone, 
   Camera,
@@ -12,7 +11,8 @@ import {
   UsersRound,
   CrownIcon,
   BellRing,
-  ImageIcon
+  ImageIcon,
+  Database
 } from 'lucide-react';
 import Header from '../../Components/Common/Header';
 import AdminSidebar from './Sidebar';
@@ -29,9 +29,9 @@ const tabs = [
     path: '/admintools/deadline' 
   },
   { 
-    label: 'Edit Group', 
-    icon: Edit3, 
-    path: '/admintools/edit-group' 
+    label: 'Data Management', 
+    icon: Database, 
+    path: '/admintools/data-management' 
   },
   { 
     label: 'Assigned ClassLead', 

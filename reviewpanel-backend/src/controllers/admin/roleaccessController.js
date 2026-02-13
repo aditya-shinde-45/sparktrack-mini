@@ -13,7 +13,10 @@ class RoleAccessController {
   /**
    * Helper: Verify if user has permission to access the table
    */
-  verifyTablePermission = (tablePermissions, tableName) => {
+  verifyTablePermission = (tablePermissions, tableName, role) => {
+    if ((role || '').toLowerCase() === 'admin') {
+      return;
+    }
     if (!tablePermissions || !Array.isArray(tablePermissions)) {
       throw ApiError.forbidden('No table permissions found');
     }
@@ -43,9 +46,10 @@ class RoleAccessController {
     const { tableName } = req.params;
     const { tablePermissions } = req.user;
     const { formId, forms, page, limit, search } = req.query;
+    this.currentUserRole = req.user?.role;
 
     // Verify permission
-    this.verifyTablePermission(tablePermissions, tableName);
+    this.verifyTablePermission(tablePermissions, tableName, req.user?.role);
 
     let records;
 
@@ -198,9 +202,8 @@ class RoleAccessController {
   getRecordById = asyncHandler(async (req, res) => {
     const { tableName, id } = req.params;
     const { tablePermissions } = req.user;
-
     // Verify permission
-    this.verifyTablePermission(tablePermissions, tableName);
+    this.verifyTablePermission(tablePermissions, tableName, req.user?.role);
 
     if (!id) {
       throw ApiError.badRequest('Record ID is required');
@@ -254,9 +257,8 @@ class RoleAccessController {
     const { tableName } = req.params;
     const { tablePermissions } = req.user;
     const recordData = req.body;
-
     // Verify permission
-    this.verifyTablePermission(tablePermissions, tableName);
+    this.verifyTablePermission(tablePermissions, tableName, req.user?.role);
 
     if (!recordData || Object.keys(recordData).length === 0) {
       throw ApiError.badRequest('Record data is required');
@@ -512,9 +514,8 @@ class RoleAccessController {
     const { tableName, id } = req.params;
     const { tablePermissions } = req.user;
     const updateData = req.body;
-
     // Verify permission
-    this.verifyTablePermission(tablePermissions, tableName);
+    this.verifyTablePermission(tablePermissions, tableName, req.user?.role);
 
     if (!id) {
       throw ApiError.badRequest('Record ID is required');
@@ -628,9 +629,8 @@ class RoleAccessController {
     const { tableName, id } = req.params;
     const { tablePermissions } = req.user;
     const { formId } = req.query;
-
     // Verify permission
-    this.verifyTablePermission(tablePermissions, tableName);
+    this.verifyTablePermission(tablePermissions, tableName, req.user?.role);
 
     if (!id) {
       throw ApiError.badRequest('Record ID is required');

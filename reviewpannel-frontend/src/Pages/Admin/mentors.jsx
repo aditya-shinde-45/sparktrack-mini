@@ -4,15 +4,13 @@ import {
   Users, 
   Phone, 
   Mail, 
-  UserCheck, 
-  Filter,
-  Download,
+  UserCheck,
   RefreshCw,
-  Eye,
   UsersRound
 } from "lucide-react";
 import Header from "../../Components/Common/Header";
 import Sidebar from "../../Components/Admin/Sidebar";
+import Pagination from "../../Components/Admin/Pagination";
 import { apiRequest } from "../../api.js";
 
 const MentorsPage = () => {
@@ -21,10 +19,16 @@ const MentorsPage = () => {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 12;
 
   useEffect(() => {
     fetchMentors();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType]);
 
   const fetchMentors = async () => {
     setLoading(true);
@@ -66,6 +70,12 @@ const MentorsPage = () => {
 
   const totalGroups = mentors.reduce((sum, mentor) => 
     sum + (mentor.groups ? mentor.groups.length : 0), 0
+  );
+
+  const totalRecords = filteredMentors.length;
+  const paginatedMentors = filteredMentors.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
   );
 
   if (loading) {
@@ -223,80 +233,107 @@ const MentorsPage = () => {
             </div>
           )}
 
-          {/* Mentors Grid/Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredMentors.map((mentor, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all"
-              >
-                {/* Mentor Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <Users className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">
-                        {mentor.mentor_name || "Unknown"}
-                      </h3>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        mentor.groups && mentor.groups.length > 0
-                          ? "bg-green-100 text-green-700"
-                          : "bg-orange-100 text-orange-700"
-                      }`}>
-                        {mentor.groups && mentor.groups.length > 0 ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mentor Details */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    <span>{mentor.contact_number || "No contact"}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    <span>{mentor.email || "No email"}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <UserCheck className="w-4 h-4 text-gray-400" />
-                    <span>{mentor.designation || "No designation"}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm">
-                    <UsersRound className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-600">
-                      {mentor.groups && mentor.groups.length > 0 
-                        ? `${mentor.groups.length} Group${mentor.groups.length > 1 ? 's' : ''}`
-                        : "No groups assigned"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Groups List */}
-                {mentor.groups && mentor.groups.length > 0 && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Assigned Groups:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {mentor.groups.map((group, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex items-center px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-md border border-purple-200"
-                        >
-                          {group}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+          {/* Mentors Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-gray-600">
+                <thead className="text-xs uppercase bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                  <tr>
+                    <th className="px-6 py-4">Mentor</th>
+                    <th className="px-6 py-4">Contact</th>
+                    <th className="px-6 py-4">Email</th>
+                    <th className="px-6 py-4">Designation</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Groups</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedMentors.length > 0 ? (
+                    paginatedMentors.map((mentor, idx) => (
+                      <tr
+                        key={mentor.mentor_code || idx}
+                        className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-100 rounded-lg">
+                              <Users className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{mentor.mentor_name || "Unknown"}</p>
+                              <p className="text-xs text-gray-500">{mentor.mentor_code || "-"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-gray-400" />
+                            <span>{mentor.contact_number || "-"}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-gray-400" />
+                            <span>{mentor.email || "-"}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <UserCheck className="w-4 h-4 text-gray-400" />
+                            <span>{mentor.designation || "-"}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            mentor.groups && mentor.groups.length > 0
+                              ? "bg-green-100 text-green-700"
+                              : "bg-orange-100 text-orange-700"
+                          }`}>
+                            {mentor.groups && mentor.groups.length > 0 ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {mentor.groups && mentor.groups.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {mentor.groups.map((group, i) => (
+                                <span
+                                  key={`${mentor.mentor_code || idx}-group-${i}`}
+                                  className="inline-flex items-center px-2.5 py-1 bg-purple-50 text-purple-700 text-xs font-medium rounded-md border border-purple-200"
+                                >
+                                  {group}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">No groups assigned</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        No mentors found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Pagination */}
+          {totalRecords > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.max(1, Math.ceil(totalRecords / rowsPerPage))}
+                setCurrentPage={setCurrentPage}
+                totalItems={totalRecords}
+                rowsPerPage={rowsPerPage}
+              />
+            </div>
+          )}
 
           {/* No Results */}
           {filteredMentors.length === 0 && !error && (
