@@ -50,6 +50,7 @@ import InternshipDetails from '../Pages/students/InternshipDetails';
 import MentorDashboard from '../Pages/Mentor/MentorDashboard';
 import ZerothReview from '../Pages/Mentor/ZerothReview';
 import MentorEvaluation from '../Pages/Mentor/MentorEvaluation';
+import MentorGroups from '../Pages/Mentor/MentorGroups';
 
 
 const AppRoutes = () => {
@@ -77,7 +78,8 @@ const AppRoutes = () => {
 
       {/* Mentor Routes */}
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />
-      <Route path="/mentor/groups" element={<MentorDashboard />} />
+      <Route path="/mentor/groups" element={<MentorGroups />} />
+      <Route path="/mentor/groups/:groupId" element={<MentorGroups />} />
       <Route path="/mentor/reviews" element={<MentorDashboard />} />
       <Route path="/mentor/evaluation" element={<MentorEvaluation />} />
       <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
