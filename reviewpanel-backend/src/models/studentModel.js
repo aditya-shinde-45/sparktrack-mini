@@ -18,7 +18,7 @@ class StudentModel {
     const { data: students, error: studentsError } = await supabase
       .from(this.studentsTable)
       .select('*')
-      .order('name', { ascending: true });
+      .order('name_of_student', { ascending: true });
 
     if (studentsError) throw studentsError;
 
@@ -38,7 +38,10 @@ class StudentModel {
 
       return {
         ...student,
-        name_of_students: student.name,
+        name_of_students: student.name_of_student,
+        class: student.class_division,
+        email_id: student.student_email_id,
+        contact: student.student_contact_no,
         bio: profile.bio ?? null,
         skills: profile.skills ?? null,
         github_url: profile.github_url ?? null,
@@ -77,7 +80,7 @@ class StudentModel {
     const { data: groupEntry, error: groupError } = await supabase
       .from(this.pblTable)
       .select('group_id')
-      .eq('enrollement_no', enrollmentNo)
+      .eq('enrollment_no', enrollmentNo)
       .maybeSingle();
 
     if (groupError && groupError.code !== 'PGRST116') {
@@ -86,7 +89,10 @@ class StudentModel {
 
     return {
       ...student,
-      name_of_students: student.name,
+      name_of_students: student.name_of_student,
+      class: student.class_division,
+      email_id: student.student_email_id,
+      contact: student.student_contact_no,
       group_id: groupEntry?.group_id || null,
       bio: profile?.bio ?? null,
       skills: profile?.skills ?? null,
@@ -187,7 +193,7 @@ class StudentModel {
       .from(this.studentsTable)
       .select(`*, ${this.profileTable}!left(bio, skills, phone, github_url, linkedin_url, portfolio_url, resume_url, profile_picture_url)`)
       .eq('class', className)
-      .order('name', { ascending: true });
+      .order('name_of_student', { ascending: true });
 
     if (error) throw error;
     return this.#flattenStudentProfileRows(data || []);
@@ -201,7 +207,7 @@ class StudentModel {
       .from(this.studentsTable)
       .select(`*, ${this.profileTable}!left(bio, skills, phone, github_url, linkedin_url, portfolio_url, resume_url, profile_picture_url)`)
       .ilike('specialization', `%${specialization}%`)
-      .order('name', { ascending: true });
+      .order('name_of_student', { ascending: true });
 
     if (error) throw error;
     return this.#flattenStudentProfileRows(data || []);
@@ -233,11 +239,10 @@ class StudentModel {
     const payload = {};
 
     // Map fields from frontend (SubAdminDashboard) to database columns
-    if (updates.name_of_students !== undefined) payload.name = updates.name_of_students;
-    if (updates.email_id !== undefined) payload.email_id = updates.email_id;
-    if (updates.contact !== undefined) payload.contact = updates.contact;
-    if (updates.class !== undefined) payload.class = updates.class;
-    if (updates.specialization !== undefined) payload.specialization = updates.specialization;
+    if (updates.name_of_students !== undefined) payload.name_of_student = updates.name_of_students;
+    if (updates.email_id !== undefined) payload.student_email_id = updates.email_id;
+    if (updates.contact !== undefined) payload.student_contact_no = updates.contact;
+    if (updates.class !== undefined) payload.class_division = updates.class;
     
     // Handle password update if provided
     if (updates.password && updates.password.trim() !== '') {
@@ -257,6 +262,17 @@ class StudentModel {
       .maybeSingle();
 
     if (error) throw error;
+    
+    // Map response back to frontend format
+    if (data) {
+      return {
+        ...data,
+        name_of_students: data.name_of_student,
+        class: data.class_division,
+        email_id: data.student_email_id,
+        contact: data.student_contact_no,
+      };
+    }
     return data;
   }
 

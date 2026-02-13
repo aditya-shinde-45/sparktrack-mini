@@ -23,6 +23,8 @@ const SubAdminDashboard = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [mentorList, setMentorList] = useState([]);
   const [showMentorDropdown, setShowMentorDropdown] = useState(false);
+  const [studentList, setStudentList] = useState([]);
+  const [showStudentDropdown, setShowStudentDropdown] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -132,10 +134,13 @@ const SubAdminDashboard = () => {
     setSearchQuery('');
   }, [selectedTable]);
 
-  // Fetch mentors when PBL table is selected and modal is opened
+  // Fetch mentors and students when PBL table is selected and modal is opened
   useEffect(() => {
     if (selectedTable === 'pbl' && (showAddModal || showEditModal)) {
       fetchMentors();
+      if (showAddModal) {
+        fetchStudents();
+      }
     }
   }, [selectedTable, showAddModal, showEditModal]);
 
@@ -151,13 +156,36 @@ const SubAdminDashboard = () => {
     }
   };
 
+  const fetchStudents = async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await apiRequest('/api/role-access/students', 'GET', null, token);
+      if (response.success && response.data) {
+        setStudentList(response.data.records || []);
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
   const handleMentorSelect = (mentor) => {
     setFormData({
       ...formData,
       mentor_name: mentor.mentor_name,
-      mentor_code: mentor.mentor_code  // Store mentor_code but don't display it
+      mentor_code: mentor.mentor_code
     });
     setShowMentorDropdown(false);
+  };
+
+  const handleStudentSelect = (student) => {
+    setFormData({
+      ...formData,
+      enrollment_no: student.enrollment_no,
+      student_name: student.name_of_students,
+      class: student.class_division || student.class || null,
+      student_search: student.name_of_students
+    });
+    setShowStudentDropdown(false);
   };
 
   // Close dropdown when clicking outside
@@ -166,10 +194,13 @@ const SubAdminDashboard = () => {
       if (showMentorDropdown && !event.target.closest('.mentor-dropdown-container')) {
         setShowMentorDropdown(false);
       }
+      if (showStudentDropdown && !event.target.closest('.student-dropdown-container')) {
+        setShowStudentDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showMentorDropdown]);
+  }, [showMentorDropdown, showStudentDropdown]);
 
   const handleAddRecord = () => {
     setFormData({});
@@ -273,6 +304,16 @@ const SubAdminDashboard = () => {
       }
     });
 
+    // For PBL, handle mentor_name -> mentor_code conversion
+    if (selectedTable === 'pbl') {
+      // Remove mentor_name from payload if it exists (it's just for display, not in DB)
+      delete filteredData.mentor_name;
+      // Add mentor_code if it was set from mentor selection
+      if (formData.mentor_code) {
+        filteredData.mentor_code = formData.mentor_code;
+      }
+    }
+
     // Add password if it's provided and not empty (for students and mentors tables)
     if ((selectedTable === 'students' || selectedTable === 'mentors') && formData.password && formData.password.trim() !== '') {
       filteredData.password = formData.password;
@@ -299,9 +340,9 @@ const SubAdminDashboard = () => {
   const getTableColumns = () => {
     switch (selectedTable) {
       case 'students':
-        return ['enrollment_no', 'name_of_students', 'email_id', 'contact', 'class', 'specialization'];
+        return ['enrollment_no', 'name_of_students', 'email_id', 'contact', 'class'];
       case 'mentors':
-        return ['mentor_code', 'mentor_name', 'contact_number', 'group_id'];
+        return ['mentor_code', 'mentor_name', 'contact_number'];
       case 'pbl':
         return ['group_id', 'enrollment_no', 'student_name', 'team_name', 'class', 'is_leader', 'mentor_name'];
       default:
@@ -310,34 +351,35 @@ const SubAdminDashboard = () => {
   };
 
   const renderFormFields = () => {
-    const fields = getTableColumns();
+    const fields = [...getTableColumns()];
+    
+    // Add password field for mentors in add modal
+    if (selectedTable === 'mentors' && showAddModal) {
+      fields.push('password');
+    }
+    
     return fields.map(field => {
       // Skip auto-generated or ID fields in add modal, and mentor_name for PBL (will be handled separately)
-      if ((field === 'id' || field === 'mentor_id' || (field === 'mentor_code' && selectedTable === 'mentors')) && showAddModal) return null;
+      if ((field === 'id' || field === 'mentor_id' || (field === 'mentor_code' && selectedTable === 'mentors') || (field === 'group_id' && selectedTable === 'mentors')) && showAddModal) return null;
+      
+      // Skip mentor_code and group_id in mentor edit modal - these should not be edited
+      if ((field === 'mentor_code' || field === 'group_id') && selectedTable === 'mentors' && showEditModal) return null;
       
       // Skip mentor_name in PBL add modal - it will be handled with special dropdown
       if (field === 'mentor_name' && selectedTable === 'pbl' && showAddModal) return null;
       
-      // Make mentor_name read-only in edit modal for PBL
-      const isReadOnly = (field === 'mentor_name' && selectedTable === 'pbl' && showEditModal);
+      // Skip mentor_name in PBL edit modal too - it will be handled with special dropdown
+      if (field === 'mentor_name' && selectedTable === 'pbl' && showEditModal) return null;
       
-      // Special handling for mentor_name in PBL add modal
-      if (field === 'mentor_name' && selectedTable === 'pbl' && !showAddModal) {
-        return (
-          <div key={field} className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2 capitalize">
-              Mentor Name
-              {isReadOnly && <span className="text-xs text-gray-500 ml-2">(from mentors table)</span>}
-            </label>
-            <input
-              type="text"
-              value={formData[field] || ''}
-              readOnly={isReadOnly}
-              className={`w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            />
-          </div>
-        );
-      }
+      // Skip team_name and is_leader in PBL (both add and edit) - not needed
+      if ((field === 'team_name' || field === 'is_leader') && selectedTable === 'pbl') return null;
+      
+      // Skip student_name, enrollment_no, and class in PBL add modal - will be handled with student dropdown
+      if ((field === 'student_name' || field === 'enrollment_no' || field === 'class') && selectedTable === 'pbl' && showAddModal) return null;
+      
+      const isReadOnly = false;
+      
+
       
       return (
         <div key={field} className="mb-4">
@@ -681,11 +723,75 @@ const SubAdminDashboard = () => {
               </button>
             </div>
             <form onSubmit={handleSubmitAdd}>
+              {/* Student Dropdown for PBL - Add Modal */}
+              {selectedTable === 'pbl' && (
+                <div className="mb-4 relative student-dropdown-container">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Search Student *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.student_search || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, student_search: value });
+                      if (value.length > 0) {
+                        fetchStudents();
+                        setShowStudentDropdown(true);
+                      } else {
+                        setShowStudentDropdown(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if ((formData.student_search || '').length > 0) {
+                        fetchStudents();
+                        setShowStudentDropdown(true);
+                      }
+                    }}
+                    placeholder="Start typing student name or enrollment number..."
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                    autoComplete="off"
+                    required
+                  />
+                  {showStudentDropdown && studentList.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                      {studentList
+                        .filter(student => 
+                          student.name_of_students.toLowerCase().includes((formData.student_search || '').toLowerCase()) ||
+                          student.enrollment_no.toLowerCase().includes((formData.student_search || '').toLowerCase())
+                        )
+                        .map((student) => (
+                          <div
+                            key={student.enrollment_no}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleStudentSelect(student);
+                            }}
+                            className="px-4 py-3 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
+                          >
+                            <div className="font-medium text-gray-900">{student.name_of_students}</div>
+                            <div className="text-sm text-gray-600">Enrollment: {student.enrollment_no}</div>
+                            <div className="text-sm text-gray-500">Class: {student.class_division || student.class || 'N/A'}</div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                  {formData.enrollment_no && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        <span className="font-semibold">Selected:</span> {formData.student_name} ({formData.enrollment_no})
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {renderFormFields()}
               
-              {/* Mentor Name Dropdown for PBL */}
-              {selectedTable === 'pbl' && (
-                <div className="mb-4 relative">
+              {/* Mentor Name Dropdown for PBL - Add Modal */}
+              {selectedTable === 'pbl' && showAddModal && (
+                <div className="mb-4 relative mentor-dropdown-container">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Mentor Name *
                   </label>
@@ -775,6 +881,61 @@ const SubAdminDashboard = () => {
             </div>
             <form onSubmit={handleSubmitEdit}>
               {renderFormFields()}
+              
+              {/* Mentor Name Dropdown for PBL - Edit Modal */}
+              {selectedTable === 'pbl' && (
+                <div className="mb-4 relative mentor-dropdown-container">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Mentor Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.mentor_name || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({ ...formData, mentor_name: value });
+                      if (value.length > 0) {
+                        fetchMentors();
+                        setShowMentorDropdown(true);
+                      } else {
+                        setShowMentorDropdown(false);
+                      }
+                    }}
+                    onFocus={() => {
+                      if ((formData.mentor_name || '').length > 0) {
+                        fetchMentors();
+                        setShowMentorDropdown(true);
+                      }
+                    }}
+                    placeholder="Start typing mentor name..."
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                    autoComplete="off"
+                    required
+                  />
+                  {showMentorDropdown && mentorList.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {mentorList
+                        .filter(mentor => 
+                          mentor.mentor_name.toLowerCase().includes((formData.mentor_name || '').toLowerCase())
+                        )
+                        .map((mentor) => (
+                          <div
+                            key={mentor.mentor_code}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleMentorSelect(mentor);
+                            }}
+                            className="px-4 py-2 hover:bg-purple-50 cursor-pointer transition-colors"
+                          >
+                            <div className="font-medium text-gray-900">{mentor.mentor_name}</div>
+                            <div className="text-sm text-gray-500">Code: {mentor.mentor_code}</div>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              )}
               {(selectedTable === 'students' || selectedTable === 'mentors') && (
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
