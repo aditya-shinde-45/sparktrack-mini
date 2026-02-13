@@ -14,8 +14,7 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
   const [problem, setProblem] = useState(null);
-  const [review1Marks, setReview1Marks] = useState(null);
-  const [review2Marks, setReview2Marks] = useState(null);
+  const [evaluationMarks, setEvaluationMarks] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState({ title: "", message: "" });
   const [announcements, setAnnouncements] = useState([]);
@@ -65,36 +64,21 @@ const StudentDashboard = () => {
           await fetchProblemStatement(groupDetails.group_id, groupDetails.ps_id, token);
         }
 
-        // Fetch PBL Review 1 marks (pass enrollement_no as query param)
-        fetchReview1Marks(profileData.enrollment_no, token);
-
-        // Fetch PBL Review 2 marks (pass enrollement_no as query param)
-        fetchReview2Marks(profileData.enrollment_no, token);
+        // Fetch evaluation marks (enabled forms only)
+        fetchEvaluationMarks(token);
       } catch (error) {
         console.error('Error in fetchStudent:', error);
       }
     };
 
-    // Use /api/announcement/review1marks?enrollement_no=...
-    const fetchReview1Marks = async (enrollment_no, token) => {
+    const fetchEvaluationMarks = async (token) => {
       const res = await apiRequest(
-        `/api/announcements/announcement/review1marks?enrollement_no=${enrollment_no}`,
+        "/api/announcements/announcement/evaluation-marks",
         "GET",
         null,
         token
       );
-      setReview1Marks(res?.data?.review1Marks || res?.review1Marks || null);
-    };
-
-    // Use /api/announcement/review2marks?enrollement_no=...
-    const fetchReview2Marks = async (enrollment_no, token) => {
-      const res = await apiRequest(
-        `/api/announcements/announcement/review2marks?enrollement_no=${enrollment_no}`,
-        "GET",
-        null,
-        token
-      );
-      setReview2Marks(res?.data?.review2Marks || res?.review2Marks || null);
+      setEvaluationMarks(res?.data?.marks || res?.marks || []);
     };
 
     fetchStudent();
@@ -339,7 +323,7 @@ const StudentDashboard = () => {
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <Header
-        name={student?.name_of_students || student?.name || "Student"}
+        name={student?.name_of_student || student?.name_of_students || student?.name || "Student"}
         id={student?.enrollment_no || "----"}
       />
       <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
@@ -351,47 +335,53 @@ const StudentDashboard = () => {
             <div className="lg:col-span-2">
               <GroupDetails enrollmentNo={student.enrollment_no} />
 
-              {/* PBL Review 1 & 2 Marks */}
+              {/* Evaluation Marks */}
               <div className="bg-white p-6 rounded-xl shadow-sm mt-8 flex flex-col">
-                <h2 className="text-xl font-bold text-purple-800 mb-4">PBL Review Marks</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="border rounded-lg p-4 bg-purple-50">
-                    <h3 className="font-semibold text-purple-700 mb-2">Review 1</h3>
-                    {review1Marks ? (
-                      <>
-                        <p className="text-gray-700">
-                          <span className="font-bold">Marks:</span> {review1Marks.total}/50
-                        </p>
-                        <p className="text-gray-700 text-sm mt-1">
-                          <span className="font-bold">Date:</span> August 11, 2024
-                        </p>
-                        <p className="text-gray-700 mt-2">
-                          <span className="font-bold">Feedback:</span> {review1Marks.feedback}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-gray-500">Marks not available.</p>
-                    )}
+                <h2 className="text-xl font-bold text-purple-800 mb-4">Evaluation Marks</h2>
+                {evaluationMarks.length === 0 ? (
+                  <p className="text-gray-500">Marks not available.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {evaluationMarks.map((entry) => {
+                      const evaluation = entry.evaluation;
+                      const marksLabel = evaluation
+                        ? evaluation.absent
+                          ? "AB"
+                          : `${evaluation.total ?? "NA"}/${entry.total_marks ?? "-"}`
+                        : null;
+
+                      return (
+                        <div key={entry.form_id} className="border rounded-lg p-4 bg-purple-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-semibold text-purple-700">
+                              {entry.form_name || "Evaluation"}
+                            </h3>
+                            <span className="text-xs text-gray-500">{entry.total_marks ?? "-"} marks</span>
+                          </div>
+                          {evaluation ? (
+                            <>
+                              <p className="text-gray-700">
+                                <span className="font-bold">Marks:</span> {marksLabel}
+                              </p>
+                              {entry.created_at && (
+                                <p className="text-gray-700 text-sm mt-1">
+                                  <span className="font-bold">Date:</span>{" "}
+                                  {new Date(entry.created_at).toLocaleDateString()}
+                                </p>
+                              )}
+                              <p className="text-gray-700 mt-2">
+                                <span className="font-bold">Feedback:</span>{" "}
+                                {evaluation.feedback || "No feedback yet."}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-gray-500">Marks not available.</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="border rounded-lg p-4 bg-blue-50">
-                    <h3 className="font-semibold text-blue-700 mb-2">Review 2</h3>
-                    {review2Marks ? (
-                      <>
-                        <p className="text-gray-700">
-                          <span className="font-bold">Marks:</span> {review2Marks.total}/50
-                        </p>
-                        <p className="text-gray-700 text-sm mt-1">
-                          <span className="font-bold">Date:</span> November 6, 2024
-                        </p>
-                        <p className="text-gray-700 mt-2">
-                          <span className="font-bold">Feedback:</span> {review2Marks.feedback}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-gray-500">Marks not available.</p>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 

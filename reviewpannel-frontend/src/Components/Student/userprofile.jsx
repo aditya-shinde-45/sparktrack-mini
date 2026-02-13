@@ -6,6 +6,7 @@ const UserProfile = ({ enrollmentNo }) => {
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [resumeFile, setResumeFile] = useState(null);
   const [profilePicture, setProfilePicture] = useState(null);
@@ -59,7 +60,7 @@ const UserProfile = ({ enrollmentNo }) => {
 
   const handleSave = async () => {
     try {
-      setLoading(true);
+      setSaving(true);
       const token = localStorage.getItem('student_token');
       
       const formData = new FormData();
@@ -116,7 +117,7 @@ const UserProfile = ({ enrollmentNo }) => {
       console.error('Error updating profile:', err);
       alert('Network error occurred');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -212,14 +213,16 @@ const UserProfile = ({ enrollmentNo }) => {
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-60"
               >
                 <Save size={16} />
-                Save
+                {saving ? 'Saving...' : 'Save'}
               </button>
               <button
                 onClick={handleCancel}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-60"
               >
                 <X size={16} />
                 Cancel

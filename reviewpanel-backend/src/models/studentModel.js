@@ -9,6 +9,7 @@ class StudentModel {
     this.profileTable = 'student_profiles';
     this.pblTable = 'pbl';
     this.announcementsTable = 'announcements';
+    this.mentorsTable = 'mentors';
   }
 
   /**
@@ -159,10 +160,25 @@ class StudentModel {
       profileMap.set(profile.enrollment_no, profile.profile_picture_url);
     });
 
+    let mentorName = null;
+    const mentorCode = members[0]?.mentor_code || null;
+
+    if (mentorCode) {
+      const { data: mentorRow, error: mentorError } = await supabase
+        .from(this.mentorsTable)
+        .select('mentor_name')
+        .eq('mentor_code', mentorCode)
+        .maybeSingle();
+
+      if (mentorError) throw mentorError;
+      mentorName = mentorRow?.mentor_name || null;
+    }
+
     return {
       group_id: groupId,
       team_name: members[0]?.team_name || null,
-      mentor_code: members[0]?.mentor_code || null,
+      mentor_code: mentorCode,
+      mentor_name: mentorName,
       members: members.map(member => ({
         enrollement_no: member.enrollment_no,
         name_of_student: member.student_name,

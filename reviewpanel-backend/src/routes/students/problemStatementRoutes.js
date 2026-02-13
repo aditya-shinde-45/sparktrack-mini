@@ -32,6 +32,62 @@ router.get(
   }
 );
 
+router.put(
+  '/student/group-details/:group_id/team-name',
+  authMiddleware.authenticateUser,
+  authMiddleware.restrictTo('student'),
+  async (req, res, next) => {
+    try {
+      const { group_id } = req.params;
+      const { team_name } = req.body || {};
+      const enrollmentNo = req.user?.enrollment_no || req.user?.student_id;
+
+      if (!group_id || !team_name || !team_name.trim()) {
+        return ApiResponse.error(res, 'Group ID and team name are required', 400);
+      }
+
+      if (!enrollmentNo) {
+        return ApiResponse.error(res, 'Enrollment number missing in token', 400);
+      }
+
+      const { data: memberRow, error: memberError } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .eq('enrollment_no', enrollmentNo)
+        .maybeSingle();
+
+      if (memberError) {
+        return ApiResponse.error(res, memberError.message || 'Failed to validate group membership', 500);
+      }
+
+      if (!memberRow?.group_id) {
+        return ApiResponse.error(res, 'Group not found for the student', 404);
+      }
+
+      if (memberRow.group_id !== group_id) {
+        return ApiResponse.error(res, 'You are not allowed to update this group', 403);
+      }
+
+      const { data: updatedRows, error: updateError } = await supabase
+        .from('pbl')
+        .update({ team_name: team_name.trim() })
+        .eq('group_id', group_id)
+        .select('group_id, team_name');
+
+      if (updateError) {
+        return ApiResponse.error(res, updateError.message || 'Failed to update team name', 500);
+      }
+
+      return ApiResponse.success(res, 'Team name updated successfully', {
+        group_id,
+        team_name: updatedRows?.[0]?.team_name || team_name.trim()
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.post(
   '/student/problem-statement',
   authMiddleware.authenticateUser,

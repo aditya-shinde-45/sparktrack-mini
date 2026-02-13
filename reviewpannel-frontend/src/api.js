@@ -179,6 +179,16 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           }
         }
         
+        // Avoid forcing logout for in-session password changes
+        if (endpoint.includes('/student-auth/update-password')) {
+          return {
+            success: false,
+            status: res.status,
+            message: data?.message || "Invalid current password",
+            error: data?.error || null,
+          };
+        }
+
         // If we're not on a login-related page, clear tokens
         if (!endpoint.includes('/login') && !endpoint.includes('/forgot-password')) {
           console.log("Clearing tokens due to 401");

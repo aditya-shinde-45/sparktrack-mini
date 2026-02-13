@@ -33,6 +33,20 @@ const StudentProfile = () => {
     fetchStudent();
   }, []);
 
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      if (event.detail) {
+        setStudent((prev) => ({
+          ...prev,
+          ...event.detail
+        }));
+      }
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">

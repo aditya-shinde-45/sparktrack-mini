@@ -163,7 +163,7 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
     try {
       const token = localStorage.getItem("student_token");
 
-      await apiRequest(
+      const response = await apiRequest(
         "/api/student-auth/update-password",
         "PUT",
         {
@@ -173,10 +173,14 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
         token
       );
 
-      setMessage("✅ Password updated successfully!");
-      setShowModal(false);
-      setPrevPassword("");
-      setNewPassword("");
+      if (response?.success) {
+        setMessage("✅ Password updated successfully!");
+        setShowModal(false);
+        setPrevPassword("");
+        setNewPassword("");
+      } else {
+        setMessage(`❌ ${response?.message || "Current password is incorrect."}`);
+      }
     } catch (err) {
       setMessage(`❌ ${err.message || "Something went wrong. Try again."}`);
     } finally {
@@ -191,7 +195,8 @@ const Header = ({ name, id, welcomeText = "Welcome to your dashboard" }) => {
     enrollment_no: id 
   };
 
-  const displayName = studentInfo?.name_of_students || 
+  const displayName = studentInfo?.name_of_student ||
+                     studentInfo?.name_of_students || 
                      studentInfo?.name || 
                      name ||
                      "Loading...";

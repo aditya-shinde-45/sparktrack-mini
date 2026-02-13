@@ -17,6 +17,9 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   const [memberProfile, setMemberProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [teamNameInput, setTeamNameInput] = useState('');
+  const [teamNameSaving, setTeamNameSaving] = useState(false);
+  const [teamNameError, setTeamNameError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -118,6 +121,12 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
     fetchData();
   }, [propEnrollmentNo]);
+
+  useEffect(() => {
+    if (groupDetails?.team_name) {
+      setTeamNameInput(groupDetails.team_name);
+    }
+  }, [groupDetails]);
 
   const handleResponse = async (requestId, response) => {
     setActionLoading(true);
@@ -235,6 +244,41 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     setMemberProfile(null);
   };
 
+  const handleSaveTeamName = async () => {
+    if (!groupDetails?.group_id) return;
+    const trimmedName = teamNameInput.trim();
+    if (!trimmedName) {
+      setTeamNameError('Team name is required.');
+      return;
+    }
+
+    setTeamNameSaving(true);
+    setTeamNameError('');
+    try {
+      const token = localStorage.getItem('student_token');
+      const response = await apiRequest(
+        `/api/students/student/group-details/${groupDetails.group_id}/team-name`,
+        'PUT',
+        { team_name: trimmedName },
+        token
+      );
+
+      if (response?.success) {
+        setGroupDetails((prev) => ({
+          ...prev,
+          team_name: response?.data?.team_name || trimmedName
+        }));
+        setMessage('✅ Team name updated successfully!');
+      } else {
+        setTeamNameError(response?.message || 'Failed to update team name.');
+      }
+    } catch (err) {
+      setTeamNameError(err?.message || 'Failed to update team name.');
+    } finally {
+      setTeamNameSaving(false);
+    }
+  };
+
   if (loading) return <p className="text-center text-gray-600">Loading group details...</p>;
   if (error) return <p className="text-center text-red-600">{error}</p>;
 
@@ -254,13 +298,39 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
     return (
       <div className="card col-span-1 p-6 bg-white rounded-xl shadow">
         <MessageAlert />
-        {groupDetails.team_name && (
+        {groupDetails.team_name ? (
           <h1 className="text-base md:text-2xl font-bold mb-2 text-gray-900">{groupDetails.team_name}</h1>
+        ) : (
+          <div className="mb-3">
+            <label className="block text-xs font-semibold text-gray-600 mb-2">Team Name</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={teamNameInput}
+                onChange={(e) => setTeamNameInput(e.target.value)}
+                placeholder="Enter team name"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              <button
+                type="button"
+                onClick={handleSaveTeamName}
+                disabled={teamNameSaving}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
+              >
+                {teamNameSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+            {teamNameError && (
+              <p className="text-xs text-red-600 mt-2">{teamNameError}</p>
+            )}
+          </div>
         )}
         <h2 className="text-xl font-semibold mb-4 text-gray-900">Group: {groupDetails.group_id}</h2>
         <p className="text-base text-gray-800 mb-6">
-          <strong>Mentor:</strong> 
-          <span className="text-purple-700 ml-2">{groupDetails.mentor_code || "Not Assigned"}</span>
+          <strong>Guide:</strong>
+          <span className="text-purple-700 ml-2">
+            {groupDetails.mentor_name || groupDetails.mentor_code || "Not Assigned"}
+          </span>
         </p>
         
         <div className="mb-6">
