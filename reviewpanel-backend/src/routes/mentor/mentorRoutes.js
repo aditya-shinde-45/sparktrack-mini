@@ -2,6 +2,7 @@ import express from 'express';
 import mentorController from '../../controllers/mentor/mentorController.js';
 import mentorAuthController from '../../controllers/mentor/mentorAuthController.js';
 import zerothReviewController from '../../controllers/mentor/zerothReviewController.js';
+import mentorDocumentController from '../../controllers/mentor/mentorDocumentController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -162,6 +163,28 @@ router.delete(
   authMiddleware.verifyToken, 
   authMiddleware.authenticateAdmin, 
   mentorController.deleteMentor
+);
+
+/**
+ * @route   GET /api/mentors/documents/:groupId
+ * @desc    Get all documents for a specific group
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/documents/:groupId',
+  authMiddleware.verifyToken,
+  mentorDocumentController.getGroupDocuments
+);
+
+/**
+ * @route   PUT /api/mentors/documents/:id/status
+ * @desc    Update document status (approve/reject)
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/documents/:id/status',
+  authMiddleware.verifyToken,
+  mentorDocumentController.updateDocumentStatus
 );
 
 export default router;
