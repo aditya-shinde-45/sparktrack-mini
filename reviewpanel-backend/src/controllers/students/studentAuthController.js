@@ -11,13 +11,23 @@ class StudentAuthController {
    */
   studentLogin = asyncHandler(async (req, res) => {
     const { enrollment_no, password } = req.body;
+    
+    console.log('=== STUDENT LOGIN CONTROLLER ===');
+    console.log('Enrollment No:', enrollment_no);
+    console.log('Password provided:', password ? 'Yes' : 'No');
+    console.log('Password length:', password?.length);
 
     if (!enrollment_no || !password) {
+      console.log('❌ Missing enrollment_no or password');
       throw ApiError.badRequest('Enrollment number and password are required.');
     }
 
+    console.log('📞 Calling validateCredentials...');
     const student = await studentAuthModel.validateCredentials(enrollment_no, password);
+    console.log('📋 Result from validateCredentials:', student);
+    
     if (!student) {
+      console.log('❌ validateCredentials returned null/falsy');
       throw ApiError.unauthorized('Invalid enrollment number or password.');
     }
 
@@ -43,6 +53,7 @@ class StudentAuthController {
       student: {
         enrollment_no: student.enrollment_no,
         email: student.email,
+        name: student.name,
         role: student.role,
       },
     };
