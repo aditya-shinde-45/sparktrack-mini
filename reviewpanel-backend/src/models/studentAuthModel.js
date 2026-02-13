@@ -20,7 +20,7 @@ class StudentAuthModel {
   async findStudentByEnrollmentNo(enrollmentNo) {
     const { data, error } = await supabase
       .from(this.studentsTable)
-      .select('enrollment_no, email_id, contact')
+      .select('enrollment_no, student_email_id, student_contact_no, name_of_student')
       .eq('enrollment_no', enrollmentNo)
       .single();
 
@@ -37,36 +37,76 @@ class StudentAuthModel {
    * @param {string} password - Student password
    */
   async validateCredentials(enrollmentNo, password) {
+    console.log('🔍 Login attempt:', { enrollmentNo, passwordLength: password?.length });
+    
     const { data: student, error } = await supabase
       .from(this.studentsTable)
-      .select('enrollment_no, email_id, contact, password')
+      .select('enrollment_no, student_email_id, student_contact_no, name_of_student, password, status')
       .eq('enrollment_no', enrollmentNo)
       .single();
     
-    if (error || !student) return null;
+    if (error) {
+      console.error('❌ Database error:', error);
+      return null;
+    }
+    
+    if (!student) {
+      console.log('❌ Student not found in database');
+      return null;
+    }
+    
+    console.log('✅ Student found:', {
+      enrollment_no: student.enrollment_no,
+      email: student.student_email_id,
+      contact: student.student_contact_no,
+      name: student.name_of_student,
+      hasPassword: !!student.password,
+      status: student.status
+    });
+    
+    // Check if student is active
+    // Accept 'Active', '#N/A' (from Excel imports), null, or empty string
+    const validStatuses = ['active', '#n/a', ''];
+    const statusLower = student.status ? student.status.toLowerCase().trim() : '';
+    
+    if (student.status && !validStatuses.includes(statusLower)) {
+      console.log('❌ Student status is not valid:', student.status);
+      return null; // Invalid/Inactive student cannot login
+    }
+    console.log('✅ Student status accepted:', student.status);
     
     // Check if password is set
     if (!student.password) {
+      console.log('⚠️ No password set. Checking if contact number matches...');
+      console.log('Contact from DB:', student.student_contact_no);
+      console.log('Password entered:', password);
+      
       // Verify contact number for password setup
-      if (password === student.contact) {
+      if (password === student.student_contact_no) {
+        console.log('✅ Contact number matches - password setup required');
         return {
           needsPasswordSetup: true,
           enrollment_no: student.enrollment_no,
-          email: student.email_id,
-          contact: student.contact
+          email: student.student_email_id,
+          contact: student.student_contact_no,
+          name: student.name_of_student
         };
       }
+      console.log('❌ Contact number does not match');
       return null; // Invalid contact number
     }
     
     // Validate password
+    console.log('🔐 Validating hashed password...');
     const isValid = await bcrypt.compare(password, student.password);
+    console.log('Password valid:', isValid);
     if (!isValid) return null;
     
     return {
       student_id: student.enrollment_no,
       enrollment_no: student.enrollment_no,
-      email: student.email_id,
+      email: student.student_email_id,
+      name: student.name_of_student,
       role: 'student'
     };
   }
@@ -136,7 +176,7 @@ class StudentAuthModel {
   async findById(id) {
     const { data, error } = await supabase
       .from(this.studentsTable)
-      .select('enrollment_no, email_id, name')
+      .select('enrollment_no, student_email_id, name_of_student, status')
       .eq('enrollment_no', id)
       .single();
 
@@ -145,8 +185,9 @@ class StudentAuthModel {
     return {
       id: data.enrollment_no,
       enrollment_no: data.enrollment_no,
-      email: data.email_id,
-      name: data.name,
+      email: data.student_email_id,
+      name: data.name_of_student,
+      status: data.status,
       role: 'student'
     };
   }
@@ -160,8 +201,8 @@ class StudentAuthModel {
       // Check if student exists and has password set
       const { data, error } = await supabase
         .from(this.studentsTable)
-        .select('enrollment_no, email_id, password')
-        .eq('email_id', email);
+        .select('enrollment_no, student_email_id, name_of_student, password, status')
+        .eq('student_email_id', email);
 
       console.log('Forgot password lookup:', { 
         email, 
@@ -258,7 +299,7 @@ class StudentAuthModel {
     const { error } = await supabase
       .from(this.studentsTable)
       .update({ password: hashedPassword })
-      .eq('email_id', email);
+      .eq('student_email_id', email);
 
     if (error) throw error;
 
