@@ -35,6 +35,7 @@ import studentProfileRoutes from "./src/routes/students/studentProfileRoutes.js"
 import creategroupRoutes from "./src/routes/students/creategroupRoutes.js";
 import groupDraftRoutes from "./src/routes/students/groupDraftRoutes.js";
 import internshipRoutes from "./src/routes/students/internshipRoutes.js";
+import documentRoutes from "./src/routes/students/documentRoutes.js";
 import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
@@ -90,6 +91,7 @@ app.use("/api/admin", evaluationFormRoutes); // Admin evaluation form routes
 
 // Newly migrated routes
 app.use("/api/student-auth", studentAuthRoutes);
+app.use("/api/student/documents", documentRoutes); // Student document upload/management
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
 app.use("/api", testRoutes); // Test routes for CI/CD
