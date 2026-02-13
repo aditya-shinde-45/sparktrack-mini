@@ -3,6 +3,7 @@ import ApiResponse from '../../utils/apiResponse.js';
 import studentModel from '../../models/studentModel.js';
 import mentorModel from '../../models/mentorModel.js';
 import pblModel from '../../models/pblModel.js';
+import evaluationFormModel from '../../models/evaluationFormModel.js';
 import supabase from '../../config/database.js';
 
 /**
@@ -41,6 +42,7 @@ class RoleAccessController {
   getAllRecords = asyncHandler(async (req, res) => {
     const { tableName } = req.params;
     const { tablePermissions } = req.user;
+    const { formId, forms, page, limit, search } = req.query;
 
     // Verify permission
     this.verifyTablePermission(tablePermissions, tableName);
@@ -90,6 +92,95 @@ class RoleAccessController {
           mentor_name: record.mentor_code ? mentorMap[record.mentor_code] : null,
         })) || [];
         break;
+
+      case 'industrial_mentors':
+        const { data: industrialMentors, error: industrialError } = await supabase
+          .from('industrial_mentors')
+          .select('id, industrial_mentor_code, name, company_name, designation, email, contact, mentor_code, created_at')
+          .order('created_at', { ascending: false });
+
+        if (industrialError) {
+          throw ApiError.internalError('Failed to fetch industrial mentors');
+        }
+
+        const { data: industrialMentorLinks, error: mentorLookupError } = await supabase
+          .from('mentors')
+          .select('mentor_code, mentor_name');
+
+        if (mentorLookupError) {
+          throw ApiError.internalError('Failed to fetch mentors for industrial mentors');
+        }
+
+        const mentorNameMap = {};
+        (industrialMentorLinks || []).forEach((mentor) => {
+          mentorNameMap[mentor.mentor_code] = mentor.mentor_name;
+        });
+
+        records = (industrialMentors || []).map((record) => ({
+          ...record,
+          mentor_name: record.mentor_code ? mentorNameMap[record.mentor_code] : null
+        }));
+        break;
+
+      case 'evaluation_form_submission':
+        if (forms === '1') {
+          const evalForms = await evaluationFormModel.listForms();
+          return ApiResponse.success(res, 'Evaluation forms retrieved successfully', { forms: evalForms || [] });
+        }
+
+        if (!formId) {
+          throw ApiError.badRequest('Form ID is required');
+        }
+
+        const evalForm = await evaluationFormModel.getFormById(formId);
+        const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
+        const normalizedSearch = (search || '').toLowerCase();
+        const safeLimit = Number(limit) || 50;
+        const safePage = Number(page) || 1;
+
+        const flattened = submissions.flatMap((submission) => {
+          const evaluations = Array.isArray(submission.evaluations) ? submission.evaluations : [];
+          return evaluations.map((evaluation) => ({
+            submission_id: submission.id,
+            group_id: submission.group_id,
+            external_name: submission.external_name,
+            feedback: submission.feedback,
+            created_at: submission.created_at,
+            enrollment_no: evaluation.enrollment_no || evaluation.enrollement_no,
+            student_name: evaluation.student_name || evaluation.name_of_student,
+            marks: evaluation.marks || {},
+            total: evaluation.total ?? null,
+            absent: evaluation.absent || false
+          }));
+        });
+
+        const filtered = normalizedSearch
+          ? flattened.filter((row) => {
+              const groupId = String(row.group_id || '').toLowerCase();
+              const enrollmentNo = String(row.enrollment_no || '').toLowerCase();
+              const studentName = String(row.student_name || '').toLowerCase();
+              return groupId.includes(normalizedSearch)
+                || enrollmentNo.includes(normalizedSearch)
+                || studentName.includes(normalizedSearch);
+            })
+          : flattened;
+
+        const totalRecords = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(totalRecords / safeLimit));
+        const safePageNumber = Math.min(Math.max(safePage, 1), totalPages);
+        const startIndex = (safePageNumber - 1) * safeLimit;
+        const paginated = filtered.slice(startIndex, startIndex + safeLimit);
+
+        return ApiResponse.success(res, 'Evaluation form submissions retrieved successfully', {
+          data: paginated,
+          pagination: {
+            currentPage: safePageNumber,
+            totalPages,
+            totalRecords,
+            limit: safeLimit
+          },
+          form: evalForm || null
+        });
 
       default:
         throw ApiError.badRequest('Invalid table name');
@@ -221,7 +312,7 @@ class RoleAccessController {
 
       case 'mentors':
         // Validate required mentor fields
-        const { mentor_name, contact_number } = recordData;
+        const { mentor_name, contact_number, email, designation } = recordData;
         if (!mentor_name || !contact_number) {
           throw ApiError.badRequest('mentor_name and contact_number are required');
         }
@@ -338,6 +429,75 @@ class RoleAccessController {
         newRecord = pblGroup;
         break;
 
+      case 'industrial_mentors':
+        const {
+          name,
+          email: industrialEmail,
+          contact: industrialContact,
+          company_name: industrialCompany,
+          designation: industrialDesignation,
+          mentor_code: industrialMentorCode
+        } = recordData;
+        if (!name || !industrialEmail || !industrialContact) {
+          throw ApiError.badRequest('name, email, and contact are required');
+        }
+
+        let hashedIndustrialPassword = null;
+        if (recordData.password && recordData.password.trim() !== '') {
+          const bcrypt = await import('bcrypt');
+          hashedIndustrialPassword = await bcrypt.hash(recordData.password, 10);
+        }
+
+        let industrialMentorCodeValue = recordData.industrial_mentor_code;
+        if (!industrialMentorCodeValue) {
+          const { data: codes, error: codeError } = await supabase
+            .from('industrial_mentors')
+            .select('industrial_mentor_code')
+            .ilike('industrial_mentor_code', 'im%');
+
+          if (codeError) {
+            throw ApiError.internalError('Failed to generate industrial mentor code');
+          }
+
+          let maxNumber = 0;
+          (codes || []).forEach((row) => {
+            const match = String(row.industrial_mentor_code || '').match(/im(\d+)/i);
+            if (match) {
+              const parsed = Number.parseInt(match[1], 10);
+              if (!Number.isNaN(parsed)) {
+                maxNumber = Math.max(maxNumber, parsed);
+              }
+            }
+          });
+          industrialMentorCodeValue = `IM${String(maxNumber + 1).padStart(3, '0')}`;
+        }
+
+        const { data: industrialMentor, error: industrialInsertError } = await supabase
+          .from('industrial_mentors')
+          .insert([{
+            industrial_mentor_code: industrialMentorCodeValue,
+            name,
+            email: industrialEmail,
+            contact: industrialContact,
+            company_name: industrialCompany || null,
+            designation: industrialDesignation || null,
+            mentor_code: industrialMentorCode || null,
+            password: hashedIndustrialPassword
+          }])
+          .select()
+          .single();
+
+        if (industrialInsertError) {
+          throw ApiError.internalError('Failed to create industrial mentor');
+        }
+
+        const { password: _password, ...safeIndustrialMentor } = industrialMentor || {};
+        newRecord = safeIndustrialMentor;
+        break;
+
+      case 'evaluation_form_submission':
+        throw ApiError.badRequest('Evaluation form submissions cannot be created here');
+
       default:
         throw ApiError.badRequest('Invalid table name');
     }
@@ -451,6 +611,9 @@ class RoleAccessController {
         }
         break;
 
+      case 'evaluation_form_submission':
+        throw ApiError.badRequest('Evaluation form submissions cannot be updated here');
+
       default:
         throw ApiError.badRequest('Invalid table name');
     }
@@ -464,6 +627,7 @@ class RoleAccessController {
   deleteRecord = asyncHandler(async (req, res) => {
     const { tableName, id } = req.params;
     const { tablePermissions } = req.user;
+    const { formId } = req.query;
 
     // Verify permission
     this.verifyTablePermission(tablePermissions, tableName);
@@ -526,6 +690,23 @@ class RoleAccessController {
           .eq('enrollment_no', id);
         
         if (pblError) throw ApiError.internalError('Failed to delete PBL record');
+        break;
+
+      case 'industrial_mentors':
+        throw ApiError.forbidden('Industrial mentors cannot be deleted by sub-admins');
+        break;
+
+      case 'evaluation_form_submission':
+        if (!formId) {
+          throw ApiError.badRequest('Form ID is required');
+        }
+
+        const submission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, id);
+        if (!submission) {
+          throw ApiError.notFound('Submission not found for this group');
+        }
+
+        await evaluationFormModel.deleteSubmission(submission.id, formId);
         break;
 
       default:

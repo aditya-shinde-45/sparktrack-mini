@@ -84,7 +84,12 @@ const AppRoutes = () => {
       <Route path="/mentor/evaluation" element={<MentorEvaluation />} />
       <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
       <Route path="/mentor/schedule" element={<MentorDashboard />} />
-      <Route path="/mentor/settings" element={<MentorDashboard />} />
+      <Route path="/mentor/settings" element={<MentorSettings />} />
+
+      {/* Industry Mentor Routes */}
+      <Route path="/industry-mentor/dashboard" element={<IndustryMentorDashboard />} />
+      <Route path="/industry-mentor/groups" element={<IndustryMentorGroups />} />
+      <Route path="/industry-mentor/groups/:groupId" element={<IndustryMentorGroups />} />
 
 
       {/* External Routes removed */}

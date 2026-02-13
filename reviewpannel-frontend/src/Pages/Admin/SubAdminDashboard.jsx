@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Common/Header";
+import MarksTable from "../../Components/Admin/MarksTable";
+import Pagination from "../../Components/Admin/Pagination";
 import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { apiRequest } from "../../api";
 
@@ -25,8 +27,46 @@ const SubAdminDashboard = () => {
   const [showMentorDropdown, setShowMentorDropdown] = useState(false);
   const [studentList, setStudentList] = useState([]);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [evaluationForms, setEvaluationForms] = useState([]);
+  const [selectedEvaluationFormId, setSelectedEvaluationFormId] = useState("");
+  const [evaluationFormFields, setEvaluationFormFields] = useState([]);
+  const [evaluationFormTotal, setEvaluationFormTotal] = useState(0);
+  const [evaluationSubmissions, setEvaluationSubmissions] = useState([]);
+  const [evaluationSearchQuery, setEvaluationSearchQuery] = useState("");
+  const [evaluationLoading, setEvaluationLoading] = useState(false);
+  const [evaluationError, setEvaluationError] = useState("");
+  const [evaluationCurrentPage, setEvaluationCurrentPage] = useState(1);
+  const [evaluationTotalPages, setEvaluationTotalPages] = useState(1);
+  const [evaluationTotalRecords, setEvaluationTotalRecords] = useState(0);
+  const [evaluationSortBy, setEvaluationSortBy] = useState("group_id");
+  const [evaluationSortOrder, setEvaluationSortOrder] = useState("asc");
+  const [evaluationRowsPerPage] = useState(50);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+  const evaluationComputedTotal = React.useMemo(() => {
+    return evaluationFormFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
+  }, [evaluationFormFields]);
+
+  const sortedEvaluationSubmissions = React.useMemo(() => {
+    const dataToSort = [...evaluationSubmissions];
+    return dataToSort.sort((a, b) => {
+      let aVal = a[evaluationSortBy];
+      let bVal = b[evaluationSortBy];
+
+      if (evaluationSortBy === "total") {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else {
+        aVal = String(aVal || "").toLowerCase();
+        bVal = String(bVal || "").toLowerCase();
+      }
+
+      if (aVal < bVal) return evaluationSortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return evaluationSortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [evaluationSubmissions, evaluationSortBy, evaluationSortOrder]);
 
   useEffect(() => {
     const fetchUserPermissions = async () => {
@@ -75,7 +115,11 @@ const SubAdminDashboard = () => {
   // Fetch table data when selectedTable changes
   useEffect(() => {
     if (selectedTable) {
-      fetchTableData();
+      if (selectedTable === 'evaluation_form_submission') {
+        fetchEvaluationForms();
+      } else {
+        fetchTableData();
+      }
     }
   }, [selectedTable]);
 
@@ -101,6 +145,69 @@ const SubAdminDashboard = () => {
       setTableData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEvaluationForms = async () => {
+    const token = localStorage.getItem("token");
+    setEvaluationLoading(true);
+    setEvaluationError("");
+
+    try {
+      const response = await apiRequest('/api/role-access/evaluation_form_submission?forms=1', 'GET', null, token);
+      if (response.success && response.data) {
+        const forms = response.data.forms || [];
+        setEvaluationForms(forms);
+        if (!selectedEvaluationFormId && forms.length > 0) {
+          setSelectedEvaluationFormId(forms[0].id);
+        }
+      } else {
+        setEvaluationForms([]);
+      }
+    } catch (error) {
+      console.error("Error fetching evaluation forms:", error);
+      setEvaluationForms([]);
+      setEvaluationError("Failed to load evaluation forms.");
+    } finally {
+      setEvaluationLoading(false);
+    }
+  };
+
+  const fetchEvaluationSubmissions = async (formId, page, search = "") => {
+    if (!formId) return;
+    const token = localStorage.getItem("token");
+    setEvaluationLoading(true);
+    setEvaluationError("");
+
+    try {
+      const url = `/api/role-access/evaluation_form_submission?formId=${formId}&page=${page}&limit=${evaluationRowsPerPage}&search=${encodeURIComponent(search)}`;
+      const response = await apiRequest(url, 'GET', null, token);
+
+      if (response?.success && response.data) {
+        const payload = response.data;
+        const submissionsData = payload.data || [];
+        const paginationInfo = payload.pagination || {};
+
+        const incomingFields = Array.isArray(payload.form?.fields) ? payload.form.fields : [];
+        const sortedFields = [...incomingFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setEvaluationFormFields(sortedFields);
+        setEvaluationFormTotal(payload.form?.total_marks || 0);
+        setEvaluationTotalPages(paginationInfo.totalPages || 1);
+        setEvaluationTotalRecords(paginationInfo.totalRecords || 0);
+        setEvaluationError("");
+        setEvaluationSubmissions(submissionsData);
+        return;
+      }
+
+      setEvaluationSubmissions([]);
+      setEvaluationTotalPages(1);
+      setEvaluationTotalRecords(0);
+    } catch (error) {
+      console.error("Error fetching evaluation submissions:", error);
+      setEvaluationSubmissions([]);
+      setEvaluationError("Failed to load evaluation submissions.");
+    } finally {
+      setEvaluationLoading(false);
     }
   };
 
@@ -132,7 +239,20 @@ const SubAdminDashboard = () => {
   useEffect(() => {
     setCurrentPage(1);
     setSearchQuery('');
+    setEvaluationCurrentPage(1);
+    setEvaluationSearchQuery('');
   }, [selectedTable]);
+
+  useEffect(() => {
+    if (selectedTable === 'evaluation_form_submission') {
+      if (selectedEvaluationFormId) {
+        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery);
+      } else {
+        setEvaluationSubmissions([]);
+        setEvaluationTotalRecords(0);
+      }
+    }
+  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery]);
 
   // Fetch mentors and students when PBL table is selected and modal is opened
   useEffect(() => {
@@ -249,6 +369,34 @@ const SubAdminDashboard = () => {
     }
   };
 
+  const handleDeleteEvaluationGroup = async (groupId) => {
+    if (!selectedEvaluationFormId || !groupId) return;
+
+    if (!window.confirm(`Delete evaluation marks for group ${groupId}?`)) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    try {
+      const response = await apiRequest(
+        `/api/role-access/evaluation_form_submission/${groupId}?formId=${selectedEvaluationFormId}`,
+        'DELETE',
+        null,
+        token
+      );
+
+      if (response.success) {
+        alert("Evaluation marks deleted successfully!");
+        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery);
+      } else {
+        alert(`Failed to delete marks: ${response.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error deleting evaluation marks:", error);
+      alert("Error deleting evaluation marks. Please try again.");
+    }
+  };
+
   const handleSubmitAdd = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -262,6 +410,10 @@ const SubAdminDashboard = () => {
       if (selectedTable === 'pbl' && dataToSubmit.mentor_name && dataToSubmit.mentor_code) {
         // mentor_code will be sent, mentor_name is just for selection UI
         delete dataToSubmit.mentor_name;
+      }
+
+      if (selectedTable === 'industrial_mentors') {
+        delete dataToSubmit.industrial_mentor_code;
       }
       
       const response = await apiRequest(`/api/role-access/${selectedTable}`, 'POST', dataToSubmit, token);
@@ -314,8 +466,16 @@ const SubAdminDashboard = () => {
       }
     }
 
+    if (selectedTable === 'mentors') {
+      delete filteredData.mentor_code;
+    }
+
+    if (selectedTable === 'industrial_mentors') {
+      delete filteredData.industrial_mentor_code;
+    }
+
     // Add password if it's provided and not empty (for students and mentors tables)
-    if ((selectedTable === 'students' || selectedTable === 'mentors') && formData.password && formData.password.trim() !== '') {
+    if ((selectedTable === 'students' || selectedTable === 'mentors' || selectedTable === 'industrial_mentors') && formData.password && formData.password.trim() !== '') {
       filteredData.password = formData.password;
     }
 
@@ -342,15 +502,22 @@ const SubAdminDashboard = () => {
       case 'students':
         return ['enrollment_no', 'name_of_students', 'email_id', 'contact', 'class'];
       case 'mentors':
-        return ['mentor_code', 'mentor_name', 'contact_number'];
+        return ['mentor_code', 'mentor_name', 'contact_number', 'email', 'designation'];
       case 'pbl':
         return ['group_id', 'enrollment_no', 'student_name', 'team_name', 'class', 'is_leader', 'mentor_name'];
+      case 'industrial_mentors':
+        return ['industrial_mentor_code', 'name', 'company_name', 'designation', 'email', 'contact', 'mentor_name'];
+      case 'evaluation_form_submission':
+        return [];
       default:
         return [];
     }
   };
 
   const renderFormFields = () => {
+    if (selectedTable === 'industrial_mentors' && showEditModal) {
+      return null;
+    }
     const fields = [...getTableColumns()];
     
     // Add password field for mentors in add modal
@@ -360,10 +527,13 @@ const SubAdminDashboard = () => {
     
     return fields.map(field => {
       // Skip auto-generated or ID fields in add modal, and mentor_name for PBL (will be handled separately)
-      if ((field === 'id' || field === 'mentor_id' || (field === 'mentor_code' && selectedTable === 'mentors') || (field === 'group_id' && selectedTable === 'mentors')) && showAddModal) return null;
+      if ((field === 'id' || field === 'mentor_id' || (field === 'mentor_code' && selectedTable === 'mentors') || (field === 'industrial_mentor_code' && selectedTable === 'industrial_mentors')) && showAddModal) return null;
       
       // Skip mentor_code and group_id in mentor edit modal - these should not be edited
       if ((field === 'mentor_code' || field === 'group_id') && selectedTable === 'mentors' && showEditModal) return null;
+
+      // Skip industrial mentor code in edit modal
+      if (field === 'industrial_mentor_code' && selectedTable === 'industrial_mentors' && showEditModal) return null;
       
       // Skip mentor_name in PBL add modal - it will be handled with special dropdown
       if (field === 'mentor_name' && selectedTable === 'pbl' && showAddModal) return null;
@@ -378,6 +548,10 @@ const SubAdminDashboard = () => {
       if ((field === 'student_name' || field === 'enrollment_no' || field === 'class') && selectedTable === 'pbl' && showAddModal) return null;
       
       const isReadOnly = false;
+      const baseRequired = field !== 'contact' && field !== 'contact_number' && field !== 'phone' && field !== 'department' && field !== 'specialization' && field !== 'class_prefix' && field !== 'mentor_code' && field !== 'status' && field !== 'is_leader' && field !== 'ps_id' && field !== 'review1' && field !== 'review2' && field !== 'final' && field !== 'email_id' && field !== 'guide_name' && field !== 'guide_contact' && field !== 'class' && field !== 'mentor_name' && field !== 'email' && field !== 'designation' && field !== 'company_name' && field !== 'industrial_mentor_code';
+      const isRequired = selectedTable === 'industrial_mentors'
+        ? ['name', 'email', 'contact'].includes(field)
+        : baseRequired;
       
 
       
@@ -393,7 +567,7 @@ const SubAdminDashboard = () => {
             value={formData[field] || ''}
             onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
             className={`w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            required={field !== 'contact' && field !== 'contact_number' && field !== 'phone' && field !== 'department' && field !== 'specialization' && field !== 'class_prefix' && field !== 'mentor_code' && field !== 'status' && field !== 'is_leader' && field !== 'ps_id' && field !== 'review1' && field !== 'review2' && field !== 'final' && field !== 'email_id' && field !== 'guide_name' && field !== 'guide_contact' && field !== 'class' && field !== 'mentor_name'}
+            required={isRequired}
             readOnly={isReadOnly}
           />
         </div>
@@ -405,7 +579,9 @@ const SubAdminDashboard = () => {
     const names = {
       students: "Students",
       pbl: "PBL Groups",
-      mentors: "Mentors"
+      mentors: "Mentors",
+      evaluation_form_submission: "Evaluation Form Submissions",
+      industrial_mentors: "Industrial Mentors"
     };
     return names[tableName] || tableName;
   };
@@ -476,10 +652,9 @@ const SubAdminDashboard = () => {
           </div>
         </div>
 
-        {/* Table Name and Actions */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
+        {selectedTable === 'evaluation_form_submission' ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-purple-100 rounded-xl">
                 <Database className="w-6 h-6 text-purple-600" />
               </div>
@@ -488,223 +663,365 @@ const SubAdminDashboard = () => {
               </h2>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={handleAddRecord}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium">
-                <Plus className="w-5 h-5" />
-                Add Record
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search in table..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
-              />
-            </div>
-          </div>
-
-          {/* Table */}
-          <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gradient-to-r from-purple-600 to-purple-700">
-                    {getTableColumns().map(col => (
-                      <th key={col} className="px-6 py-4 text-center text-sm font-semibold text-white capitalize">
-                        {col.replace(/_/g, ' ')}
-                      </th>
-                    ))}
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {(() => {
-                    const startIndex = (currentPage - 1) * recordsPerPage;
-                    const endIndex = startIndex + recordsPerPage;
-                    const currentRecords = filteredData.slice(startIndex, endIndex);
-                    
-                    return currentRecords.length > 0 ? (
-                      currentRecords.map((row, index) => (
-                      <tr
-                        key={row.id || row.enrollment_no || row.mentor_code || index}
-                        className={`hover:bg-gray-50 transition-colors ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        }`}
-                      >
-                        {getTableColumns().map(col => (
-                          <td key={col} className="px-6 py-4 text-center text-gray-900">
-                            {row[col] || "-"}
-                          </td>
-                        ))}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button 
-                              onClick={() => handleEditRecord(row)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit record"
-                            >
-                              <Edit className="w-5 h-5" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteRecord(row)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete record"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={getTableColumns().length + 1} className="px-6 py-16 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                            <Database className="w-8 h-8 text-gray-400" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
-                          <p className="text-gray-600 mb-4">
-                            {searchQuery ? "No results found for your search" : "Get started by adding new records"}
-                          </p>
-                          {!searchQuery && (
-                            <button 
-                              onClick={handleAddRecord}
-                              className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors">
-                              <Plus className="w-5 h-5" />
-                              Add First Record
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Pagination */}
-          {(() => {
-            const totalPages = Math.ceil(filteredData.length / recordsPerPage);
-            const startIndex = (currentPage - 1) * recordsPerPage;
-            const endIndex = startIndex + recordsPerPage;
-            
-            const handlePageChange = (page) => {
-              setCurrentPage(page);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            };
-            
-            const getPageNumbers = () => {
-              const pageNumbers = [];
-              const maxVisiblePages = 5;
-              
-              let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-              let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-              
-              if (endPage - startPage < maxVisiblePages - 1) {
-                startPage = Math.max(1, endPage - maxVisiblePages + 1);
-              }
-              
-              for (let i = startPage; i <= endPage; i++) {
-                pageNumbers.push(i);
-              }
-              
-              return pageNumbers;
-            };
-            
-            return totalPages > 1 && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1
-                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages
-                        ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Next
-                  </button>
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl shadow-lg p-6 mb-6">
+              <div className="flex flex-wrap gap-4 items-center">
+                <select
+                  value={selectedEvaluationFormId}
+                  onChange={(e) => {
+                    setSelectedEvaluationFormId(e.target.value);
+                    setEvaluationCurrentPage(1);
+                  }}
+                  className="px-4 py-2 rounded-lg font-semibold bg-white text-purple-700 shadow-lg"
+                >
+                  <option value="">Select Evaluation Form</option>
+                  {evaluationForms.map((form) => (
+                    <option key={form.id} value={form.id}>
+                      {form.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-white text-sm">
+                  <span className="font-semibold">Total Records:</span> {evaluationTotalRecords}
                 </div>
-                
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                      <span className="font-medium">{Math.min(endIndex, filteredData.length)}</span> of{' '}
-                      <span className="font-medium">{filteredData.length}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1
-                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                            : 'text-gray-500 bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
+              </div>
+            </div>
 
-                      {getPageNumbers().map((pageNumber) => (
-                        <button
-                          key={pageNumber}
-                          onClick={() => handlePageChange(pageNumber)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            pageNumber === currentPage
-                              ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
-                        >
-                          {pageNumber}
-                        </button>
-                      ))}
-
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                            : 'text-gray-500 bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </button>
-                    </nav>
+            <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search by Group ID, Enrollment No or Student Name..."
+                    value={evaluationSearchQuery}
+                    onChange={(e) => {
+                      setEvaluationSearchQuery(e.target.value);
+                      setEvaluationCurrentPage(1);
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Sort By</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={evaluationSortBy}
+                      onChange={(e) => setEvaluationSortBy(e.target.value)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                    >
+                      <option value="group_id">Group ID</option>
+                      <option value="enrollment_no">Enrollment No</option>
+                      <option value="student_name">Student Name</option>
+                      <option value="total">Total Marks</option>
+                      <option value="external_name">External Name</option>
+                    </select>
+                    <button
+                      onClick={() => setEvaluationSortOrder(evaluationSortOrder === "asc" ? "desc" : "asc")}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 font-semibold"
+                      title={`Sort ${evaluationSortOrder === "asc" ? "Ascending" : "Descending"}`}
+                    >
+                      {evaluationSortOrder === "asc" ? "↑ ASC" : "↓ DESC"}
+                    </button>
                   </div>
                 </div>
               </div>
-            );
-          })()}
-        </div>
+            </div>
+
+            {evaluationLoading && (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <span className="ml-3 text-gray-600 font-semibold">Loading data...</span>
+              </div>
+            )}
+
+            {evaluationError && !evaluationLoading && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
+                <div className="flex items-center">
+                  <span className="material-icons text-red-500 mr-2">error</span>
+                  <p className="text-red-700 font-semibold">{evaluationError}</p>
+                </div>
+              </div>
+            )}
+
+            {!evaluationLoading && !evaluationError && (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+                <div className="overflow-x-auto">
+                  <MarksTable
+                    students={sortedEvaluationSubmissions}
+                    loading={evaluationLoading}
+                    error={evaluationError}
+                    reviewType="form"
+                    formFields={evaluationFormFields}
+                    totalMarks={evaluationFormTotal || evaluationComputedTotal}
+                    onDeleteGroup={handleDeleteEvaluationGroup}
+                  />
+                </div>
+              </div>
+            )}
+
+            {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-4 mt-6">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    Showing <span className="font-semibold text-purple-600">{((evaluationCurrentPage - 1) * evaluationRowsPerPage) + 1}</span> to{" "}
+                    <span className="font-semibold text-purple-600">
+                      {Math.min(evaluationCurrentPage * evaluationRowsPerPage, evaluationTotalRecords)}
+                    </span>{" "}
+                    of <span className="font-semibold text-purple-600">{evaluationTotalRecords}</span> entries
+                  </div>
+                  <Pagination
+                    currentPage={evaluationCurrentPage}
+                    totalPages={evaluationTotalPages}
+                    setCurrentPage={setEvaluationCurrentPage}
+                    totalItems={evaluationTotalRecords}
+                    rowsPerPage={evaluationRowsPerPage}
+                  />
+                </div>
+              </div>
+            )}
+
+            {!evaluationLoading && !evaluationError && evaluationTotalRecords === 0 && (
+              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mt-6">
+                <span className="material-icons text-gray-400 text-6xl mb-4">inbox</span>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Records Found</h3>
+                <p className="text-gray-500">Try adjusting your filters or search query.</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-purple-100 rounded-xl">
+                  <Database className="w-6 h-6 text-purple-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {getTableDisplayName(selectedTable)}
+                </h2>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                {selectedTable !== 'industrial_mentors' && (
+                  <button 
+                    onClick={handleAddRecord}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium">
+                    <Plus className="w-5 h-5" />
+                    Add Record
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search in table..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-purple-600 to-purple-700">
+                      {getTableColumns().map(col => (
+                        <th key={col} className="px-6 py-4 text-center text-sm font-semibold text-white capitalize">
+                          {col.replace(/_/g, ' ')}
+                        </th>
+                      ))}
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {(() => {
+                      const startIndex = (currentPage - 1) * recordsPerPage;
+                      const endIndex = startIndex + recordsPerPage;
+                      const currentRecords = filteredData.slice(startIndex, endIndex);
+                      
+                      return currentRecords.length > 0 ? (
+                        currentRecords.map((row, index) => (
+                        <tr
+                          key={row.id || row.enrollment_no || row.mentor_code || index}
+                          className={`hover:bg-gray-50 transition-colors ${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                          }`}
+                        >
+                          {getTableColumns().map(col => (
+                            <td key={col} className="px-6 py-4 text-center text-gray-900">
+                              {row[col] || "-"}
+                            </td>
+                          ))}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button 
+                                onClick={() => handleEditRecord(row)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit record"
+                              >
+                                <Edit className="w-5 h-5" />
+                              </button>
+                              {selectedTable !== 'industrial_mentors' && (
+                                <button 
+                                  onClick={() => handleDeleteRecord(row)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete record"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={getTableColumns().length + 1} className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                              <Database className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+                            <p className="text-gray-600 mb-4">
+                              {searchQuery ? "No results found for your search" : "Get started by adding new records"}
+                            </p>
+                            {!searchQuery && (
+                              <button 
+                                onClick={handleAddRecord}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors">
+                                <Plus className="w-5 h-5" />
+                                Add First Record
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Pagination */}
+            {(() => {
+              const totalPages = Math.ceil(filteredData.length / recordsPerPage);
+              const startIndex = (currentPage - 1) * recordsPerPage;
+              const endIndex = startIndex + recordsPerPage;
+              
+              const handlePageChange = (page) => {
+                setCurrentPage(page);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              };
+              
+              const getPageNumbers = () => {
+                const pageNumbers = [];
+                const maxVisiblePages = 5;
+                
+                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                
+                if (endPage - startPage < maxVisiblePages - 1) {
+                  startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  pageNumbers.push(i);
+                }
+                
+                return pageNumbers;
+              };
+              
+              return totalPages > 1 && (
+                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="flex-1 flex justify-between sm:hidden">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                        currentPage === 1
+                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                          : 'text-gray-700 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                        currentPage === totalPages
+                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                          : 'text-gray-700 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                  
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(endIndex, filteredData.length)}</span> of{' '}
+                        <span className="font-medium">{filteredData.length}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                            currentPage === 1
+                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                              : 'text-gray-500 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+
+                        {getPageNumbers().map((pageNumber) => (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handlePageChange(pageNumber)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              pageNumber === currentPage
+                                ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        ))}
+
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                            currentPage === totalPages
+                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                              : 'text-gray-500 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Add Modal */}
@@ -936,7 +1253,7 @@ const SubAdminDashboard = () => {
                   )}
                 </div>
               )}
-              {(selectedTable === 'students' || selectedTable === 'mentors') && (
+              {(selectedTable === 'students' || selectedTable === 'mentors' || selectedTable === 'industrial_mentors') && (
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Update Password (Leave blank to keep current password)
