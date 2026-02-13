@@ -13,9 +13,9 @@
 
 ## 📋 Overview
 
-SparkTrack is designed specifically for MIT ADT University to streamline the Project-Based Learning evaluation process. The system facilitates:
+SparkTrack is designed specifically for MIT ADT University to streamline the Project-Based Learning evaluation process. The system facilitates:  
 
-- **Multi-tier evaluations** across three PBL review cycles
+- **Multi-tier evaluations** across three PBL review cycles  in mit adt
 - **Role-based access control** for administrators, mentors, students, and external evaluators
 - **Automated group management** and student allocation
 - **Digital evaluation forms** with real-time validation
