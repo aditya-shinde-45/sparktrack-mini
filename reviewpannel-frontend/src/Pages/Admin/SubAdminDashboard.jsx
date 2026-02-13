@@ -6,7 +6,7 @@ import Pagination from "../../Components/Admin/Pagination";
 import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { apiRequest } from "../../api";
 
-const SubAdminDashboard = () => {
+const SubAdminDashboard = ({ embedded = false }) => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState("");
   const [userId, setUserId] = useState("");
@@ -27,6 +27,7 @@ const SubAdminDashboard = () => {
   const [showMentorDropdown, setShowMentorDropdown] = useState(false);
   const [studentList, setStudentList] = useState([]);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
   const [evaluationForms, setEvaluationForms] = useState([]);
   const [selectedEvaluationFormId, setSelectedEvaluationFormId] = useState("");
   const [evaluationFormFields, setEvaluationFormFields] = useState([]);
@@ -73,6 +74,7 @@ const SubAdminDashboard = () => {
       const token = localStorage.getItem("token");
       const storedUserId = localStorage.getItem("user_id");
       const storedName = localStorage.getItem("name");
+      const storedRole = localStorage.getItem("role");
 
       if (!token || !storedUserId) {
         navigate("/login");
@@ -81,6 +83,26 @@ const SubAdminDashboard = () => {
 
       setUserId(storedUserId);
       setUserName(storedName || storedUserId);
+
+      if (storedRole && storedRole.toLowerCase() === 'admin') {
+        const adminTables = [
+          'students',
+          'pbl',
+          'mentors',
+          'evaluation_form_submission',
+          'industrial_mentors'
+        ];
+        setTablePermissions(adminTables);
+        const savedTable = localStorage.getItem("selectedTable");
+        if (savedTable && adminTables.includes(savedTable)) {
+          setSelectedTable(savedTable);
+        } else if (adminTables.length > 0) {
+          setSelectedTable(adminTables[0]);
+          localStorage.setItem("selectedTable", adminTables[0]);
+        }
+        setLoading(false);
+        return;
+      }
 
       try {
         // Fetch current user's role details to get permissions
@@ -298,14 +320,24 @@ const SubAdminDashboard = () => {
   };
 
   const handleStudentSelect = (student) => {
-    setFormData({
-      ...formData,
-      enrollment_no: student.enrollment_no,
-      student_name: student.name_of_students,
-      class: student.class_division || student.class || null,
-      student_search: student.name_of_students
+    setSelectedStudents((prev) => {
+      const exists = prev.find((entry) => entry.enrollment_no === student.enrollment_no);
+      if (exists) {
+        return prev.filter((entry) => entry.enrollment_no !== student.enrollment_no);
+      }
+      if (prev.length >= 4) {
+        alert("You can add up to 4 students per group.");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          enrollment_no: student.enrollment_no,
+          student_name: student.name_of_students,
+          class: student.class_division || student.class || null
+        }
+      ];
     });
-    setShowStudentDropdown(false);
   };
 
   // Close dropdown when clicking outside
@@ -324,6 +356,7 @@ const SubAdminDashboard = () => {
 
   const handleAddRecord = () => {
     setFormData({});
+    setSelectedStudents([]);
     setShowAddModal(true);
   };
 
@@ -416,6 +449,46 @@ const SubAdminDashboard = () => {
         delete dataToSubmit.industrial_mentor_code;
       }
       
+      if (selectedTable === 'pbl') {
+        if (!dataToSubmit.group_id) {
+          alert("Group ID is required.");
+          return;
+        }
+        if (selectedStudents.length === 0) {
+          alert("Select at least one student for this group.");
+          return;
+        }
+        if (!dataToSubmit.mentor_code) {
+          alert("Select a mentor for this group.");
+          return;
+        }
+
+        const payloads = selectedStudents.map((student) => ({
+          group_id: dataToSubmit.group_id,
+          enrollment_no: student.enrollment_no,
+          student_name: student.student_name,
+          class: student.class,
+          mentor_code: dataToSubmit.mentor_code
+        }));
+
+        const responses = await Promise.all(
+          payloads.map((payload) => apiRequest(`/api/role-access/${selectedTable}`, 'POST', payload, token))
+        );
+
+        const failed = responses.find((res) => !res?.success);
+        if (failed) {
+          alert(`Failed to create record: ${failed.message || "Unknown error"}`);
+          return;
+        }
+
+        alert("Records created successfully!");
+        setShowAddModal(false);
+        setFormData({});
+        setSelectedStudents([]);
+        fetchTableData();
+        return;
+      }
+
       const response = await apiRequest(`/api/role-access/${selectedTable}`, 'POST', dataToSubmit, token);
 
       if (response.success) {
@@ -544,8 +617,8 @@ const SubAdminDashboard = () => {
       // Skip team_name and is_leader in PBL (both add and edit) - not needed
       if ((field === 'team_name' || field === 'is_leader') && selectedTable === 'pbl') return null;
       
-      // Skip student_name, enrollment_no, and class in PBL add modal - will be handled with student dropdown
-      if ((field === 'student_name' || field === 'enrollment_no' || field === 'class') && selectedTable === 'pbl' && showAddModal) return null;
+      // Skip group_id, student_name, enrollment_no, and class in PBL add modal - handled with custom UI
+      if ((field === 'group_id' || field === 'student_name' || field === 'enrollment_no' || field === 'class') && selectedTable === 'pbl' && showAddModal) return null;
       
       const isReadOnly = false;
       const baseRequired = field !== 'contact' && field !== 'contact_number' && field !== 'phone' && field !== 'department' && field !== 'specialization' && field !== 'class_prefix' && field !== 'mentor_code' && field !== 'status' && field !== 'is_leader' && field !== 'ps_id' && field !== 'review1' && field !== 'review2' && field !== 'final' && field !== 'email_id' && field !== 'guide_name' && field !== 'guide_contact' && field !== 'class' && field !== 'mentor_name' && field !== 'email' && field !== 'designation' && field !== 'company_name' && field !== 'industrial_mentor_code';
@@ -588,8 +661,8 @@ const SubAdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <Header name={userName} id={userId} />
+      <div className={embedded ? "w-full flex items-center justify-center" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center"}>
+        {!embedded && <Header name={userName} id={userId} />}
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
@@ -600,9 +673,9 @@ const SubAdminDashboard = () => {
 
   if (tablePermissions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <Header name={userName} id={userId} />
-        <div className="flex items-center justify-center min-h-screen pt-24">
+      <div className={embedded ? "w-full" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"}>
+        {!embedded && <Header name={userName} id={userId} />}
+        <div className={embedded ? "flex items-center justify-center min-h-[50vh]" : "flex items-center justify-center min-h-screen pt-24"}>
           <div className="text-center bg-white rounded-2xl shadow-xl p-12 max-w-md">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
               <Database className="w-10 h-10 text-red-600" />
@@ -618,10 +691,10 @@ const SubAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Header name={userName} id={userId} />
+    <div className={embedded ? "w-full" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"}>
+      {!embedded && <Header name={userName} id={userId} />}
       
-      <div className="pt-24 px-8 pb-8">
+      <div className={embedded ? "px-4 py-4" : "pt-24 px-8 pb-8"}>
         {/* User Info Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -1040,67 +1113,114 @@ const SubAdminDashboard = () => {
               </button>
             </div>
             <form onSubmit={handleSubmitAdd}>
-              {/* Student Dropdown for PBL - Add Modal */}
               {selectedTable === 'pbl' && (
-                <div className="mb-4 relative student-dropdown-container">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Search Student *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.student_search || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData({ ...formData, student_search: value });
-                      if (value.length > 0) {
-                        fetchStudents();
-                        setShowStudentDropdown(true);
-                      } else {
-                        setShowStudentDropdown(false);
-                      }
-                    }}
-                    onFocus={() => {
-                      if ((formData.student_search || '').length > 0) {
-                        fetchStudents();
-                        setShowStudentDropdown(true);
-                      }
-                    }}
-                    placeholder="Start typing student name or enrollment number..."
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
-                    autoComplete="off"
-                    required
-                  />
-                  {showStudentDropdown && studentList.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                      {studentList
-                        .filter(student => 
-                          student.name_of_students.toLowerCase().includes((formData.student_search || '').toLowerCase()) ||
-                          student.enrollment_no.toLowerCase().includes((formData.student_search || '').toLowerCase())
-                        )
-                        .map((student) => (
-                          <div
-                            key={student.enrollment_no}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleStudentSelect(student);
-                            }}
-                            className="px-4 py-3 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
-                          >
-                            <div className="font-medium text-gray-900">{student.name_of_students}</div>
-                            <div className="text-sm text-gray-600">Enrollment: {student.enrollment_no}</div>
-                            <div className="text-sm text-gray-500">Class: {student.class_division || student.class || 'N/A'}</div>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Group ID *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.group_id || ''}
+                      onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
+                      placeholder="Enter group ID"
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                      required
+                    />
+                  </div>
+
+                  <div className="relative student-dropdown-container">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Students (up to 4) *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {Array.from({ length: 4 }).map((_, index) => {
+                        const student = selectedStudents[index];
+                        return (
+                          <div key={index} className="relative">
+                            <input
+                              type="text"
+                              value={student ? `${student.student_name} (${student.enrollment_no})` : ''}
+                              placeholder={`Student ${index + 1}`}
+                              readOnly
+                              className="w-full px-4 py-2 pr-10 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700"
+                            />
+                            {student && (
+                              <button
+                                type="button"
+                                onClick={() => handleStudentSelect(student)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-red-200 text-red-600 hover:text-red-700 hover:border-red-300 flex items-center justify-center"
+                                aria-label={`Remove ${student.student_name}`}
+                              >
+                                x
+                              </button>
+                            )}
                           </div>
-                        ))
-                      }
+                        );
+                      })}
                     </div>
-                  )}
-                  {formData.enrollment_no && (
-                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-800">
-                        <span className="font-semibold">Selected:</span> {formData.student_name} ({formData.enrollment_no})
-                      </p>
+                    <div className="mt-3">
+                      <label className="block text-xs font-semibold text-gray-500 mb-2">
+                        Search and select students
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.student_search || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData({ ...formData, student_search: value });
+                          if (value.length > 0) {
+                            fetchStudents();
+                            setShowStudentDropdown(true);
+                          } else {
+                            setShowStudentDropdown(false);
+                          }
+                        }}
+                        onFocus={() => {
+                          if ((formData.student_search || '').length > 0) {
+                            fetchStudents();
+                            setShowStudentDropdown(true);
+                          }
+                        }}
+                        placeholder="Start typing student name or enrollment number..."
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                        autoComplete="off"
+                      />
                     </div>
-                  )}
+                    {showStudentDropdown && studentList.length > 0 && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                        {studentList
+                          .filter(student => 
+                            student.name_of_students.toLowerCase().includes((formData.student_search || '').toLowerCase()) ||
+                            student.enrollment_no.toLowerCase().includes((formData.student_search || '').toLowerCase())
+                          )
+                          .map((student) => (
+                            <div
+                              key={student.enrollment_no}
+                              className="px-4 py-3 hover:bg-purple-50 transition-colors border-b border-gray-100 last:border-0"
+                            >
+                              <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedStudents.some((entry) => entry.enrollment_no === student.enrollment_no)}
+                                  onChange={() => handleStudentSelect(student)}
+                                  className="mt-1 h-4 w-4 accent-purple-600"
+                                />
+                                <div>
+                                  <div className="font-medium text-gray-900">{student.name_of_students}</div>
+                                  <div className="text-sm text-gray-600">Enrollment: {student.enrollment_no}</div>
+                                  <div className="text-sm text-gray-500">Class: {student.class_division || student.class || 'N/A'}</div>
+                                </div>
+                              </label>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
+                    <div className="mt-2 text-sm text-gray-600">
+                      Selected: <span className="font-semibold">{selectedStudents.length}</span>/4
+                    </div>
+                  </div>
                 </div>
               )}
               

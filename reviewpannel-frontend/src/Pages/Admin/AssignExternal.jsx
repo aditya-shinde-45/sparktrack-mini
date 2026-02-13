@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Header from "../../Components/Common/Header";
 import Sidebar from "../../Components/Admin/Sidebar";
-import AssignedExternalTable from "../../Components/Admin/AssignedExternalTable";
+import IndustryMentorList from "../../Components/Admin/IndustryMentorList";
 
 const AssignExternal = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,7 +19,7 @@ const AssignExternal = () => {
         {/* Page Content */}
         <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-20">
 
-          <AssignedExternalTable />
+          <IndustryMentorList />
         </main>
       </div>
     </div>

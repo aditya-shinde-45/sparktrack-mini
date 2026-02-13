@@ -5,12 +5,23 @@ import MentorSidebar from "../../Components/Mentor/MentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
+const YEAR_OPTIONS = ["SY", "TY", "LY"];
+
+const normalizeAllowedYears = (years = []) => {
+  if (!Array.isArray(years)) return [];
+  const normalized = years
+    .map((value) => String(value || "").trim().toUpperCase())
+    .filter((value) => YEAR_OPTIONS.includes(value));
+  return Array.from(new Set(normalized));
+};
+
 const MentorEvaluation = () => {
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formName, setFormName] = useState("");
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
+  const [allowedYears, setAllowedYears] = useState([]);
 
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -41,6 +52,13 @@ const MentorEvaluation = () => {
     return { numericFields, booleanFields };
   }, [fields]);
 
+  const filteredGroups = useMemo(() => {
+    if (allowedYears.length === 0) return groups;
+    return groups.filter((groupId) =>
+      allowedYears.some((year) => String(groupId || "").toUpperCase().startsWith(year))
+    );
+  }, [groups, allowedYears]);
+
   const loadForms = async () => {
     const response = await apiRequest("/api/mentors/evaluation-forms", "GET", null, token);
     if (response?.success) {
@@ -60,6 +78,14 @@ const MentorEvaluation = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedGroupId && !filteredGroups.includes(selectedGroupId)) {
+      setSelectedGroupId("");
+      setStudents([]);
+      setProblemStatement(null);
+    }
+  }, [filteredGroups, selectedGroupId]);
+
+  useEffect(() => {
     localStorage.setItem("mentor_external_name", externalName);
   }, [externalName]);
 
@@ -74,6 +100,7 @@ const MentorEvaluation = () => {
       setFormName("");
       setFields([]);
       setTotalMarks(0);
+      setAllowedYears([]);
       return;
     }
 
@@ -89,6 +116,7 @@ const MentorEvaluation = () => {
       }));
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
+      setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
     }
   };
 
@@ -307,7 +335,7 @@ const MentorEvaluation = () => {
                   className="w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Choose a group</option>
-                  {groups.map((groupId) => (
+                  {filteredGroups.map((groupId) => (
                     <option key={groupId} value={groupId}>
                       {groupId}
                     </option>
@@ -318,6 +346,11 @@ const MentorEvaluation = () => {
             {!isFormSelected && (
               <p className="text-sm text-purple-600">
                 Select an evaluation form to enable group selection and editing.
+              </p>
+            )}
+            {isFormSelected && allowedYears.length > 0 && (
+              <p className="text-xs text-purple-600">
+                Showing groups for: {allowedYears.join(", ")}
               </p>
             )}
             {statusMessage && (

@@ -16,7 +16,6 @@ import LoadingTest from '../Pages/Common/LoadingTest';
 // Admin Pages
 import AdminDashboard from '../Pages/Admin/AdminDashboard';
 import SubAdminDashboard from '../Pages/Admin/SubAdminDashboard';
-import SubAdminEvaluationManagement from '../Pages/Admin/SubAdminEvaluationManagement';
 import AssignExternal from '../Pages/Admin/AssignExternal';
 import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
@@ -25,7 +24,7 @@ import EvaluationFormBuilder from '../Pages/Admin/EvaluationFormBuilder';
 
 // Admin Tools (parent and children)
 import AdminToolTabs from '../Components/Admin/admintools';
-import EditGroup from '../Components/Admin/editGroup';
+import AdminDataManager from '../Components/Admin/AdminDataManager';
 import DeadlineAdmin from '../Components/Admin/deadline';
 import AnnouncementAdmin from '../Components/Admin/announcement';
 import AdminPost from '../Components/Admin/post';
@@ -108,11 +107,6 @@ const AppRoutes = () => {
           <SubAdminDashboard />
         </ProtectedRoute>
       } />
-      <Route path="/sub-admin-evaluation" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
-          <SubAdminEvaluationManagement />
-        </ProtectedRoute>
-      } />
       <Route path="/assign-external" element={
         <ProtectedRoute allowedRoles={['Admin']}>
           <AssignExternal />
@@ -146,7 +140,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       }>
         {/* Nested routes under /admintools */}
-        <Route path="edit-group" element={<EditGroup />} />
+        <Route path="data-management" element={<AdminDataManager />} />
         <Route path="role-permission" element={<RolePermissionManager />} />
         <Route path="deadline" element={<DeadlineAdmin />} />
         <Route path="announcement" element={<AnnouncementAdmin />} />

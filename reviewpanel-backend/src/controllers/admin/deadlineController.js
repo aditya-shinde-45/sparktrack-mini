@@ -34,7 +34,7 @@ class DeadlineController {
    */
   updateDeadline = asyncHandler(async (req, res) => {
     const { key } = req.params;
-    const { enabled } = req.body;
+    const { enabled, label } = req.body;
     
     if (!key) {
       throw ApiError.badRequest('Deadline key is required.');
@@ -44,7 +44,7 @@ class DeadlineController {
       throw ApiError.badRequest('Enabled status must be a boolean value.');
     }
     
-    const updated = await deadlineModel.update(key, enabled);
+    const updated = await deadlineModel.update(key, enabled, label ?? null);
     
     return ApiResponse.success(res, 'Deadline updated successfully', { updated });
   });

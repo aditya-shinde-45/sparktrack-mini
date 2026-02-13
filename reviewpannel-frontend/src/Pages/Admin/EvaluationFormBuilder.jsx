@@ -4,6 +4,7 @@ import Sidebar from "../../Components/Admin/Sidebar";
 import Header from "../../Components/Common/Header";
 
 const emptyField = () => ({ key: "", label: "", max_marks: 0, type: "number" });
+const YEAR_OPTIONS = ["SY", "TY", "LY"];
 
 const slugifyKey = (value) =>
   value
@@ -11,12 +12,21 @@ const slugifyKey = (value) =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
 
+const normalizeAllowedYears = (years = []) => {
+  if (!Array.isArray(years)) return [];
+  const normalized = years
+    .map((value) => String(value || "").trim().toUpperCase())
+    .filter((value) => YEAR_OPTIONS.includes(value));
+  return Array.from(new Set(normalized));
+};
+
 const EvaluationFormBuilder = () => {
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formName, setFormName] = useState("");
   const [totalMarks, setTotalMarks] = useState(50);
   const [fields, setFields] = useState([emptyField()]);
+  const [allowedYears, setAllowedYears] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -57,6 +67,7 @@ const EvaluationFormBuilder = () => {
       setFormName("");
       setTotalMarks(50);
       setFields([emptyField()]);
+      setAllowedYears([]);
       return;
     }
 
@@ -73,6 +84,8 @@ const EvaluationFormBuilder = () => {
       }));
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
+      const normalizedYears = normalizeAllowedYears(form?.allowed_years || []);
+      setAllowedYears(normalizedYears);
     }
   };
 
@@ -84,6 +97,15 @@ const EvaluationFormBuilder = () => {
 
   const addNumericField = () => setFields((prev) => [...prev, emptyField()]);
   const addBooleanField = () => setFields((prev) => [...prev, { ...emptyField(), type: "boolean", max_marks: 0 }]);
+
+  const toggleYearSelection = (year) => {
+    setAllowedYears((prev) => {
+      if (prev.includes(year)) {
+        return prev.filter((value) => value !== year);
+      }
+      return [...prev, year];
+    });
+  };
 
   const removeField = (index) => {
     if (fields.length === 1) return;
@@ -109,6 +131,8 @@ const EvaluationFormBuilder = () => {
       };
     });
 
+    const sanitizedYears = normalizeAllowedYears(allowedYears);
+
     setIsCreating(true);
     setStatusMessage("");
 
@@ -124,7 +148,8 @@ const EvaluationFormBuilder = () => {
       {
         name: formName.trim(),
         total_marks: Number(totalMarks) || computedTotal,
-        fields: sanitizedFields
+        fields: sanitizedFields,
+        allowed_years: sanitizedYears
       },
       token
     );
@@ -201,6 +226,31 @@ const EvaluationFormBuilder = () => {
                     {computedTotal !== Number(totalMarks) && (
                       <p className="text-xs text-amber-600 mt-1">Total marks do not match the sum of criteria.</p>
                     )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700">Allowed Years</label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {YEAR_OPTIONS.map((year) => (
+                        <label
+                          key={year}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${
+                            allowedYears.includes(year)
+                              ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={allowedYears.includes(year)}
+                            onChange={() => toggleYearSelection(year)}
+                            className="accent-indigo-600"
+                          />
+                          {year}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Leave empty to allow all years.</p>
                   </div>
                 </div>
               </div>
