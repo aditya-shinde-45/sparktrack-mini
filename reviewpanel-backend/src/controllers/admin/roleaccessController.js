@@ -226,27 +226,53 @@ class RoleAccessController {
           throw ApiError.badRequest('mentor_name and contact_number are required');
         }
 
-        // Auto-generate mentor_code starting from m190
+        const normalizedContact = String(contact_number).trim();
+        if (!normalizedContact) {
+          throw ApiError.badRequest('contact_number is required');
+        }
+
+        const { data: existingByContact, error: contactLookupError } = await supabase
+          .from('mentors')
+          .select('mentor_code, contact_number')
+          .eq('contact_number', normalizedContact)
+          .maybeSingle();
+
+        if (contactLookupError && contactLookupError.code !== 'PGRST116') {
+          throw ApiError.internalError('Failed to check mentor contact number');
+        }
+
+        if (existingByContact) {
+          throw ApiError.badRequest('Mentor with this contact number already exists');
+        }
+
+        // Auto-generate mentor_code starting from M190
         const { data: existingMentors, error: fetchError } = await supabase
           .from('mentors')
           .select('mentor_code')
-          .like('mentor_code', 'm%')
-          .order('mentor_code', { ascending: false })
-          .limit(1);
-        
-        let newMentorCode = 'M190';
-        if (existingMentors && existingMentors.length > 0 && existingMentors[0].mentor_code) {
-          const lastMentorCode = existingMentors[0].mentor_code;
-          const lastNumber = parseInt(lastMentorCode.replace('m', ''));
-          const nextNumber = Math.max(lastNumber + 1, 190); // Ensure minimum m190
-          newMentorCode = 'M' + nextNumber;
+          .ilike('mentor_code', 'm%');
+
+        if (fetchError) {
+          throw ApiError.internalError('Failed to generate mentor code');
         }
+        
+        let maxMentorNumber = 189;
+        (existingMentors || []).forEach((mentor) => {
+          const match = String(mentor.mentor_code || '').match(/m(\d+)/i);
+          if (match) {
+            const parsed = Number.parseInt(match[1], 10);
+            if (!Number.isNaN(parsed)) {
+              maxMentorNumber = Math.max(maxMentorNumber, parsed);
+            }
+          }
+        });
+
+        const newMentorCode = `M${maxMentorNumber + 1}`;
 
         const { data: mentor, error: mentorError } = await supabase
           .from('mentors')
           .insert([{
             mentor_name,
-            contact_number,
+            contact_number: normalizedContact,
             mentor_code: newMentorCode,
             group_id: null,
           }])
@@ -255,7 +281,13 @@ class RoleAccessController {
         
         if (mentorError) {
           if (mentorError.code === '23505') {
-            throw ApiError.badRequest('Mentor with this contact number already exists');
+            if (mentorError.details && mentorError.details.includes('contact_number')) {
+              throw ApiError.badRequest('Mentor with this contact number already exists');
+            }
+            if (mentorError.details && mentorError.details.includes('mentor_code')) {
+              throw ApiError.badRequest('Generated mentor code already exists. Please retry.');
+            }
+            throw ApiError.badRequest('Mentor already exists');
           }
           throw ApiError.internalError('Failed to create mentor');
         }
