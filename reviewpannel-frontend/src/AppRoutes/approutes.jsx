@@ -51,6 +51,11 @@ import MentorDashboard from '../Pages/Mentor/MentorDashboard';
 import ZerothReview from '../Pages/Mentor/ZerothReview';
 import MentorEvaluation from '../Pages/Mentor/MentorEvaluation';
 import MentorGroups from '../Pages/Mentor/MentorGroups';
+import MentorSettings from '../Pages/Mentor/MentorSettings';
+
+// Industry Mentor Pages
+import IndustryMentorDashboard from '../Pages/Mentor/IndustryMentorDashboard';
+import IndustryMentorGroups from '../Pages/Mentor/IndustryMentorGroups';
 
 
 const AppRoutes = () => {

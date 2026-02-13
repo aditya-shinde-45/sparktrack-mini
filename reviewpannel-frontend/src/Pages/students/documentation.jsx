@@ -136,13 +136,13 @@ const Documentation = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case "approved":
-        return "bg-green-50 text-green-800 border-green-300";
+        return "bg-green-100 text-green-900 border-green-400 font-bold";
       case "pending":
-        return "bg-amber-50 text-amber-800 border-amber-300";
+        return "bg-amber-100 text-amber-900 border-amber-400 font-bold";
       case "rejected":
-        return "bg-red-50 text-red-800 border-red-300";
+        return "bg-red-100 text-red-900 border-red-400 font-bold";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
+        return "bg-gray-200 text-gray-900 border-gray-400 font-bold";
     }
   };
 
@@ -358,9 +358,11 @@ const Documentation = () => {
                         </div>
 
                         {/* Status Badge */}
-                        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs ${getStatusColor(doc.status)}`}>
+                        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 text-sm ${getStatusColor(doc.status)}`}>
                           {getStatusIcon(doc.status)}
-                          {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                          <span className="uppercase tracking-wide">
+                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                          </span>
                         </span>
                       </div>
 

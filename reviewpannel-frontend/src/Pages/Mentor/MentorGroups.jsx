@@ -19,7 +19,19 @@ import {
   Linkedin,
   Globe,
   X,
-  Download
+  Download,
+  FileCheck,
+  FileX,
+  Upload,
+  Search,
+  Filter,
+  Eye,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Calendar,
+  TrendingUp,
+  BarChart3
 } from "lucide-react";
 
 const MentorGroups = () => {
@@ -37,6 +49,12 @@ const MentorGroups = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberProfile, setMemberProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const token = useMemo(() => localStorage.getItem("mentor_token"), []);
 
@@ -155,6 +173,120 @@ const MentorGroups = () => {
 
   const handleProblemStatementSuccess = (savedData) => {
     setProblemStatement(savedData);
+  };
+
+  useEffect(() => {
+    if (!selectedGroupId || !token) {
+      setDocuments([]);
+      return;
+    }
+
+    const fetchDocuments = async () => {
+      try {
+        setLoadingDocuments(true);
+        const response = await apiRequest(
+          `/api/mentors/documents/${selectedGroupId}`,
+          "GET",
+          null,
+          token
+        );
+        setDocuments(response?.data?.documents || response?.documents || []);
+      } catch (err) {
+        console.error("Error fetching documents:", err);
+        setDocuments([]);
+      } finally {
+        setLoadingDocuments(false);
+      }
+    };
+
+    fetchDocuments();
+  }, [selectedGroupId, token]);
+
+  const handleApproveDocument = async (documentId) => {
+    setConfirmAction(null);
+    try {
+      await apiRequest(
+        `/api/mentors/documents/${documentId}/status`,
+        "PUT",
+        { status: "approved" },
+        token
+      );
+      
+      setDocuments((prevDocs) =>
+        prevDocs.map((doc) =>
+          doc.id === documentId ? { ...doc, status: "approved" } : doc
+        )
+      );
+    } catch (err) {
+      console.error("Error approving document:", err);
+      alert("Failed to approve document. Please try again.");
+    }
+  };
+
+  const handleRejectDocument = async (documentId) => {
+    setConfirmAction(null);
+    try {
+      await apiRequest(
+        `/api/mentors/documents/${documentId}/status`,
+        "PUT",
+        { status: "rejected" },
+        token
+      );
+      
+      setDocuments((prevDocs) =>
+        prevDocs.map((doc) =>
+          doc.id === documentId ? { ...doc, status: "rejected" } : doc
+        )
+      );
+    } catch (err) {
+      console.error("Error rejecting document:", err);
+      alert("Failed to reject document. Please try again.");
+    }
+  };
+
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((doc) => {
+      const matchesCategory = selectedCategory === "all" || doc.category === selectedCategory;
+      const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
+      const matchesSearch = doc.document_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doc.description && doc.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesCategory && matchesStatus && matchesSearch;
+    });
+  }, [documents, selectedCategory, statusFilter, searchQuery]);
+
+  const documentStats = useMemo(() => {
+    return {
+      total: documents.length,
+      pending: documents.filter(d => d.status === "pending").length,
+      approved: documents.filter(d => d.status === "approved").length,
+      rejected: documents.filter(d => d.status === "rejected").length
+    };
+  }, [documents]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "rejected":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "approved":
+        return <CheckCircle className="w-4 h-4" />;
+      case "rejected":
+        return <XCircle className="w-4 h-4" />;
+      case "pending":
+        return <Clock className="w-4 h-4" />;
+      default:
+        return <FileText className="w-4 h-4" />;
+    }
   };
 
   return (
@@ -303,6 +435,274 @@ const MentorGroups = () => {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+              <div className="border-b border-gray-200 bg-gradient-to-r from-slate-50 to-gray-50 px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-black mb-1">Document Review System</h2>
+                    <p className="text-sm text-gray-800">Evaluate and approve student submissions</p>
+                  </div>
+                  <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg">
+                    <BarChart3 className="w-5 h-5 text-gray-700" />
+                    <span className="text-sm font-medium text-black">Academic Review</span>
+                  </div>
+                </div>
+              </div>
+
+              {!selectedGroupId ? (
+                <div className="flex flex-col items-center justify-center py-12 px-6">
+                  <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <p className="text-gray-900 font-medium">Select a group to view documents</p>
+                  <p className="text-sm text-gray-700 mt-1">Choose a group from the dropdown above</p>
+                </div>
+              ) : (
+                <>
+                  {/* Statistics Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 border-b border-gray-100 bg-slate-50/50">
+                    <div className="bg-white rounded-lg p-4 border border-slate-200 hover:border-slate-300 transition">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Total</p>
+                        <FileText className="w-4 h-4 text-gray-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-black">{documentStats.total}</p>
+                      <p className="text-xs text-gray-700 mt-1">Documents</p>
+                    </div>
+                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-200 hover:border-amber-300 transition">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Pending</p>
+                        <Clock className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-amber-700">{documentStats.pending}</p>
+                      <p className="text-xs text-amber-600 mt-1">Awaiting Review</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 hover:border-emerald-300 transition">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Approved</p>
+                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-emerald-700">{documentStats.approved}</p>
+                      <p className="text-xs text-emerald-600 mt-1">Accepted</p>
+                    </div>
+                    <div className="bg-rose-50 rounded-lg p-4 border border-rose-200 hover:border-rose-300 transition">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Rejected</p>
+                        <XCircle className="w-4 h-4 text-rose-500" />
+                      </div>
+                      <p className="text-2xl font-bold text-rose-700">{documentStats.rejected}</p>
+                      <p className="text-xs text-rose-600 mt-1">Not Approved</p>
+                    </div>
+                  </div>
+
+                  {/* Filters and Search */}
+                  <div className="p-6 bg-white border-b border-gray-100">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-semibold text-gray-900 uppercase tracking-wide mb-2">
+                          Search Documents
+                        </label>
+                        <div className="relative">
+                          <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Search by filename or description..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm bg-white text-black"
+                          />
+                        </div>
+                      </div>
+                      <div className="lg:w-64">
+                        <label className="block text-xs font-semibold text-gray-900 uppercase tracking-wide mb-2">
+                          Category
+                        </label>
+                        <select
+                          value={selectedCategory}
+                          onChange={(e) => setSelectedCategory(e.target.value)}
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm bg-white appearance-none cursor-pointer text-black"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="reports">Reports</option>
+                          <option value="presentations">Presentations</option>
+                          <option value="code">Code</option>
+                          <option value="videos">Videos</option>
+                        </select>
+                      </div>
+                      <div className="lg:w-48">
+                        <label className="block text-xs font-semibold text-gray-900 uppercase tracking-wide mb-2">
+                          Status
+                        </label>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm bg-white appearance-none cursor-pointer text-black"
+                        >
+                          <option value="all">All Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Document List */}
+                  {loadingDocuments ? (
+                    <div className="text-center py-16">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-600 mx-auto"></div>
+                      <p className="mt-4 text-sm text-gray-900 font-medium">Loading documents...</p>
+                    </div>
+                  ) : filteredDocuments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-6">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <FileText className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <p className="text-gray-900 font-medium mb-1">
+                        {searchQuery || selectedCategory !== "all" || statusFilter !== "all"
+                          ? "No documents match your filters"
+                          : "No documents uploaded yet"}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        {searchQuery || selectedCategory !== "all" || statusFilter !== "all"
+                          ? "Try adjusting your search criteria"
+                          : "Students haven't uploaded any documents for this group"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+                              Document
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+                              Category
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+                              Submitted By
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+                              Date
+                            </th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-black uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-100">
+                          {filteredDocuments.map((doc) => (
+                            <tr key={doc.id} className="hover:bg-slate-50 transition">
+                              <td className="px-6 py-4">
+                                <div className="flex items-start gap-3">
+                                  <div className="p-2 bg-slate-100 rounded-lg">
+                                    <FileText className="w-5 h-5 text-gray-700" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-black truncate">
+                                      {doc.document_name}
+                                    </p>
+                                    {doc.description && (
+                                      <p className="text-xs text-gray-700 mt-1 line-clamp-1">
+                                        {doc.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-black capitalize">
+                                  {doc.category}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center">
+                                    <User className="w-4 h-4 text-gray-700" />
+                                  </div>
+                                  <span className="text-sm text-black font-medium">
+                                    {doc.uploaded_by || "Unknown"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2 text-sm text-black">
+                                  <Calendar className="w-4 h-4" />
+                                  {new Date(doc.created_at).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                    doc.status === "approved"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : doc.status === "rejected"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  {getStatusIcon(doc.status)}
+                                  <span className="capitalize">{doc.status}</span>
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <a
+                                    href={doc.document_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-black bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    View
+                                  </a>
+                                  {doc.status === "pending" && (
+                                    <>
+                                      <button
+                                        onClick={() => setConfirmAction({ type: 'approve', doc })}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmAction({ type: 'reject', doc })}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {filteredDocuments.length > 0 && (
+                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+                      <p className="text-xs text-gray-800">
+                        Showing <span className="font-semibold text-black">{filteredDocuments.length}</span> of{" "}
+                        <span className="font-semibold text-black">{documents.length}</span> documents
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100">
@@ -540,6 +940,105 @@ const MentorGroups = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md shadow-2xl border border-slate-200">
+            <div className={`flex items-center justify-between p-6 border-b ${
+              confirmAction.type === 'approve' ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                {confirmAction.type === 'approve' ? (
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center">
+                    <XCircle className="w-6 h-6 text-rose-600" />
+                  </div>
+                )}
+                <div>
+                  <h3 className={`text-lg font-bold ${
+                    confirmAction.type === 'approve' ? 'text-emerald-900' : 'text-rose-900'
+                  }`}>
+                    {confirmAction.type === 'approve' ? 'Approve Document' : 'Reject Document'}
+                  </h3>
+                  <p className={`text-sm ${
+                    confirmAction.type === 'approve' ? 'text-emerald-700' : 'text-rose-700'
+                  }`}>
+                    Confirm your decision
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-200">
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-gray-700 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-black break-words">
+                      {confirmAction.doc.document_name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-black capitalize">
+                        {confirmAction.doc.category}
+                      </span>
+                      <span className="text-xs text-gray-800">
+                        by {confirmAction.doc.uploaded_by || 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-900 mb-6">
+                {confirmAction.type === 'approve' ? (
+                  <>
+                    Are you sure you want to <span className="font-semibold text-emerald-700">approve</span> this document? 
+                    Students will be able to see this approval status immediately.
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to <span className="font-semibold text-rose-700">reject</span> this document? 
+                    Students will be notified of this rejection.
+                  </>
+                )}
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-black bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    confirmAction.type === 'approve' 
+                      ? handleApproveDocument(confirmAction.doc.id)
+                      : handleRejectDocument(confirmAction.doc.id);
+                  }}
+                  className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition ${
+                    confirmAction.type === 'approve'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {confirmAction.type === 'approve' ? 'Approve Document' : 'Reject Document'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
