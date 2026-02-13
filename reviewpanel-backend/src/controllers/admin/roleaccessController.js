@@ -336,20 +336,36 @@ class RoleAccessController {
           throw ApiError.badRequest('Mentor with this contact number already exists');
         }
 
-        let hashedMentorPassword = null;
-        if (recordData.password && recordData.password.trim() !== '') {
-          const bcrypt = await import('bcrypt');
-          hashedMentorPassword = await bcrypt.hash(recordData.password, 10);
+        // Auto-generate mentor_code starting from M190
+        const { data: existingMentors, error: fetchError } = await supabase
+          .from('mentors')
+          .select('mentor_code')
+          .ilike('mentor_code', 'm%');
+
+        if (fetchError) {
+          throw ApiError.internalError('Failed to generate mentor code');
         }
+        
+        let maxMentorNumber = 189;
+        (existingMentors || []).forEach((mentor) => {
+          const match = String(mentor.mentor_code || '').match(/m(\d+)/i);
+          if (match) {
+            const parsed = Number.parseInt(match[1], 10);
+            if (!Number.isNaN(parsed)) {
+              maxMentorNumber = Math.max(maxMentorNumber, parsed);
+            }
+          }
+        });
+
+        const newMentorCode = `M${maxMentorNumber + 1}`;
 
         const { data: mentor, error: mentorError } = await supabase
           .from('mentors')
           .insert([{
             mentor_name,
             contact_number: normalizedContact,
-            email: email || null,
-            designation: designation || null,
-            password: hashedMentorPassword,
+            mentor_code: newMentorCode,
+            group_id: null,
           }])
           .select()
           .single();
@@ -358,6 +374,9 @@ class RoleAccessController {
           if (mentorError.code === '23505') {
             if (mentorError.details && mentorError.details.includes('contact_number')) {
               throw ApiError.badRequest('Mentor with this contact number already exists');
+            }
+            if (mentorError.details && mentorError.details.includes('mentor_code')) {
+              throw ApiError.badRequest('Generated mentor code already exists. Please retry.');
             }
             throw ApiError.badRequest('Mentor already exists');
           }
@@ -590,29 +609,6 @@ class RoleAccessController {
           }
           updatedRecord = pblGroup;
         }
-        break;
-
-      case 'industrial_mentors':
-        if (!updateData.password || !updateData.password.trim()) {
-          throw ApiError.badRequest('Password is required to update industrial mentor');
-        }
-
-        const bcrypt = await import('bcrypt');
-        const hashedPassword = await bcrypt.hash(updateData.password, 10);
-
-        const { data: updatedIndustrialMentor, error: industrialUpdateError } = await supabase
-          .from('industrial_mentors')
-          .update({ password: hashedPassword })
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (industrialUpdateError) {
-          throw ApiError.internalError('Failed to update industrial mentor');
-        }
-
-        const { password: _updatedPassword, ...safeUpdatedIndustrialMentor } = updatedIndustrialMentor || {};
-        updatedRecord = safeUpdatedIndustrialMentor;
         break;
 
       case 'evaluation_form_submission':
