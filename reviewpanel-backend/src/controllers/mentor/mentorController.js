@@ -1,6 +1,7 @@
 import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler } from '../../utils/errorHandler.js';
 import mentorModel from '../../models/mentorModel.js';
+import supabase from '../../config/database.js';
 
 /**
  * Controller for mentor operations
@@ -11,22 +12,31 @@ class MentorController {
    */
   getAllMentors = asyncHandler(async (req, res) => {
     const mentorsData = await mentorModel.getAll();
-    
-    // Group mentors by mentor_name
-    const mentorsMap = {};
-    mentorsData.forEach(row => {
-      if (!mentorsMap[row.mentor_name]) {
-        mentorsMap[row.mentor_name] = {
-          mentor_name: row.mentor_name,
-          contact_number: row.contact_number,
-          groups: [],
-        };
+    const { data: pblRows, error: pblError } = await supabase
+      .from('pbl')
+      .select('mentor_code, group_id')
+      .not('mentor_code', 'is', null);
+
+    if (pblError) {
+      throw pblError;
+    }
+
+    const groupsByMentor = new Map();
+    (pblRows || []).forEach((row) => {
+      if (!row.mentor_code || !row.group_id) {
+        return;
       }
-      mentorsMap[row.mentor_name].groups.push(row.group_id);
+      if (!groupsByMentor.has(row.mentor_code)) {
+        groupsByMentor.set(row.mentor_code, new Set());
+      }
+      groupsByMentor.get(row.mentor_code).add(row.group_id);
     });
 
-    const mentors = Object.values(mentorsMap);
-    
+    const mentors = (mentorsData || []).map((mentor) => ({
+      ...mentor,
+      groups: Array.from(groupsByMentor.get(mentor.mentor_code) || [])
+    }));
+
     return ApiResponse.success(res, 'Mentors retrieved successfully', { mentors });
   });
 
@@ -34,12 +44,13 @@ class MentorController {
    * Add a new mentor
    */
   addMentor = asyncHandler(async (req, res) => {
-    const { mentor_name, contact_number, group_id } = req.body;
+    const { mentor_name, contact_number, email, designation } = req.body;
     
     const data = await mentorModel.create({
       mentor_name,
       contact_number,
-      group_id
+      email: email || null,
+      designation: designation || null
     });
     
     return ApiResponse.success(
@@ -55,9 +66,9 @@ class MentorController {
    */
   updateMentor = asyncHandler(async (req, res) => {
     const { mentor_name } = req.params;
-    const { contact_number } = req.body;
+    const { contact_number, email, designation } = req.body;
     
-    const updated = await mentorModel.update(mentor_name, { contact_number });
+    const updated = await mentorModel.update(mentor_name, { contact_number, email, designation });
     
     return ApiResponse.success(res, 'Mentor updated successfully', { updated });
   });
@@ -67,9 +78,8 @@ class MentorController {
    */
   deleteMentor = asyncHandler(async (req, res) => {
     const { mentor_name } = req.params;
-    const { group_id } = req.query;
     
-    await mentorModel.delete(mentor_name, group_id);
+    await mentorModel.delete(mentor_name);
     
     return ApiResponse.success(res, 'Mentor deleted successfully');
   });

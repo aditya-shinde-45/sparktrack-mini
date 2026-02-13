@@ -40,7 +40,9 @@ const RolePermissionManager = () => {
   const availableTables = [
     { id: "students", label: "Students Table", description: "Manage student records and data", icon: Users },
     { id: "pbl", label: "PBL Table", description: "Manage PBL groups and projects", icon: Database },
-    { id: "mentors", label: "Mentors Table", description: "Manage mentor information", icon: Shield }
+    { id: "mentors", label: "Mentors Table", description: "Manage mentor information", icon: Shield },
+    { id: "evaluation_form_submission", label: "Evaluation Form Submissions", description: "View and manage evaluation form marks", icon: Database },
+    { id: "industrial_mentors", label: "Industrial Mentors", description: "Manage industrial mentor records", icon: Users }
   ];
 
   useEffect(() => {

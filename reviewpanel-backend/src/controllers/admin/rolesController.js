@@ -29,7 +29,13 @@ export const createRole = async (req, res) => {
     }
 
     // Validate table permissions
-    const validTables = ["students", "pbl", "mentors"];
+    const validTables = [
+      "students",
+      "pbl",
+      "mentors",
+      "evaluation_form_submission",
+      "industrial_mentors"
+    ];
     const invalidTables = tablePermissions.filter(table => !validTables.includes(table));
     if (invalidTables.length > 0) {
       return ApiResponse.error(res, `Invalid table permissions: ${invalidTables.join(", ")}`, 400);
@@ -172,7 +178,13 @@ export const updateRole = async (req, res) => {
       }
 
       // Validate table permissions
-      const validTables = ["students", "pbl", "mentors"];
+      const validTables = [
+        "students",
+        "pbl",
+        "mentors",
+        "evaluation_form_submission",
+        "industrial_mentors"
+      ];
       const invalidTables = tablePermissions.filter(table => !validTables.includes(table));
       if (invalidTables.length > 0) {
         return ApiResponse.error(res, `Invalid table permissions: ${invalidTables.join(", ")}`, 400);

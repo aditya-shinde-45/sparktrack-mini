@@ -15,7 +15,7 @@ class MentorModel {
   async getAll() {
     const { data, error } = await supabase
       .from(this.table)
-      .select('mentor_code, mentor_name, contact_number, group_id');
+      .select('mentor_code, mentor_name, contact_number, email, designation');
 
     if (error) throw error;
     return data || [];
@@ -28,7 +28,7 @@ class MentorModel {
   async getByName(mentorName) {
     const { data, error } = await supabase
       .from(this.table)
-      .select('mentor_code, mentor_name, contact_number, password, group_id')
+      .select('mentor_code, mentor_name, contact_number, email, designation, password')
       .eq('mentor_name', mentorName);
 
     if (error) throw error;
@@ -42,7 +42,7 @@ class MentorModel {
   async getByContactNumber(contactNumber) {
     const { data, error } = await supabase
       .from(this.table)
-      .select('mentor_code, mentor_name, contact_number, password, group_id')
+      .select('mentor_code, mentor_name, contact_number, email, designation, password')
       .eq('contact_number', contactNumber);
 
     if (error) throw error;
@@ -79,7 +79,7 @@ class MentorModel {
       .from(this.table)
       .update({ password: hashedPassword })
       .eq('contact_number', contactNumber)
-      .select('mentor_code, mentor_name, contact_number');
+      .select('mentor_code, mentor_name, contact_number, email, designation');
 
     if (error) throw error;
     return data;
@@ -154,10 +154,6 @@ class MentorModel {
       .from(this.table)
       .delete()
       .eq('mentor_name', mentorName);
-    
-    if (groupId) {
-      query = query.eq('group_id', groupId);
-    }
 
     const { error } = await query;
     if (error) throw error;

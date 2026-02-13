@@ -3,25 +3,16 @@ import { useNavigate, NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  FileCheck,
-  Calendar,
   Settings,
-  LogOut,
-  ClipboardCheck,
-  Lock
+  LogOut
 } from "lucide-react";
-import mitLogo from '../../assets/mitlogo.png';
 
-const mentorRoutes = [
-  { name: "Dashboard", path: "/mentor/dashboard", icon: LayoutDashboard, disabled: false },
-  { name: "My Groups", path: "/mentor/groups", icon: Users, disabled: false },
-  { name: "Reviews", path: "/mentor/evaluation", icon: FileCheck, disabled: false },
-  { name: "Zeroth Review", path: "/mentor/zeroth-review", icon: ClipboardCheck, disabled: true },
-  { name: "Schedule", path: "/mentor/schedule", icon: Calendar, disabled: true },
-  { name: "Settings", path: "/mentor/settings", icon: Settings, disabled: false },
+const industryRoutes = [
+  { name: "Dashboard", path: "/industry-mentor/dashboard", icon: LayoutDashboard, disabled: false },
+  { name: "My Groups", path: "/industry-mentor/groups", icon: Users, disabled: false },
 ];
 
-const MentorSidebar = () => {
+const IndustryMentorSidebar = () => {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const navigate = useNavigate();
 
@@ -34,20 +25,19 @@ const MentorSidebar = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('mentor_token');
-    localStorage.removeItem('mentor');
+    localStorage.removeItem('industry_mentor_token');
+    localStorage.removeItem('industry_mentor');
     localStorage.removeItem('student_refresh_token');
     sessionStorage.clear();
-    navigate('/mentor/login');
+    navigate('/login');
   };
 
   return (
     <>
-      {/* Desktop Sidebar */}
       {isDesktop && (
         <div className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
           <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
-            {mentorRoutes.map(({ name, path, icon: Icon, disabled }, index) => (
+            {industryRoutes.map(({ name, path, icon: Icon, disabled }, index) => (
               disabled ? (
                 <div
                   key={index}
@@ -55,7 +45,6 @@ const MentorSidebar = () => {
                 >
                   <Icon size={20} color="#FFFFFF" opacity={0.4} />
                   <span className="text-white/40">{name}</span>
-                  <Lock size={16} className="ml-auto text-white/40" />
                 </div>
               ) : (
                 <NavLink
@@ -94,23 +83,17 @@ const MentorSidebar = () => {
         </div>
       )}
 
-      {/* Mobile Bottom Navigation */}
       {!isDesktop && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50">
           <div className="flex justify-around items-stretch max-w-screen-md mx-auto px-2 py-2 safe-area-inset-bottom">
-            {mentorRoutes.slice(0, 4).map(({ name, path, icon: Icon, disabled }, index) => (
+            {industryRoutes.slice(0, 3).map(({ name, path, icon: Icon, disabled }, index) => (
               disabled ? (
                 <div
                   key={index}
                   className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-2xl mx-1 opacity-40 cursor-not-allowed"
                 >
                   <div className="relative p-2.5 rounded-xl bg-gray-100">
-                    <Icon 
-                      size={24} 
-                      color="#9CA3AF" 
-                      strokeWidth={2}
-                    />
-                    <Lock size={12} className="absolute -top-1 -right-1 text-gray-400 bg-white rounded-full p-0.5" />
+                    <Icon size={24} color="#9CA3AF" strokeWidth={2} />
                   </div>
                   <span className="text-[9px] mt-1 font-semibold tracking-tight text-gray-400 truncate max-w-full">
                     {name}
@@ -128,13 +111,13 @@ const MentorSidebar = () => {
                   {({ isActive }) => (
                     <>
                       <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
-                        isActive 
-                          ? "bg-gradient-to-br from-[#7B74EF] via-[#6B64DF] to-[#5D3FD3] shadow-lg shadow-purple-500/30" 
+                        isActive
+                          ? "bg-gradient-to-br from-[#7B74EF] via-[#6B64DF] to-[#5D3FD3] shadow-lg shadow-purple-500/30"
                           : "bg-transparent"
                       }`}>
-                        <Icon 
-                          size={24} 
-                          color={isActive ? "#FFFFFF" : "#6B7280"} 
+                        <Icon
+                          size={24}
+                          color={isActive ? "#FFFFFF" : "#6B7280"}
                           strokeWidth={isActive ? 2.5 : 2}
                           className="transition-all duration-300"
                         />
@@ -168,4 +151,4 @@ const MentorSidebar = () => {
   );
 };
 
-export default MentorSidebar;
+export default IndustryMentorSidebar;

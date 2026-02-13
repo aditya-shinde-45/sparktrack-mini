@@ -113,6 +113,9 @@ const Login = () => {
         // Backend will handle first-time login with default password 'ideabliss2305'
         endpoint = "/api/mentors/login";
         payload = { username, password };
+      } else if (role === "Industry Mentor") {
+        endpoint = "/api/industrial-mentors/login";
+        payload = { username, password };
       } else {
         setErrorMsg("Selected role is not supported for login.");
         return;
@@ -195,6 +198,19 @@ const Login = () => {
         
         // Redirect to mentor dashboard
         window.location.href = "/mentor/dashboard";
+        return;
+      }
+
+      if (role === "Industry Mentor") {
+        const mentorData = data.data || data;
+
+        localStorage.setItem("industry_mentor_token", token);
+        localStorage.setItem("name", mentorData.name || username);
+        localStorage.setItem("industry_mentor_code", mentorData.industrial_mentor_code || "");
+        localStorage.setItem("mentor_code", mentorData.mentor_code || "");
+        localStorage.setItem("contact_number", mentorData.contact || username);
+
+        window.location.href = "/industry-mentor/dashboard";
         return;
       }
 
@@ -331,7 +347,7 @@ const Login = () => {
                            text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
                            focus:border-white/60 transition-all duration-300 shadow-lg"
                   placeholder={
-                    role === "Mentor"
+                    role === "Mentor" || role === "Industry Mentor"
                       ? "Phone Number (10 digits)"
                       : "Username"
                   }
@@ -388,6 +404,7 @@ const Login = () => {
                   <option value="" className="bg-[#5D3FD3] text-white">Select Role</option>
                   <option value="Admin" className="bg-[#5D3FD3] text-white">Admin</option>
                   <option value="Mentor" className="bg-[#5D3FD3] text-white">Mentor</option>
+                  <option value="Industry Mentor" className="bg-[#5D3FD3] text-white">Industry Mentor</option>
                 </select>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
                   <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">

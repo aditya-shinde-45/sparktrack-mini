@@ -27,7 +27,7 @@ router.get('/admintools/class/:classPrefix',
 
 router.get('/group/:groupId',
   authMiddleware.authenticateUser,
-  authMiddleware.restrictTo('admin', 'mentor'),
+  authMiddleware.restrictTo('admin', 'mentor', 'industry_mentor'),
   studentController.getStudentsByGroup
 );
 
