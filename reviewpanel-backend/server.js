@@ -27,6 +27,8 @@ import pblReviewRoutes from "./src/routes/admin/pblReviewRoutes.js";
 import evaluationFormRoutes from "./src/routes/admin/evaluationFormRoutes.js";
 import mentorEvaluationFormRoutes from "./src/routes/mentor/evaluationFormRoutes.js";
 import mentorGroupRoutes from "./src/routes/mentor/mentorGroupRoutes.js";
+import industrialMentorRoutes from "./src/routes/mentor/industrialMentorRoutes.js";
+import industrialMentorAuthRoutes from "./src/routes/mentor/industrialMentorAuthRoutes.js";
 
 // New routes from recent migration
 import studentAuthRoutes from "./src/routes/students/studentAuthRoutes.js";
@@ -73,6 +75,8 @@ app.use("/api/admin", dashboardRoutes);  // Added admin dashboard routes
 app.use("/api/mentors", mentorRoutes);
 app.use("/api/mentors", mentorEvaluationFormRoutes);
 app.use("/api/mentors", mentorGroupRoutes);
+app.use("/api/mentors", industrialMentorRoutes);
+app.use("/api/industrial-mentors", industrialMentorAuthRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/pbl", pblRoutes);

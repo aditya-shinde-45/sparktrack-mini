@@ -1,10 +1,11 @@
 import React from "react";
-import { Eye } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 
-const MarksTable = ({ students, loading, error, reviewType = "review1", formFields = [], totalMarks = 0 }) => {
+const MarksTable = ({ students, loading, error, reviewType = "review1", formFields = [], totalMarks = 0, onDeleteGroup }) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
   const isForm = reviewType === "form";
+  const showDelete = typeof onDeleteGroup === "function";
   const normalizedFormFields = formFields.map((field) => ({
     ...field,
     type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
@@ -68,6 +69,11 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">
                   Feedback
                 </th>
+                {showDelete && (
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
+                    Actions
+                  </th>
+                )}
               </>
             ) : isZeroReview ? (
               <>
@@ -100,7 +106,7 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">Org 2</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">Date</th>
               </>
-            ) : (
+                ) : (
               <>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">A</th>
                 <th className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">B</th>
@@ -175,6 +181,18 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                     <td className="px-4 py-3 text-sm text-gray-700">
                       {student.feedback || "-"}
                     </td>
+                    {showDelete && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => onDeleteGroup?.(student.group_id)}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-semibold"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </>
                 ) : isZeroReview ? (
                   <>

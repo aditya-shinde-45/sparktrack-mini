@@ -50,6 +50,8 @@ const MentorsPage = () => {
     const matchesSearch = 
       mentor.mentor_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       mentor.contact_number?.includes(searchQuery) ||
+      mentor.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      mentor.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (mentor.groups && mentor.groups.some(group => 
         group.toLowerCase().includes(searchQuery.toLowerCase())
       ));
@@ -254,6 +256,16 @@ const MentorsPage = () => {
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Phone className="w-4 h-4 text-gray-400" />
                     <span>{mentor.contact_number || "No contact"}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span>{mentor.email || "No email"}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <UserCheck className="w-4 h-4 text-gray-400" />
+                    <span>{mentor.designation || "No designation"}</span>
                   </div>
                   
                   <div className="flex items-center gap-2 text-sm">

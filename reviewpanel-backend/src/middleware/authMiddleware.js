@@ -1,7 +1,6 @@
 import { ApiError } from '../utils/errorHandler.js';
 import userModel from '../models/userModel.js';
 import studentAuthModel from '../models/studentAuthModel.js';
-import externalAuthModel from '../models/externalAuthModel.js';
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
 
@@ -77,22 +76,7 @@ class AuthMiddleware {
               // Fall back to token data
               req.user = { ...decoded };
             }
-          } else if (decoded.role === 'external') {
-            try {
-              const external = await externalAuthModel.findById(decoded.external_id);
-              if (!external) {
-                console.warn(`External with ID ${decoded.external_id} not found`);
-                // Fall back to token data for development
-                req.user = { ...decoded };
-              } else {
-                req.user = { ...decoded, ...external };
-              }
-            } catch (dbError) {
-              console.error('Error finding external:', dbError);
-              // Fall back to token data
-              req.user = { ...decoded };
-            }
-          } else if (decoded.role === 'mentor') {
+          } else if (decoded.role === 'mentor' || decoded.role === 'industry_mentor') {
             // Mentor - token contains mentor_id, mentor_name, contact_number
             // No need to fetch from DB, all data is in token
             req.user = { ...decoded };
@@ -234,42 +218,6 @@ class AuthMiddleware {
   /**
    * Authenticate external evaluator only
    */
-  authenticateExternal = async (req, res, next) => {
-    try {
-      const token = this.extractToken(req);
-      
-      if (!token) {
-        throw ApiError.unauthorized('Authentication token required');
-      }
-      
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        
-        if (decoded.role !== 'external') {
-          throw ApiError.forbidden('External evaluator access required');
-        }
-        
-        const external = await externalAuthModel.findById(decoded.external_id);
-        
-        if (!external) {
-          throw ApiError.unauthorized('Invalid external evaluator authentication');
-        }
-        
-        req.user = { ...decoded, ...external };
-        next();
-      } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-          throw ApiError.unauthorized('Invalid token');
-        }
-        if (error.name === 'TokenExpiredError') {
-          throw ApiError.unauthorized('Token expired');
-        }
-        throw error;
-      }
-    } catch (error) {
-      next(error);
-    }
-  };
 
   /**
    * Authenticate external evaluator or mentor
@@ -290,13 +238,7 @@ class AuthMiddleware {
         }
         
         if (decoded.role === 'external') {
-          const external = await externalAuthModel.findById(decoded.external_id);
-          
-          if (!external) {
-            throw ApiError.unauthorized('Invalid external evaluator authentication');
-          }
-          
-          req.user = { ...decoded, ...external };
+          req.user = { ...decoded };
         } else {
           // Mentor
           const mentor = await userModel.findById(decoded.id);
