@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Megaphone, BadgeCheck, BadgeDollarSign, Trash2, Upload, File, Download, X } from "lucide-react";
+import { Megaphone, Trash2, Upload, File, Download, X, FileText } from "lucide-react";
 import { apiRequest } from "../../api";
-
-const MARKS_OPTIONS = [
-    {
-        key: "show_pbl_review1_marks",
-        label: "Show PBL Review 1 Marks",
-        icon: <BadgeCheck className="w-6 h-6 text-yellow-500" />,
-    },
-    {
-        key: "show_pbl_review2_marks",
-        label: "Show PBL Review 2 Marks",
-        icon: <BadgeDollarSign className="w-6 h-6 text-emerald-500" />,
-    },
-];
 
 const AnnouncementAdmin = () => {
     const [message, setMessage] = useState("");
@@ -22,21 +9,40 @@ const AnnouncementAdmin = () => {
     const [sending, setSending] = useState(false);
     const [feedback, setFeedback] = useState("");
     const [marksToggles, setMarksToggles] = useState({});
+    const [evaluationForms, setEvaluationForms] = useState([]);
     const [announcements, setAnnouncements] = useState([]);
     const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+    const [loadingMarks, setLoadingMarks] = useState(false);
 
-    // Fetch current deadline toggles from backend on mount
+    // Fetch current evaluation marks toggles from backend on mount
     useEffect(() => {
         const token = localStorage.getItem("token");
-        apiRequest("/api/deadlines", "GET", null, token).then((res) => {
-            if (res && res.deadlines) {
-                const toggles = {};
-                MARKS_OPTIONS.forEach((opt) => {
-                    const found = res.deadlines.find((d) => d.key === opt.key);
-                    toggles[opt.key] = found ? !!found.enabled : false;
-                });
-                setMarksToggles(toggles);
+        setLoadingMarks(true);
+        Promise.all([
+            apiRequest("/api/deadlines", "GET", null, token),
+            apiRequest("/api/admin/evaluation-forms", "GET", null, token)
+        ]).then(([deadlineRes, formsRes]) => {
+            setLoadingMarks(false);
+            const forms = formsRes?.data || [];
+            setEvaluationForms(forms);
+
+            let deadlinesData = [];
+            if (deadlineRes?.data && Array.isArray(deadlineRes.data)) {
+                deadlinesData = deadlineRes.data;
+            } else if (deadlineRes?.deadlines && Array.isArray(deadlineRes.deadlines)) {
+                deadlinesData = deadlineRes.deadlines;
             }
+
+            const toggles = {};
+            forms.forEach((form) => {
+                const key = `show_evaluation_form_${form.id}`;
+                const found = deadlinesData.find((d) => d.key === key);
+                toggles[key] = found ? !!found.enabled : false;
+            });
+            setMarksToggles(toggles);
+        }).catch((error) => {
+            console.error("Failed to load evaluation marks toggles", error);
+            setLoadingMarks(false);
         });
         fetchAnnouncements();
         // eslint-disable-next-line
@@ -58,11 +64,12 @@ const AnnouncementAdmin = () => {
             ...prev,
             [key]: newStatus,
         }));
-        // Update deadline toggle in backend
+        // Update evaluation marks visibility toggle in backend
+        const label = evaluationForms.find((form) => `show_evaluation_form_${form.id}` === key)?.name;
         await apiRequest(
             `/api/deadlines/${key}`,
             "PUT",
-            { enabled: newStatus },
+            { enabled: newStatus, label },
             token
         );
     };
@@ -316,38 +323,55 @@ const AnnouncementAdmin = () => {
 
             <div className="w-full px-0 md:px-8 mb-10">
                 <hr className="my-8 border-purple-200" />
-                <h2 className="text-xl font-bold text-purple-700 mb-4 text-center">
-                    Marks Controls
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {MARKS_OPTIONS.map((option) => (
-                        <div
-                            key={option.key}
-                            className={`flex items-center justify-between bg-white rounded-lg shadow-lg p-6 border border-gray-100 transition-all duration-200
-                ${marksToggles[option.key] ? "ring-2 ring-purple-400" : ""}
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-purple-700 text-center">
+                        Evaluation Marks Visibility
+                    </h2>
+                    <span className="text-sm text-gray-500">Forms: {evaluationForms.length}</span>
+                </div>
+                {loadingMarks ? (
+                    <div className="text-center text-purple-500 font-semibold text-lg">
+                        Loading...
+                    </div>
+                ) : evaluationForms.length === 0 ? (
+                    <div className="text-center text-gray-500">No evaluation forms found.</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {evaluationForms.map((form) => {
+                            const key = `show_evaluation_form_${form.id}`;
+                            return (
+                                <div
+                                    key={key}
+                                    className={`flex items-center justify-between bg-white rounded-lg shadow-lg p-6 border border-gray-100 transition-all duration-200
+                ${marksToggles[key] ? "ring-2 ring-purple-400" : ""}
               `}
-                        >
-                            <div className="flex items-center gap-4">
-                                {option.icon}
-                                <span className="text-lg font-semibold text-gray-900">
-                                    {option.label}
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => handleToggle(option.key)}
-                                className={`px-5 py-2 rounded-full font-bold transition
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <FileText className="w-6 h-6 text-indigo-500" />
+                                        <div>
+                                            <span className="text-lg font-semibold text-gray-900 block">
+                                                {form.name}
+                                            </span>
+                                            <span className="text-xs text-gray-500">Evaluation form</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleToggle(key)}
+                                        className={`px-5 py-2 rounded-full font-bold transition
                   ${
-                    marksToggles[option.key]
+                    marksToggles[key]
                       ? "bg-purple-600 text-white shadow"
                       : "bg-gray-100 text-purple-700 hover:bg-purple-200"
                   }
                 `}
-                            >
-                                {marksToggles[option.key] ? "Enabled" : "Disabled"}
-                            </button>
-                        </div>
-                    ))}
-                </div>
+                                    >
+                                        {marksToggles[key] ? "Enabled" : "Disabled"}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             <div className="w-full px-0 md:px-8 mb-10">

@@ -77,4 +77,16 @@ router.get(
   pblReviewController.showPBLReview2Marks
 );
 
+/**
+ * @route   GET /api/admin/tools/announcement/evaluation-marks
+ * @desc    Show evaluation form marks for a student (enabled forms only)
+ * @access  Private (Student)
+ */
+router.get(
+  '/announcement/evaluation-marks',
+  authMiddleware.verifyToken,
+  authMiddleware.restrictTo('student'),
+  announcementController.getEvaluationMarksForStudent
+);
+
 export default router;

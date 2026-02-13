@@ -142,10 +142,19 @@ class StudentAuthController {
    */
   updateStudentPassword = asyncHandler(async (req, res) => {
     const enrollmentNo = req.user?.enrollment_no || req.user?.student_id;
-    const { newPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
 
-    if (!enrollmentNo || !newPassword) {
-      throw ApiError.badRequest('New password is required.');
+    if (!enrollmentNo || !oldPassword || !newPassword) {
+      throw ApiError.badRequest('Current password and new password are required.');
+    }
+
+    if (newPassword.length < 6) {
+      throw ApiError.badRequest('Password must be at least 6 characters long.');
+    }
+
+    const verifiedStudent = await studentAuthModel.validateCredentials(enrollmentNo, oldPassword);
+    if (!verifiedStudent || verifiedStudent.needsPasswordSetup) {
+      throw ApiError.unauthorized('Current password is incorrect.');
     }
 
     await studentAuthModel.updatePassword(enrollmentNo, newPassword);

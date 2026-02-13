@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../../api';
 import Sidebar from "../../Components/Student/sidebar";
 import Header from "../../Components/Student/Header";
@@ -20,27 +20,83 @@ import {
   RefreshCw
 } from "lucide-react";
 
+const technologyOptions = [
+  "Artificial Intelligence (AI)", "Machine Learning (ML)", "Deep Learning",
+  "Data Science & Analytics", "Big Data", "Internet of Things (IoT)",
+  "Cloud Computing", "Edge Computing", "Blockchain", "Cyber Security",
+  "Web Development", "Mobile Application Development", "Full Stack Development",
+  "DevOps", "AR / VR / XR", "Computer Vision", "Natural Language Processing (NLP)",
+  "Robotics & Automation", "Embedded Systems", "Digital Signal Processing (DSP)",
+  "Networking & Communication", "Quantum Computing", "Low-Code / No-Code Platforms",
+  "Software Engineering Tools", "Game Development"
+];
+
+const domainOptions = [
+  "Education (EdTech)", "Healthcare & Medical", "Agriculture & AgriTech",
+  "Smart Cities", "FinTech & Banking", "E-Governance", "Transportation & Logistics",
+  "Energy & Power", "Environment & Sustainability", "Climate & Disaster Management",
+  "Retail & E-Commerce", "Manufacturing & Industry 4.0", "Defence & Security",
+  "Media & Entertainment", "Tourism & Hospitality", "Sports & Fitness",
+  "Social Welfare & NGOs", "Rural Development", "Urban Development",
+  "Telecommunications", "Supply Chain Management", "LegalTech",
+  "HR & Workforce Management", "Real Estate & Infrastructure", "Space & Research",
+  "Open Innovation / Cross-Domain"
+];
+
+const normalizeChoice = (value) => {
+  if (!value) return "";
+  if (Array.isArray(value)) return value[0] || "";
+  if (typeof value === "string" && value.includes(",")) return value.split(",")[0].trim();
+  return value;
+};
+
 const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete }) => {
   const [form, setForm] = useState(
     existing || {
       title: '',
       type: '',
-      technologyBucket: '',
+      technologyBucket: [],
       domain: '',
       description: '',
     }
   );
+  const selectedTechnologies = Array.isArray(form.technologyBucket) ? form.technologyBucket : [];
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
+  const [techSearch, setTechSearch] = useState('');
+  const [showTechDropdown, setShowTechDropdown] = useState(false);
+
+  const filteredTechOptions = useMemo(() =>
+    technologyOptions.filter((tech) => tech.toLowerCase().includes(techSearch.toLowerCase())),
+    [techSearch]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setShowTechDropdown(false);
+      }
+    };
+    if (showTechDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showTechDropdown]);
 
   useEffect(() => {
     if (existing) {
+      const techValue = normalizeChoice(existing.technologyBucket || existing.technology_bucket || existing.technologybucket || '');
+      const techList = techValue
+        ? techValue.split(',').map((value) => value.trim()).filter(Boolean)
+        : [];
       setForm({
         title: existing.title || '',
         type: existing.type || '',
-        technologyBucket: existing.technologyBucket || existing.technology_bucket || existing.technologybucket || '',
-        domain: existing.domain || '',
+        technologyBucket: techList,
+        domain: normalizeChoice(existing.domain || ''),
         description: existing.description || '',
       });
     }
@@ -48,6 +104,13 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const removeTech = (value) => {
+    setForm({
+      ...form,
+      technologyBucket: selectedTechnologies.filter((item) => item !== value)
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -58,7 +121,11 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
       ? `/api/students/student/problem-statement/${groupId}`
       : `/api/students/student/problem-statement`;
     const method = existing ? 'PUT' : 'POST';
-    const body = { group_id: groupId, ...form };
+    const body = {
+      group_id: groupId,
+      ...form,
+      technologyBucket: form.technologyBucket.join(', ')
+    };
     const token = localStorage.getItem('student_token');
     const res = await apiRequest(endpoint, method, body, token);
     setLoading(false);
@@ -168,13 +235,90 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
               <Code className="w-5 h-5 text-green-600" />
               Technology Bucket
             </label>
-            <input
-              name="technologyBucket"
-              value={form.technologyBucket}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
-              placeholder="e.g., AI/ML, IoT"
-            />
+            <div className="relative dropdown-container rounded-xl border border-gray-200 bg-white p-4">
+              {selectedTechnologies.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                  {selectedTechnologies.slice(0, 3).map((tech) => (
+                    <span key={tech} className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-full text-sm">
+                      {tech}
+                      <button
+                        type="button"
+                        onClick={() => removeTech(tech)}
+                        className="hover:bg-purple-700 rounded-full w-4 h-4 flex items-center justify-center"
+                      >
+                        x
+                      </button>
+                    </span>
+                  ))}
+                  {selectedTechnologies.length > 3 && (
+                    <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+                      +{selectedTechnologies.length - 3} more
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, technologyBucket: [] })}
+                    className="text-sm text-purple-600 hover:text-purple-800 underline ml-2"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+
+              <div
+                onClick={() => setShowTechDropdown(!showTechDropdown)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 flex items-center justify-between bg-white"
+              >
+                <span className="text-gray-500 text-sm">
+                  {selectedTechnologies.length === 0 ? "Select technologies..." : `${selectedTechnologies.length} selected`}
+                </span>
+                <span className="text-gray-400">{showTechDropdown ? "▲" : "▼"}</span>
+              </div>
+
+              {showTechDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-72 overflow-hidden">
+                  <div className="p-2 border-b border-gray-200 sticky top-0 bg-white z-10">
+                    <input
+                      type="text"
+                      value={techSearch}
+                      onChange={(e) => setTechSearch(e.target.value)}
+                      placeholder="Search technology..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  <div className="overflow-y-auto max-h-60">
+                    {filteredTechOptions.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No technologies found</div>
+                    ) : (
+                      filteredTechOptions.map((tech) => (
+                        <label
+                          key={tech}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-purple-50 cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTechnologies.includes(tech)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setForm({ ...form, technologyBucket: [...selectedTechnologies, tech] });
+                              } else {
+                                setForm({ ...form, technologyBucket: selectedTechnologies.filter((t) => t !== tech) });
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                          />
+                          <span className="text-sm text-gray-700">{tech}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+            </div>
           </div>
 
           <div>
@@ -182,13 +326,19 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
               <Globe className="w-5 h-5 text-orange-600" />
               Domain
             </label>
-            <input
+            <select
               name="domain"
               value={form.domain}
               onChange={handleChange}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
-              placeholder="e.g., Healthcare"
-            />
+            >
+              <option value="">Select Domain</option>
+              {domainOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -307,7 +457,7 @@ const ProblemStatementSih = () => {
             token
           );
           
-          const group = groupRes?.data?.group || groupRes?.group;
+          const group = groupRes?.data?.groupDetails || groupRes?.groupDetails || groupRes?.data?.group || groupRes?.group;
           
           if (group && group.group_id) {
             setGroupData(group);
@@ -359,7 +509,7 @@ const ProblemStatementSih = () => {
     return (
       <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
         <Header
-          name={student?.name_of_students || student?.name || "Student"}
+          name={student?.name_of_student || student?.name_of_students || student?.name || "Student"}
           id={student?.enrollment_no || student?.enrollement_no || "----"}
         />
         <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
@@ -394,7 +544,7 @@ const ProblemStatementSih = () => {
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <Header
-        name={student?.name_of_students || student?.name || "Student"}
+        name={student?.name_of_student || student?.name_of_students || student?.name || "Student"}
         id={student?.enrollment_no || student?.enrollement_no || "----"}
       />
       <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
@@ -435,8 +585,8 @@ const ProblemStatementSih = () => {
                     <p className="text-lg font-bold text-gray-900">{groupData.team_name || 'Not Set'}</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-gray-600 text-sm mb-1">Mentor</p>
-                    <p className="text-lg font-bold text-gray-900">{groupData.mentor_code || 'Not Assigned'}</p>
+                    <p className="text-gray-600 text-sm mb-1">Guide</p>
+                    <p className="text-lg font-bold text-gray-900">{groupData.mentor_name || groupData.mentor_code || 'Not Assigned'}</p>
                   </div>
                 </div>
               </div>
