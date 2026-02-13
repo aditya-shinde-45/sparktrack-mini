@@ -136,13 +136,13 @@ const Documentation = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case "approved":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-green-50 text-green-800 border-green-300";
       case "pending":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-amber-50 text-amber-800 border-amber-300";
       case "rejected":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-red-50 text-red-800 border-red-300";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+        return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
 
@@ -162,15 +162,15 @@ const Documentation = () => {
   const getFileIcon = (category) => {
     switch (category) {
       case "reports":
-        return <FileText className="w-5 h-5 text-blue-600" />;
+        return <FileText className="w-5 h-5 text-blue-700" />;
       case "presentations":
-        return <ImageIcon className="w-5 h-5 text-purple-600" />;
+        return <ImageIcon className="w-5 h-5 text-purple-700" />;
       case "code":
-        return <Code className="w-5 h-5 text-green-600" />;
+        return <Code className="w-5 h-5 text-green-700" />;
       case "videos":
-        return <Video className="w-5 h-5 text-red-600" />;
+        return <Video className="w-5 h-5 text-red-700" />;
       default:
-        return <File className="w-5 h-5 text-gray-600" />;
+        return <File className="w-5 h-5 text-gray-700" />;
     }
   };
 
@@ -211,20 +211,20 @@ const Documentation = () => {
         
         <main className="flex-1 lg:ml-72 bg-gray-50">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <FileText className="w-6 h-6" />
+                    <div className="p-2.5 bg-purple-100 rounded-lg">
+                      <FileText className="w-6 h-6 text-purple-700" />
                     </div>
                     <div>
-                      <h1 className="text-2xl sm:text-3xl font-bold">
-                        Project Documentation
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                        Documentation
                       </h1>
-                      <p className="text-purple-100 text-sm mt-1">
-                        {student?.group_id || "Team"} - Manage Project Files
+                      <p className="text-gray-600 text-sm mt-0.5">
+                        {student?.group_id || "Team"} • Manage your project files
                       </p>
                     </div>
                   </div>
@@ -232,7 +232,7 @@ const Documentation = () => {
                 
                 <button 
                   onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-purple-700 hover:bg-purple-50 font-semibold rounded-lg transition-all shadow-lg">
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white hover:bg-purple-700 font-semibold rounded-lg transition-colors shadow-sm">
                   <Plus className="w-5 h-5" />
                   Upload Document
                 </button>
@@ -241,7 +241,7 @@ const Documentation = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 mb-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatsCard
                 title="Total Files"
@@ -272,31 +272,40 @@ const Documentation = () => {
 
           {/* Filters and Search */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <div className="flex flex-col lg:flex-row gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     type="text"
                     placeholder="Search documents..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 placeholder-gray-500"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Category Filter */}
                 <div className="flex gap-2 overflow-x-auto">
                   {documentCategories.map(category => {
                     const Icon = category.icon;
+                    const isActive = filterCategory === category.id;
                     return (
                       <button
                         key={category.id}
                         onClick={() => setFilterCategory(category.id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
-                          filterCategory === category.id
-                            ? "bg-purple-600 text-white shadow-md"
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                          isActive
+                            ? "bg-purple-600 text-white"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
                       >
@@ -316,59 +325,65 @@ const Documentation = () => {
               {filteredDocuments.map(doc => (
                 <div
                   key={doc.id}
-                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-all"
+                  className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md hover:border-gray-300 transition-all"
                 >
                   <div className="flex items-start gap-4">
                     {/* File Icon */}
-                    <div className="flex-shrink-0 p-3 bg-gray-50 rounded-lg">
-                      {getFileIcon(doc.category)}
+                    <div className="flex-shrink-0">
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        {getFileIcon(doc.category)}
+                      </div>
                     </div>
 
                     {/* File Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h4 className="text-base font-bold text-gray-900 mb-1">
                             {doc.document_name || doc.name}
                           </h4>
-                          <p className="text-sm text-gray-600 mb-2">
+                          <p className="text-sm text-gray-700 mb-2">
                             {doc.description || "No description provided"}
                           </p>
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {new Date(doc.created_at || doc.uploadedDate).toLocaleDateString()}
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+                            <span className="inline-flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                              {new Date(doc.created_at || doc.uploadedDate).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
                             </span>
                           </div>
                         </div>
 
                         {/* Status Badge */}
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs ${getStatusColor(doc.status)}`}>
+                        <span className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs ${getStatusColor(doc.status)}`}>
                           {getStatusIcon(doc.status)}
                           {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                         </span>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex flex-wrap gap-2 mt-3">
                         <a 
                           href={doc.document_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-purple-300">
                           <Eye className="w-3.5 h-3.5" />
                           View
                         </a>
                         <a 
                           href={doc.document_url}
                           download
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors">
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-green-800 bg-green-50 hover:bg-green-100 rounded-lg transition-colors border border-green-300">
                           <Download className="w-3.5 h-3.5" />
                           Download
                         </a>
                         <button 
                           onClick={() => handleDeleteDocument(doc.id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-300">
                           <Trash2 className="w-3.5 h-3.5" />
                           Delete
                         </button>
@@ -379,14 +394,24 @@ const Documentation = () => {
               ))}
 
               {filteredDocuments.length === 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Documents Found</h3>
-                  <p className="text-gray-600">
+                <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">No Documents Found</h3>
+                  <p className="text-gray-700 mb-4">
                     {searchQuery || filterCategory !== "all" 
-                      ? "Try adjusting your search or filter" 
+                      ? "Try adjusting your search or filter to find what you're looking for" 
                       : "Upload your first document to get started"}
                   </p>
+                  {!searchQuery && filterCategory === "all" && (
+                    <button 
+                      onClick={() => setShowUploadModal(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors shadow-sm">
+                      <Plus className="w-5 h-5" />
+                      Upload Your First Document
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -396,25 +421,24 @@ const Documentation = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-2xl flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Upload className="w-6 h-6" />
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Upload className="w-5 h-5 text-purple-700" />
                 </div>
-                <h2 className="text-xl font-bold">Upload Document</h2>
+                <h2 className="text-xl font-bold text-gray-900">Upload Document</h2>
               </div>
               <button
                 onClick={() => {
                   setShowUploadModal(false);
                   setUploadData({ file: null, category: "", description: "" });
                 }}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
 
@@ -422,13 +446,13 @@ const Documentation = () => {
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-5">
               {/* Document Type Dropdown */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Document Type <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={uploadData.category}
                   onChange={(e) => setUploadData({ ...uploadData, category: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 bg-white"
                   required
                 >
                   <option value="">Select document type...</option>
@@ -444,56 +468,59 @@ const Documentation = () => {
 
               {/* File Upload */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Choose File <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer bg-white"
                     required
                   />
                 </div>
                 {uploadData.file && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    Selected: <span className="font-semibold">{uploadData.file.name}</span>
-                    {" "}({(uploadData.file.size / (1024 * 1024)).toFixed(2)} MB)
-                  </p>
+                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-sm text-gray-900 flex items-center gap-2">
+                      <File className="w-4 h-4 text-gray-600" />
+                      <span className="font-semibold">{uploadData.file.name}</span>
+                      <span className="text-gray-600">({(uploadData.file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                    </p>
+                  </div>
                 )}
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Description (Optional)
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Description <span className="text-gray-500 text-xs font-normal">(Optional)</span>
                 </label>
                 <textarea
                   value={uploadData.description}
                   onChange={(e) => setUploadData({ ...uploadData, description: e.target.value })}
-                  placeholder="Enter a brief description of the document..."
+                  placeholder="Add a brief description..."
                   rows="4"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 placeholder-gray-500 resize-none bg-white"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowUploadModal(false);
                     setUploadData({ file: null, category: "", description: "" });
                   }}
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-5 py-2.5 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className={`flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg ${
-                    uploading ? "opacity-50 cursor-not-allowed" : ""
+                  className={`flex-1 px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors ${
+                    uploading ? "opacity-60 cursor-not-allowed" : ""
                   }`}
                 >
                   {uploading ? (
@@ -520,17 +547,35 @@ const Documentation = () => {
 // Stats Card Component
 const StatsCard = ({ title, value, icon, color }) => {
   const colorClasses = {
-    purple: "bg-purple-50 text-purple-600 border-purple-200",
-    green: "bg-green-50 text-green-600 border-green-200",
-    amber: "bg-amber-50 text-amber-600 border-amber-200",
-    red: "bg-red-50 text-red-600 border-red-200"
+    purple: {
+      bg: "bg-purple-50",
+      text: "text-purple-700",
+      border: "border-purple-200"
+    },
+    green: {
+      bg: "bg-green-50",
+      text: "text-green-700",
+      border: "border-green-200"
+    },
+    amber: {
+      bg: "bg-amber-50",
+      text: "text-amber-700",
+      border: "border-amber-200"
+    },
+    red: {
+      bg: "bg-red-50",
+      text: "text-red-700",
+      border: "border-red-200"
+    }
   };
 
+  const colors = colorClasses[color];
+
   return (
-    <div className="bg-white rounded-xl border-2 border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-gray-600">{title}</span>
-        <div className={`p-2 rounded-lg border ${colorClasses[color]}`}>
+        <span className="text-sm font-semibold text-gray-700">{title}</span>
+        <div className={`p-2 rounded-lg ${colors.bg} ${colors.text} border ${colors.border}`}>
           {icon}
         </div>
       </div>
