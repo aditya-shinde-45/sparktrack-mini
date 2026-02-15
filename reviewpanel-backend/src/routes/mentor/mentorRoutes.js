@@ -3,6 +3,7 @@ import mentorController from '../../controllers/mentor/mentorController.js';
 import mentorAuthController from '../../controllers/mentor/mentorAuthController.js';
 import zerothReviewController from '../../controllers/mentor/zerothReviewController.js';
 import mentorDocumentController from '../../controllers/mentor/mentorDocumentController.js';
+import problemStatementReviewController from '../../controllers/mentor/problemStatementReviewController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -185,6 +186,50 @@ router.put(
   '/documents/:id/status',
   authMiddleware.verifyToken,
   mentorDocumentController.updateDocumentStatus
+);
+
+/**
+ * @route   DELETE /api/mentors/documents/:id
+ * @desc    Delete a rejected document
+ * @access  Private (Mentor)
+ */
+router.delete(
+  '/documents/:id',
+  authMiddleware.verifyToken,
+  mentorDocumentController.deleteDocument
+);
+
+/**
+ * @route   PUT /api/mentors/problem-statement/:group_id/review
+ * @desc    Review problem statement (approve/reject)
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/problem-statement/:group_id/review',
+  authMiddleware.verifyToken,
+  problemStatementReviewController.reviewProblemStatement
+);
+
+/**
+ * @route   GET /api/mentors/problem-statement/:group_id
+ * @desc    Get problem statement with review status
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/problem-statement/:group_id',
+  authMiddleware.verifyToken,
+  problemStatementReviewController.getProblemStatementWithReview
+);
+
+/**
+ * @route   GET /api/mentors/evaluations/:group_id
+ * @desc    Get evaluation marks (Review 1 & Review 2) for a specific group
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/evaluations/:group_id',
+  authMiddleware.verifyToken,
+  mentorController.getEvaluationMarksByGroup
 );
 
 export default router;
