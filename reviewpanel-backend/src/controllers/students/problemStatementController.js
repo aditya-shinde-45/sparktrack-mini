@@ -38,10 +38,13 @@ class ProblemStatementController {
         technologybucket: payload.technologybucket,
         domain: payload.domain,
         description: payload.description,
+        // Reset status to PENDING when student updates - requires mentor re-approval
+        status: 'PENDING',
+        review_feedback: null
       };
       problemStatement = await problemStatementModel.update(group_id, updates);
       statusCode = 200;
-      message = 'Problem statement updated successfully.';
+      message = 'Problem statement updated successfully. Awaiting mentor approval.';
     } else {
       problemStatement = await problemStatementModel.create(payload);
     }
@@ -103,11 +106,14 @@ class ProblemStatementController {
       technologybucket: technologyBucket ?? existing.technologybucket,
       domain: domain ?? existing.domain,
       description: description ?? existing.description,
+      // Reset status to PENDING when student edits - requires mentor re-approval
+      status: 'PENDING',
+      review_feedback: null
     };
 
     const problemStatement = await problemStatementModel.update(group_id, updates);
 
-    return ApiResponse.success(res, 'Problem statement updated successfully.', { problemStatement });
+    return ApiResponse.success(res, 'Problem statement updated successfully. Awaiting mentor approval.', { problemStatement });
   });
 
   /**

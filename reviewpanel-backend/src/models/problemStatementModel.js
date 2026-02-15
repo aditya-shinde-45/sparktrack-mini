@@ -12,9 +12,16 @@ class ProblemStatementModel {
    * Create a new problem statement entry
    */
   async create(payload) {
+    // Set default status to PENDING if not provided
+    const dataToInsert = {
+      ...payload,
+      status: payload.status || 'PENDING',
+      review_feedback: payload.review_feedback || null
+    };
+
     const { data, error } = await supabase
       .from(this.table)
-      .insert([payload])
+      .insert([dataToInsert])
       .select()
       .single();
 

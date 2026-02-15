@@ -138,20 +138,21 @@ export const createGroup = async (req, res) => {
     let problemStatementId = null;
     if (continuePrevious && title) {
       const { data: psData, error: psError } = await supabase
-        .from('problem_statements')
+        .from('problem_statement')
         .insert({
+          group_id: groupId,
           title: title,
           type: type || 'Software',
-          technology_bucket: technologyBucket || null,
+          technologybucket: technologyBucket || null,
           domain: domain || null,
-          group_id: groupId,
-          description: 'Continued from previous project'
+          description: 'Continued from previous project',
+          status: 'PENDING'
         })
         .select()
         .single();
 
       if (!psError && psData) {
-        problemStatementId = psData.id;
+        problemStatementId = psData.ps_id;
         
         // Update pbl table with ps_id
         await supabase

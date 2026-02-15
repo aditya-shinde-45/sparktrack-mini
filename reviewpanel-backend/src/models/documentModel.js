@@ -73,12 +73,23 @@ class DocumentModel {
    * Update document status
    * @param {Number} id - Document ID
    * @param {String} status - New status (pending, approved, rejected)
+   * @param {String} rejectionFeedback - Rejection feedback (optional)
    * @returns {Promise<Object>} Updated document
    */
-  async updateStatus(id, status) {
+  async updateStatus(id, status, rejectionFeedback = null) {
+    const updateData = { status };
+    
+    // Add rejection feedback if provided and status is rejected
+    if (status === 'rejected' && rejectionFeedback) {
+      updateData.rejection_feedback = rejectionFeedback;
+    } else if (status === 'approved') {
+      // Clear rejection feedback on approval
+      updateData.rejection_feedback = null;
+    }
+
     const { data, error } = await supabase
       .from(this.table)
-      .update({ status })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
