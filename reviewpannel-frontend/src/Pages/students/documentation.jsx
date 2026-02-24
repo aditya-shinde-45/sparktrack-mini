@@ -34,7 +34,10 @@ const Documentation = () => {
   const [uploadData, setUploadData] = useState({
     file: null,
     category: "",
-    description: ""
+    description: "",
+    uploadType: "file",
+    link: "",
+    customCategory: ""
   });
 
   const documentCategories = [
@@ -42,7 +45,8 @@ const Documentation = () => {
     { id: "reports", name: "Reports", icon: FileText },
     { id: "presentations", name: "Presentations", icon: ImageIcon },
     { id: "code", name: "Code/Repository", icon: Code },
-    { id: "videos", name: "Videos/Demos", icon: Video }
+    { id: "videos", name: "Videos/Demos", icon: Video },
+    { id: "tracker", name: "Tracker Sheet", icon: FileText }
   ];
 
   useEffect(() => {
@@ -85,30 +89,61 @@ const Documentation = () => {
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     
-    if (!uploadData.file || !uploadData.category) {
-      alert("Please select a file and document type");
+    const finalCategory = uploadData.category === "custom" ? uploadData.customCategory : uploadData.category;
+    
+    if (!finalCategory) {
+      alert("Please select or enter document type");
+      return;
+    }
+
+    if (uploadData.uploadType === "file" && !uploadData.file) {
+      alert("Please select a file");
+      return;
+    }
+
+    if (uploadData.uploadType === "link" && !uploadData.link) {
+      alert("Please enter a link");
       return;
     }
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", uploadData.file);
-      formData.append("category", uploadData.category);
-      formData.append("description", uploadData.description);
-
       const token = localStorage.getItem("student_token");
       
-      const response = await apiRequest("/api/student/documents/upload", "POST", formData, token, true);
-      
-      if (response?.success) {
-        alert("Document uploaded successfully!");
-        setShowUploadModal(false);
-        setUploadData({ file: null, category: "", description: "" });
-        // Refresh document list
-        await fetchDocuments();
+      if (uploadData.uploadType === "link") {
+        const payload = {
+          category: finalCategory,
+          description: uploadData.description,
+          document_url: uploadData.link,
+          document_name: uploadData.description || "Link Document"
+        };
+        
+        const response = await apiRequest("/api/student/documents/link", "POST", payload, token);
+        
+        if (response?.success) {
+          alert("Link added successfully!");
+          setShowUploadModal(false);
+          setUploadData({ file: null, category: "", description: "", uploadType: "file", link: "", customCategory: "" });
+          await fetchDocuments();
+        } else {
+          throw new Error(response?.message || "Failed to add link");
+        }
       } else {
-        throw new Error(response?.message || "Upload failed");
+        const formData = new FormData();
+        formData.append("file", uploadData.file);
+        formData.append("category", finalCategory);
+        formData.append("description", uploadData.description);
+
+        const response = await apiRequest("/api/student/documents/upload", "POST", formData, token, true);
+        
+        if (response?.success) {
+          alert("Document uploaded successfully!");
+          setShowUploadModal(false);
+          setUploadData({ file: null, category: "", description: "", uploadType: "file", link: "", customCategory: "" });
+          await fetchDocuments();
+        } else {
+          throw new Error(response?.message || "Upload failed");
+        }
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -436,7 +471,7 @@ const Documentation = () => {
               <button
                 onClick={() => {
                   setShowUploadModal(false);
-                  setUploadData({ file: null, category: "", description: "" });
+                  setUploadData({ file: null, category: "", description: "", uploadType: "file", link: "", customCategory: "" });
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -446,6 +481,37 @@ const Documentation = () => {
 
             {/* Modal Body */}
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-5">
+              {/* Upload Type Toggle */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Upload Method
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadData({ ...uploadData, uploadType: "file", link: "" })}
+                    className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                      uploadData.uploadType === "file"
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadData({ ...uploadData, uploadType: "link", file: null })}
+                    className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                      uploadData.uploadType === "link"
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Add Link
+                  </button>
+                </div>
+              </div>
+
               {/* Document Type Dropdown */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -453,7 +519,7 @@ const Documentation = () => {
                 </label>
                 <select
                   value={uploadData.category}
-                  onChange={(e) => setUploadData({ ...uploadData, category: e.target.value })}
+                  onChange={(e) => setUploadData({ ...uploadData, category: e.target.value, customCategory: "" })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 bg-white"
                   required
                 >
@@ -465,32 +531,66 @@ const Documentation = () => {
                         {cat.name}
                       </option>
                     ))}
+                  <option value="custom">Other (Type your own)</option>
                 </select>
               </div>
 
-              {/* File Upload */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Choose File <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
+              {/* Custom Category Input */}
+              {uploadData.category === "custom" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Custom Document Type <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    type="file"
-                    onChange={handleFileChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer bg-white"
+                    type="text"
+                    value={uploadData.customCategory}
+                    onChange={(e) => setUploadData({ ...uploadData, customCategory: e.target.value })}
+                    placeholder="Enter document type..."
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 placeholder-gray-500 bg-white"
                     required
                   />
                 </div>
-                {uploadData.file && (
-                  <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-sm text-gray-900 flex items-center gap-2">
-                      <File className="w-4 h-4 text-gray-600" />
-                      <span className="font-semibold">{uploadData.file.name}</span>
-                      <span className="text-gray-600">({(uploadData.file.size / (1024 * 1024)).toFixed(2)} MB)</span>
-                    </p>
+              )}
+
+              {/* File Upload or Link Input */}
+              {uploadData.uploadType === "file" ? (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Choose File <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer bg-white"
+                      required={uploadData.uploadType === "file"}
+                    />
                   </div>
-                )}
-              </div>
+                  {uploadData.file && (
+                    <div className="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-sm text-gray-900 flex items-center gap-2">
+                        <File className="w-4 h-4 text-gray-600" />
+                        <span className="font-semibold">{uploadData.file.name}</span>
+                        <span className="text-gray-600">({(uploadData.file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Document Link <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={uploadData.link}
+                    onChange={(e) => setUploadData({ ...uploadData, link: e.target.value })}
+                    placeholder="https://example.com/document"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm text-gray-900 placeholder-gray-500 bg-white"
+                    required={uploadData.uploadType === "link"}
+                  />
+                </div>
+              )}
 
               {/* Description */}
               <div>
@@ -512,7 +612,7 @@ const Documentation = () => {
                   type="button"
                   onClick={() => {
                     setShowUploadModal(false);
-                    setUploadData({ file: null, category: "", description: "" });
+                    setUploadData({ file: null, category: "", description: "", uploadType: "file", link: "", customCategory: "" });
                   }}
                   className="flex-1 px-5 py-2.5 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
                 >

@@ -8,7 +8,7 @@ import {
   Mail,
   Phone,
   Briefcase,
-  ShieldCheck,
+  UserCog,
   Pencil,
   Save,
   AlertTriangle,
@@ -142,7 +142,7 @@ const MentorSettings = () => {
         <main className="flex-1 p-4 md:p-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
           <div className="max-w-6xl mx-auto">
             <div className="mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-purple-800 mb-2">Settings</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-purple-800 mb-2">Industry Mentor</h1>
               <p className="text-gray-600">Manage your industrial mentor details.</p>
             </div>
 
@@ -150,7 +150,7 @@ const MentorSettings = () => {
               <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-t-2xl">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-white rounded-xl border border-purple-100">
-                    <ShieldCheck className="w-5 h-5 text-purple-600" />
+                    <UserCog className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wider text-gray-400">Profile</p>
@@ -313,7 +313,7 @@ const MentorSettings = () => {
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 bg-purple-100 rounded-xl">
-                    <ShieldCheck className="w-5 h-5 text-purple-600" />
+                    <UserCog className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wider text-gray-400">Details</p>

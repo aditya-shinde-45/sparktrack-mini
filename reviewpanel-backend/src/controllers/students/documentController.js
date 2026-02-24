@@ -6,6 +6,63 @@ import supabase from '../../config/database.js';
 const documentModel = new DocumentModel();
 
 /**
+ * Add a document link (without file upload)
+ */
+export const addDocumentLink = async (req, res) => {
+  try {
+    const { category, description, document_url, document_name } = req.body;
+
+    if (!document_url) {
+      return ApiResponse.badRequest(res, 'Document URL is required');
+    }
+
+    if (!category) {
+      return ApiResponse.badRequest(res, 'Document category is required');
+    }
+
+    const enrollmentNo = req.user?.enrollment_no;
+
+    if (!enrollmentNo) {
+      return ApiResponse.badRequest(res, 'Enrollment number not found in token');
+    }
+
+    const { data: pblData, error: pblError } = await supabase
+      .from('pbl')
+      .select('group_id')
+      .eq('enrollment_no', enrollmentNo)
+      .single();
+
+    if (pblError || !pblData) {
+      console.error('PBL lookup error:', pblError);
+      return ApiResponse.badRequest(res, 'Student must be assigned to a group to add documents');
+    }
+
+    const groupId = pblData.group_id;
+
+    if (!groupId) {
+      return ApiResponse.badRequest(res, 'Student must be assigned to a group to add documents');
+    }
+
+    const documentData = {
+      group_id: groupId,
+      document_name: document_name || 'Link Document',
+      document_url,
+      category,
+      description: description || null,
+      uploaded_by: enrollmentNo,
+      status: 'pending'
+    };
+
+    const document = await documentModel.create(documentData);
+
+    return ApiResponse.success(res, 'Document link added successfully', { document }, 201);
+  } catch (error) {
+    console.error('Add Document Link Error:', error);
+    return ApiResponse.error(res, error.message || 'Failed to add document link', 500);
+  }
+};
+
+/**
  * Upload a new document
  */
 export const uploadDocument = async (req, res) => {

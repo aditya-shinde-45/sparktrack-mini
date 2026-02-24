@@ -4,7 +4,8 @@ import {
   uploadDocument,
   getDocuments,
   getDocumentById,
-  deleteDocument
+  deleteDocument,
+  addDocumentLink
 } from '../../controllers/students/documentController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
@@ -49,6 +50,7 @@ router.use(authMiddleware.authenticateStudent);
 
 // Document routes
 router.post('/upload', upload.single('file'), uploadDocument);
+router.post('/link', addDocumentLink);
 router.get('/', getDocuments);
 router.get('/:id', getDocumentById);
 router.delete('/:id', deleteDocument);
