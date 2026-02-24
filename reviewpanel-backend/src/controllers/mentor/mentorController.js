@@ -94,48 +94,37 @@ class MentorController {
       return ApiResponse.error(res, 'Group ID is required', 400);
     }
 
-    // Fetch all evaluation forms
-    const { data: forms, error: formsError } = await supabase
-      .from('evaluation_forms')
-      .select('id, name, total_marks, fields')
-      .order('created_at', { ascending: true });
-
-    if (formsError) {
-      throw formsError;
-    }
-
-    // Fetch evaluation submissions for this group
     const { data: submissions, error: submissionsError } = await supabase
       .from('evaluation_form_submissions')
-      .select('*')
-      .eq('group_id', group_id);
+      .select(`
+        id,
+        form_id,
+        group_id,
+        external_name,
+        feedback,
+        evaluations,
+        created_at,
+        evaluation_forms (name, total_marks)
+      `)
+      .eq('group_id', group_id)
+      .order('created_at', { ascending: true });
 
     if (submissionsError) {
       throw submissionsError;
     }
 
-    // Map submissions to forms
-    const evaluationData = (forms || []).map((form) => {
-      const submission = (submissions || []).find((s) => s.form_id === form.id);
-      
-      return {
-        form_id: form.id,
-        form_name: form.name,
-        total_marks: form.total_marks,
-        fields: form.fields,
-        submission: submission ? {
-          id: submission.id,
-          external_name: submission.external_name,
-          feedback: submission.feedback,
-          evaluations: submission.evaluations,
-          created_at: submission.created_at
-        } : null
-      };
-    });
+    const evaluations = (submissions || []).map((submission) => ({
+      form_id: submission.form_id,
+      form_name: submission.evaluation_forms?.name || 'Unknown Form',
+      total_marks: submission.evaluation_forms?.total_marks || 0,
+      external_name: submission.external_name,
+      feedback: submission.feedback,
+      student_marks: submission.evaluations || [],
+      submitted_at: submission.created_at
+    }));
 
     return ApiResponse.success(res, 'Evaluation marks retrieved successfully', {
-      group_id,
-      evaluations: evaluationData
+      evaluations
     });
   });
 }
