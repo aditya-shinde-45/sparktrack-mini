@@ -41,9 +41,14 @@ const StudentLogin = () => {
         if (token) {
           localStorage.setItem("student_token", token);
         }
-        const enrollmentId = res.data?.student?.enrollment_no || res.enrollment_no || enrollmentNo;
+        const studentData = res.data?.student || res.student;
+        const enrollmentId = studentData?.enrollment_no || res.enrollment_no || enrollmentNo;
         if (enrollmentId || enrollmentNo) {
           localStorage.setItem("enrollmentNumber", enrollmentId || enrollmentNo);
+        }
+        // Store student data for immediate use
+        if (studentData) {
+          localStorage.setItem("student", JSON.stringify(studentData));
         }
         navigate("/studentdashboard");
       }
