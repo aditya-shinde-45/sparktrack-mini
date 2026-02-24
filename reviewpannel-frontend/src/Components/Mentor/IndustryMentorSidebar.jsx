@@ -4,12 +4,14 @@ import {
   LayoutDashboard,
   Users,
   Settings,
-  LogOut
+  LogOut,
+  ClipboardCheck
 } from "lucide-react";
 
 const industryRoutes = [
   { name: "Dashboard", path: "/industry-mentor/dashboard", icon: LayoutDashboard, disabled: false },
   { name: "My Groups", path: "/industry-mentor/groups", icon: Users, disabled: false },
+  { name: "Reviews", path: "/industry-mentor/evaluation", icon: ClipboardCheck, disabled: false },
 ];
 
 const IndustryMentorSidebar = () => {
@@ -86,7 +88,7 @@ const IndustryMentorSidebar = () => {
       {!isDesktop && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50">
           <div className="flex justify-around items-stretch max-w-screen-md mx-auto px-2 py-2 safe-area-inset-bottom">
-            {industryRoutes.slice(0, 3).map(({ name, path, icon: Icon, disabled }, index) => (
+            {industryRoutes.map(({ name, path, icon: Icon, disabled }, index) => (
               disabled ? (
                 <div
                   key={index}

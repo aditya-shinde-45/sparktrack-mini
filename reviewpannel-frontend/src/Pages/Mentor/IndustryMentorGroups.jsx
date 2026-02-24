@@ -48,6 +48,9 @@ const IndustryMentorGroups = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [evaluations, setEvaluations] = useState([]);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
+  const [expandedEvaluations, setExpandedEvaluations] = useState(new Set());
 
   const token = useMemo(() => localStorage.getItem("industry_mentor_token"), []);
 
@@ -123,6 +126,45 @@ const IndustryMentorGroups = () => {
 
     fetchDetails();
   }, [selectedGroupId, token]);
+
+  useEffect(() => {
+    if (!selectedGroupId || !token) {
+      setEvaluations([]);
+      return;
+    }
+
+    const fetchEvaluations = async () => {
+      try {
+        setLoadingEvaluations(true);
+        const response = await apiRequest(
+          `/api/mentors/evaluations/${selectedGroupId}`,
+          "GET",
+          null,
+          token
+        );
+        setEvaluations(response?.data?.evaluations || response?.evaluations || []);
+      } catch (err) {
+        console.error("Error fetching evaluations:", err);
+        setEvaluations([]);
+      } finally {
+        setLoadingEvaluations(false);
+      }
+    };
+
+    fetchEvaluations();
+  }, [selectedGroupId, token]);
+
+  const toggleEvaluation = (index) => {
+    setExpandedEvaluations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     if (!selectedGroupId || !token) {
@@ -544,6 +586,152 @@ const IndustryMentorGroups = () => {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+              <div className="border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-purple-800 mb-1">Evaluation Marks</h2>
+                    <p className="text-sm text-gray-600">View marks from all review cycles</p>
+                  </div>
+                </div>
+              </div>
+
+              {!selectedGroupId ? (
+                <div className="flex flex-col items-center justify-center py-12 px-6">
+                  <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mb-4">
+                    <AlertTriangle className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <p className="text-gray-900 font-medium">Select a group to view evaluations</p>
+                </div>
+              ) : loadingEvaluations ? (
+                <div className="text-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+                  <p className="mt-4 text-sm text-gray-900 font-medium">Loading evaluations...</p>
+                </div>
+              ) : evaluations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-6">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="w-8 h-8 text-slate-300" />
+                  </div>
+                  <p className="text-gray-900 font-medium mb-1">No evaluations found</p>
+                  <p className="text-sm text-gray-600">This group hasn't been evaluated yet</p>
+                </div>
+              ) : (
+                <div className="p-6 space-y-4">
+                  {evaluations.map((evaluation, idx) => (
+                    <div 
+                      key={idx} 
+                      className="border border-gray-200 rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-purple-300 transform-gpu"
+                    >
+                      <div 
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 cursor-pointer hover:from-purple-700 hover:to-indigo-700 transition-colors duration-200"
+                        onClick={() => toggleEvaluation(idx)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-white">{evaluation.form_name}</h3>
+                            {evaluation.external_name && (
+                              <p className="text-purple-100 text-sm mt-1">External: {evaluation.external_name}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 bg-white/20 rounded-full text-white text-sm font-semibold backdrop-blur-sm">
+                              Total: {evaluation.total_marks} marks
+                            </span>
+                            <button
+                              className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200 hover:scale-110 transform-gpu"
+                            >
+                              <ChevronDown className={`w-5 h-5 text-white transition-transform duration-300 ease-out ${expandedEvaluations.has(idx) ? 'rotate-180' : 'rotate-0'}`} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div 
+                        className={`transition-all duration-300 ease-out overflow-hidden ${
+                          expandedEvaluations.has(idx) 
+                            ? 'max-h-[2000px] opacity-100' 
+                            : 'max-h-0 opacity-0'
+                        }`}
+                      >
+                        <div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Student</th>
+                                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase">Enrollment No</th>
+                                  {evaluation.student_marks?.[0]?.marks && Object.keys(evaluation.student_marks[0].marks).map((key) => (
+                                    <th key={key} className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">{key}</th>
+                                  ))}
+                                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">Total</th>
+                                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-700 uppercase">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {evaluation.student_marks?.map((studentMark, sIdx) => (
+                                  <tr key={sIdx} className="hover:bg-gray-50 transition-colors duration-150">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                      {studentMark.student_name}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-600">
+                                      {studentMark.enrollment_no}
+                                    </td>
+                                    {studentMark.marks && Object.values(studentMark.marks).map((mark, mIdx) => (
+                                      <td key={mIdx} className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                                        {typeof mark === 'boolean' ? (mark ? '✓' : '✗') : mark}
+                                      </td>
+                                    ))}
+                                    <td className="px-6 py-4 text-center">
+                                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-purple-100 text-purple-700">
+                                        {studentMark.total}
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                      {studentMark.absent ? (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                                          Absent
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                          Present
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {evaluation.feedback && (
+                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Feedback</p>
+                              <p className="text-sm text-gray-700">{evaluation.feedback}</p>
+                            </div>
+                          )}
+
+                          {evaluation.submitted_at && (
+                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                              <p className="text-xs text-gray-500">
+                                Submitted on {new Date(evaluation.submitted_at).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 

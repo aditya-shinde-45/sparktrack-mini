@@ -95,6 +95,7 @@ const AppRoutes = () => {
       <Route path="/industry-mentor/dashboard" element={<IndustryMentorDashboard />} />
       <Route path="/industry-mentor/groups" element={<IndustryMentorGroups />} />
       <Route path="/industry-mentor/groups/:groupId" element={<IndustryMentorGroups />} />
+      <Route path="/industry-mentor/evaluation" element={<MentorEvaluation />} />
 
 
       {/* External Routes removed */}
