@@ -230,7 +230,7 @@ This project is licensed under the MIT License.
 
 <div align="center">
 
-**Developed by Aditya Shinde**  
+**Developed by StrawHats Team**  
 Full Stack Developer | Cloud & DevOps Enthusiast  
 
 © 2025 SparkTrack
