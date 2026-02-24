@@ -401,6 +401,19 @@ const Documentation = () => {
                         </span>
                       </div>
 
+                      {/* Rejection Feedback */}
+                      {doc.status === 'rejected' && doc.rejection_feedback && (
+                        <div className="mt-3 bg-red-50 border-l-4 border-red-500 p-3 rounded">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-xs font-semibold text-red-800 mb-1">Rejection Feedback:</p>
+                              <p className="text-xs text-red-700">{doc.rejection_feedback}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2 mt-3">
                         <a 
@@ -418,12 +431,14 @@ const Documentation = () => {
                           <Download className="w-3.5 h-3.5" />
                           Download
                         </a>
-                        <button 
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-300">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
-                        </button>
+                        {doc.status === 'rejected' && (
+                          <button 
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-300">
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

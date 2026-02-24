@@ -11,6 +11,9 @@ const ProblemStatementModal = ({
 }) => {
   const [showAddEdit, setShowAddEdit] = useState(false);
   const [showView, setShowView] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [reviewAction, setReviewAction] = useState(null); // 'APPROVED' or 'REJECTED'
+  const [feedback, setFeedback] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -106,6 +109,59 @@ const ProblemStatementModal = ({
       setIsEditing(true);
       setShowView(false);
       setShowAddEdit(true);
+    }
+  };
+
+  const handleReviewClick = (action) => {
+    setReviewAction(action);
+    setFeedback('');
+    setShowFeedbackModal(true);
+  };
+
+  const handleReviewSubmit = async () => {
+    if (reviewAction === 'REJECTED' && !feedback.trim()) {
+      setMessage('Feedback is required when rejecting.');
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage('');
+
+    const payload = {
+      status: reviewAction,
+      feedback: reviewAction === 'REJECTED' ? feedback : null
+    };
+
+    const token = localStorage.getItem("mentor_token");
+    const response = await apiRequest(
+      `/api/mentors/problem-statement/${selectedGroupId}/review`,
+      "PUT",
+      payload,
+      token
+    );
+
+    setSubmitting(false);
+
+    if (response?.success || response?.success !== false) {
+      setMessage(`Problem statement ${reviewAction.toLowerCase()} successfully!`);
+      setShowFeedbackModal(false);
+      
+      // Update the problem statement in parent
+      if (onSuccess) {
+        const updatedPS = {
+          ...problemStatement,
+          status: reviewAction,
+          review_feedback: payload.feedback
+        };
+        onSuccess(updatedPS);
+      }
+      
+      setTimeout(() => {
+        setShowView(false);
+        setMessage('');
+      }, 1500);
+    } else {
+      setMessage(response?.message || 'Failed to review problem statement.');
     }
   };
 
@@ -530,10 +586,55 @@ const ProblemStatementModal = ({
                   <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">{problemStatement.description}</p>
                 </div>
               )}
+
+              {/* Approval Status */}
+              {problemStatement.status && (
+                <div className={`p-4 rounded-lg border-2 ${
+                  problemStatement.status === 'APPROVED' 
+                    ? 'bg-green-50 border-green-200' 
+                    : problemStatement.status === 'REJECTED'
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-yellow-50 border-yellow-200'
+                }`}>
+                  <label className="block text-sm font-semibold mb-2 ${
+                    problemStatement.status === 'APPROVED' 
+                      ? 'text-green-700' 
+                      : problemStatement.status === 'REJECTED'
+                      ? 'text-red-700'
+                      : 'text-yellow-700'
+                  }">Approval Status</label>
+                  <p className={`text-base font-bold ${
+                    problemStatement.status === 'APPROVED' 
+                      ? 'text-green-800' 
+                      : problemStatement.status === 'REJECTED'
+                      ? 'text-red-800'
+                      : 'text-yellow-800'
+                  }`}>
+                    {problemStatement.status}
+                  </p>
+                </div>
+              )}
+
+              {/* Feedback if Rejected */}
+              {problemStatement.status === 'REJECTED' && problemStatement.review_feedback && (
+                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
+                  <label className="block text-sm font-semibold text-red-700 mb-2">Feedback</label>
+                  <p className="text-red-800 leading-relaxed whitespace-pre-wrap">{problemStatement.review_feedback}</p>
+                </div>
+              )}
               </div>
             </div>
 
             <div className="flex gap-3 justify-end p-6 border-t border-gray-200 bg-white">
+              {message && (
+                <div className={`flex-1 p-3 rounded-lg text-sm ${
+                  message.includes("success") 
+                    ? "bg-green-50 text-green-800 border border-green-200" 
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}>
+                  {message}
+                </div>
+              )}
               <button
                 onClick={() => setShowView(false)}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
@@ -542,11 +643,119 @@ const ProblemStatementModal = ({
               </button>
               <button
                 onClick={handleEdit}
-                disabled={isReadOnly}
-                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                title={isReadOnly ? "Cannot edit after evaluation is submitted" : "Edit problem statement"}
+                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
               >
                 Edit
+              </button>
+              {problemStatement.status !== 'APPROVED' && (
+                <>
+                  <button
+                    onClick={() => handleReviewClick('REJECTED')}
+                    disabled={submitting}
+                    className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleReviewClick('APPROVED')}
+                    disabled={submitting}
+                    className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Approve
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div 
+          className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center p-4"
+          style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFeedbackModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`px-6 py-4 border-b flex items-center justify-between ${
+              reviewAction === 'APPROVED' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+            }`}>
+              <h3 className={`text-xl font-bold ${
+                reviewAction === 'APPROVED' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {reviewAction === 'APPROVED' ? 'Approve' : 'Reject'} Problem Statement
+              </h3>
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6">
+              {reviewAction === 'REJECTED' ? (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Feedback (Required) *
+                  </label>
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    rows={4}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-vertical text-gray-900"
+                    placeholder="Please provide feedback on why this problem statement is being rejected..."
+                  />
+                  <p className="text-gray-500 text-sm mt-2">
+                    The student will see this feedback and can resubmit after making changes.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-green-800">
+                    Are you sure you want to approve this problem statement? Once approved, the student will not be able to edit it.
+                  </p>
+                </div>
+              )}
+
+              {message && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                  message.includes("success") 
+                    ? "bg-green-50 text-green-800 border border-green-200" 
+                    : "bg-red-50 text-red-800 border border-red-200"
+                }`}>
+                  {message}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 justify-end p-6 border-t border-gray-200 bg-white">
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                disabled={submitting}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReviewSubmit}
+                disabled={submitting || (reviewAction === 'REJECTED' && !feedback.trim())}
+                className={`px-6 py-2 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                  reviewAction === 'APPROVED' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {submitting ? 'Submitting...' : `Confirm ${reviewAction === 'APPROVED' ? 'Approval' : 'Rejection'}`}
               </button>
             </div>
           </div>

@@ -100,6 +100,11 @@ class ProblemStatementController {
       throw ApiError.notFound('Problem statement not found.');
     }
 
+    // Prevent editing if already approved
+    if (existing.status === 'APPROVED') {
+      throw ApiError.forbidden('Cannot edit an approved problem statement.');
+    }
+
     const updates = {
       title: title ?? existing.title,
       type: type ?? existing.type,
@@ -129,6 +134,11 @@ class ProblemStatementController {
     const existing = await problemStatementModel.findByGroup(group_id);
     if (!existing) {
       throw ApiError.notFound('Problem statement not found.');
+    }
+
+    // Prevent deleting if already approved
+    if (existing.status === 'APPROVED') {
+      throw ApiError.forbidden('Cannot delete an approved problem statement.');
     }
 
     await problemStatementModel.delete(group_id);

@@ -67,6 +67,11 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
   const [techSearch, setTechSearch] = useState('');
   const [showTechDropdown, setShowTechDropdown] = useState(false);
 
+  // Check if PS is approved
+  const isApproved = existing?.status === 'APPROVED';
+  const isRejected = existing?.status === 'REJECTED';
+  const isPending = existing?.status === 'PENDING';
+
   const filteredTechOptions = useMemo(() =>
     technologyOptions.filter((tech) => tech.toLowerCase().includes(techSearch.toLowerCase())),
     [techSearch]
@@ -136,6 +141,13 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
       setMessageType('error');
       return;
     }
+
+    // Check for approved status error
+    if (res.success === false && res.status === 403 && res.message?.includes('approved')) {
+      setMessage('Cannot edit an approved problem statement.');
+      setMessageType('error');
+      return;
+    }
     
     if (res.success !== false) {
       setMessage(res.message || (existing ? 'Problem statement updated successfully!' : 'Problem statement submitted successfully!'));
@@ -159,6 +171,13 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
     // Check for deadline block error
     if (res.success === false && res.status === 403 && res.message?.includes('disabled')) {
       setMessage('This task has been closed by the administrator. Modifications are no longer allowed.');
+      setMessageType('error');
+      return;
+    }
+
+    // Check for approved status error
+    if (res.success === false && res.status === 403 && res.message?.includes('approved')) {
+      setMessage('Cannot delete an approved problem statement.');
       setMessageType('error');
       return;
     }
@@ -193,6 +212,55 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
         </div>
       </div>
 
+      {/* Approval Status Banner */}
+      {existing && existing.status && (
+        <div className={`px-6 py-4 ${
+          isApproved 
+            ? 'bg-green-50 border-b-2 border-green-200' 
+            : isRejected
+            ? 'bg-red-50 border-b-2 border-red-200'
+            : 'bg-yellow-50 border-b-2 border-yellow-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            {isApproved ? (
+              <Check className="w-6 h-6 text-green-600" />
+            ) : isRejected ? (
+              <X className="w-6 h-6 text-red-600" />
+            ) : (
+              <AlertCircle className="w-6 h-6 text-yellow-600" />
+            )}
+            <div className="flex-1">
+              <p className={`font-bold ${
+                isApproved ? 'text-green-800' : isRejected ? 'text-red-800' : 'text-yellow-800'
+              }`}>
+                Status: {existing.status}
+              </p>
+              {isApproved && (
+                <p className="text-green-700 text-sm mt-1">
+                  Your problem statement has been approved by your mentor. Editing is now disabled.
+                </p>
+              )}
+              {isRejected && existing.review_feedback && (
+                <div className="mt-2">
+                  <p className="text-red-700 text-sm font-semibold mb-1">Mentor Feedback:</p>
+                  <p className="text-red-800 text-sm bg-white p-3 rounded border border-red-200">
+                    {existing.review_feedback}
+                  </p>
+                  <p className="text-red-700 text-sm mt-2">
+                    Please update your problem statement based on the feedback and resubmit.
+                  </p>
+                </div>
+              )}
+              {isPending && (
+                <p className="text-yellow-700 text-sm mt-1">
+                  Your problem statement is awaiting mentor review.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-6 space-y-6">
         {/* Title Field */}
         <div>
@@ -205,7 +273,8 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
             value={form.title}
             onChange={handleChange}
             required
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+            disabled={isApproved}
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Enter your project title"
           />
         </div>
@@ -221,7 +290,8 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
               name="type"
               value={form.type}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+              disabled={isApproved}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select Type</option>
               <option value="Hardware">Hardware</option>
@@ -241,13 +311,15 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
                   {selectedTechnologies.slice(0, 3).map((tech) => (
                     <span key={tech} className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-full text-sm">
                       {tech}
-                      <button
-                        type="button"
-                        onClick={() => removeTech(tech)}
-                        className="hover:bg-purple-700 rounded-full w-4 h-4 flex items-center justify-center"
-                      >
-                        x
-                      </button>
+                      {!isApproved && (
+                        <button
+                          type="button"
+                          onClick={() => removeTech(tech)}
+                          className="hover:bg-purple-700 rounded-full w-4 h-4 flex items-center justify-center"
+                        >
+                          x
+                        </button>
+                      )}
                     </span>
                   ))}
                   {selectedTechnologies.length > 3 && (
@@ -255,19 +327,23 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
                       +{selectedTechnologies.length - 3} more
                     </span>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, technologyBucket: [] })}
-                    className="text-sm text-purple-600 hover:text-purple-800 underline ml-2"
-                  >
-                    Clear all
-                  </button>
+                  {!isApproved && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, technologyBucket: [] })}
+                      className="text-sm text-purple-600 hover:text-purple-800 underline ml-2"
+                    >
+                      Clear all
+                    </button>
+                  )}
                 </div>
               )}
 
               <div
-                onClick={() => setShowTechDropdown(!showTechDropdown)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-purple-400 flex items-center justify-between bg-white"
+                onClick={() => !isApproved && setShowTechDropdown(!showTechDropdown)}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg flex items-center justify-between ${
+                  isApproved ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer hover:border-purple-400 bg-white'
+                }`}
               >
                 <span className="text-gray-500 text-sm">
                   {selectedTechnologies.length === 0 ? "Select technologies..." : `${selectedTechnologies.length} selected`}
@@ -275,7 +351,7 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
                 <span className="text-gray-400">{showTechDropdown ? "▲" : "▼"}</span>
               </div>
 
-              {showTechDropdown && (
+              {showTechDropdown && !isApproved && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-72 overflow-hidden">
                   <div className="p-2 border-b border-gray-200 sticky top-0 bg-white z-10">
                     <input
@@ -330,7 +406,8 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
               name="domain"
               value={form.domain}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white"
+              disabled={isApproved}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select Domain</option>
               {domainOptions.map((option) => (
@@ -353,8 +430,9 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
             value={form.description}
             onChange={handleChange}
             required
+            disabled={isApproved}
             rows={6}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white resize-vertical"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-gray-800 bg-white resize-vertical disabled:bg-gray-100 disabled:cursor-not-allowed"
             placeholder="Describe your problem statement in detail..."
           />
           <p className="text-gray-500 text-sm mt-2">
@@ -384,7 +462,7 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
 
         {/* Action Buttons */}
         <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
-          {existing && (
+          {existing && !isApproved && (
             <button
               type="button"
               onClick={handleDelete}
@@ -395,23 +473,25 @@ const ProblemStatementForm = ({ groupId, groupName, existing, onSubmit, onDelete
               Delete
             </button>
           )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                {existing ? 'Updating...' : 'Submitting...'}
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                {existing ? 'Update' : 'Submit'}
-              </>
-            )}
-          </button>
+          {!isApproved && (
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  {existing ? 'Updating...' : 'Submitting...'}
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  {existing ? 'Update' : 'Submit'}
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </form>

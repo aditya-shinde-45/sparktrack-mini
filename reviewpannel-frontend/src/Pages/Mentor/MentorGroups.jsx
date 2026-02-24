@@ -31,7 +31,8 @@ import {
   XCircle,
   Calendar,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  Trash2
 } from "lucide-react";
 
 const MentorGroups = () => {
@@ -55,6 +56,7 @@ const MentorGroups = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [rejectionFeedback, setRejectionFeedback] = useState('');
   const [evaluations, setEvaluations] = useState([]);
   const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [expandedEvaluations, setExpandedEvaluations] = useState(new Set());
@@ -265,24 +267,50 @@ const MentorGroups = () => {
     }
   };
 
-  const handleRejectDocument = async (documentId) => {
+  const handleRejectDocument = async (documentId, feedback) => {
+    if (!feedback || !feedback.trim()) {
+      alert('Please provide feedback for rejection.');
+      return;
+    }
+    
     setConfirmAction(null);
     try {
       await apiRequest(
         `/api/mentors/documents/${documentId}/status`,
         "PUT",
-        { status: "rejected" },
+        { status: "rejected", feedback },
         token
       );
       
       setDocuments((prevDocs) =>
         prevDocs.map((doc) =>
-          doc.id === documentId ? { ...doc, status: "rejected" } : doc
+          doc.id === documentId ? { ...doc, status: "rejected", rejection_feedback: feedback } : doc
         )
       );
+      setRejectionFeedback('');
     } catch (err) {
       console.error("Error rejecting document:", err);
       alert("Failed to reject document. Please try again.");
+    }
+  };
+
+  const handleDeleteDocument = async (documentId) => {
+    if (!window.confirm('Are you sure you want to delete this rejected document?')) {
+      return;
+    }
+    
+    try {
+      await apiRequest(
+        `/api/mentors/documents/${documentId}`,
+        "DELETE",
+        null,
+        token
+      );
+      
+      setDocuments((prevDocs) => prevDocs.filter((doc) => doc.id !== documentId));
+    } catch (err) {
+      console.error("Error deleting document:", err);
+      alert("Failed to delete document. Please try again.");
     }
   };
 
@@ -435,45 +463,85 @@ const MentorGroups = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end mb-4">
-                  <ProblemStatementModal
-                    selectedGroupId={selectedGroupId}
-                    problemStatement={problemStatement}
-                    onSuccess={handleProblemStatementSuccess}
-                    isReadOnly={false}
-                  />
-                </div>
-
                 {loadingDetails ? (
                   <p className="text-sm text-gray-500">Loading problem statement...</p>
                 ) : problemStatement ? (
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {problemStatement.title}
-                    </h3>
-                    <p className="text-sm text-gray-600">{problemStatement.description || "No description provided."}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {problemStatement.type && (
-                        <span className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
-                          {problemStatement.type}
+                  <div className="space-y-4">
+                    {/* Status and Timestamp Section */}
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+                          problemStatement.status === 'APPROVED' 
+                            ? 'bg-green-100 text-green-700'
+                            : problemStatement.status === 'REJECTED'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {problemStatement.status === 'APPROVED' ? (
+                            <CheckCircle className="w-3 h-3" />
+                          ) : problemStatement.status === 'REJECTED' ? (
+                            <XCircle className="w-3 h-3" />
+                          ) : (
+                            <Clock className="w-3 h-3" />
+                          )}
+                          {problemStatement.status || 'PENDING'}
                         </span>
-                      )}
-                      {problemStatement.domain && (
-                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
-                          {problemStatement.domain}
-                        </span>
-                      )}
-                      {problemStatement.technologybucket && (
-                        <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {problemStatement.technologybucket}
-                        </span>
-                      )}
+                        {problemStatement.updated_at && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Calendar className="w-3 h-3" />
+                            Last updated: {new Date(problemStatement.updated_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* PS Content */}
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {problemStatement.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">{problemStatement.description || "No description provided."}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {problemStatement.type && (
+                          <span className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                            {problemStatement.type}
+                          </span>
+                        )}
+                        {problemStatement.domain && (
+                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+                            {problemStatement.domain}
+                          </span>
+                        )}
+                        {problemStatement.technologybucket && (
+                          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                            {problemStatement.technologybucket}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200">
+                      <ProblemStatementModal
+                        selectedGroupId={selectedGroupId}
+                        problemStatement={problemStatement}
+                        onSuccess={handleProblemStatementSuccess}
+                        isReadOnly={false}
+                      />
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <AlertTriangle className="w-5 h-5 text-amber-400" />
-                    No problem statement submitted yet.
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <AlertTriangle className="w-5 h-5 text-amber-400" />
+                      No problem statement submitted yet.
+                    </div>
                   </div>
                 )}
               </div>
@@ -878,6 +946,15 @@ const MentorGroups = () => {
                                       </button>
                                     </>
                                   )}
+                                  {doc.status === "rejected" && (
+                                    <button
+                                      onClick={() => handleDeleteDocument(doc.id)}
+                                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      Delete
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1197,6 +1274,24 @@ const MentorGroups = () => {
                 </div>
               </div>
 
+              {confirmAction.type === 'reject' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Rejection Feedback <span className="text-rose-600">*</span>
+                  </label>
+                  <textarea
+                    value={rejectionFeedback}
+                    onChange={(e) => setRejectionFeedback(e.target.value)}
+                    placeholder="Explain why this document is being rejected..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 text-gray-900 text-sm"
+                  />
+                  <p className="text-xs text-gray-600 mt-2">
+                    This feedback will be shown to the student.
+                  </p>
+                </div>
+              )}
+
               <p className="text-sm text-gray-900 mb-6">
                 {confirmAction.type === 'approve' ? (
                   <>
@@ -1205,8 +1300,7 @@ const MentorGroups = () => {
                   </>
                 ) : (
                   <>
-                    Are you sure you want to <span className="font-semibold text-rose-700">reject</span> this document? 
-                    Students will be notified of this rejection.
+                    Please provide feedback explaining why you are rejecting this document.
                   </>
                 )}
               </p>
@@ -1222,9 +1316,10 @@ const MentorGroups = () => {
                   onClick={() => {
                     confirmAction.type === 'approve' 
                       ? handleApproveDocument(confirmAction.doc.id)
-                      : handleRejectDocument(confirmAction.doc.id);
+                      : handleRejectDocument(confirmAction.doc.id, rejectionFeedback);
                   }}
-                  className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition ${
+                  disabled={confirmAction.type === 'reject' && !rejectionFeedback.trim()}
+                  className={`flex-1 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${
                     confirmAction.type === 'approve'
                       ? 'bg-emerald-600 hover:bg-emerald-700'
                       : 'bg-rose-600 hover:bg-rose-700'

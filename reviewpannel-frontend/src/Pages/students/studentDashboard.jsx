@@ -8,7 +8,7 @@ import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
 import StudentPosts from "../../Components/Student/posts";
 import Loading from "../../Components/Common/loading";
-import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus } from "lucide-react";
+import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -400,6 +400,72 @@ const StudentDashboard = () => {
               <div className="p-6">
                 {problem ? (
                   <div className="space-y-4">
+                    {/* Status Badge */}
+                    {problem.status && (
+                      <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${
+                            problem.status === 'APPROVED' 
+                              ? 'bg-green-100 text-green-700'
+                              : problem.status === 'REJECTED'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {problem.status === 'APPROVED' ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : problem.status === 'REJECTED' ? (
+                              <XCircle className="w-4 h-4" />
+                            ) : (
+                              <Clock className="w-4 h-4" />
+                            )}
+                            Status: {problem.status}
+                          </span>
+                        </div>
+                        {problem.updated_at && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(problem.updated_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Rejection Feedback Alert */}
+                    {problem.status === 'REJECTED' && problem.review_feedback && (
+                      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-red-800 font-semibold text-sm mb-1">Mentor Feedback:</p>
+                            <p className="text-red-700 text-sm leading-relaxed">{problem.review_feedback}</p>
+                            <p className="text-red-600 text-xs mt-2 italic">
+                              Please update your problem statement based on the feedback.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Approval Success Message */}
+                    {problem.status === 'APPROVED' && (
+                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 border-2 border-purple-300 rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="p-1 bg-purple-100 rounded-full">
+                            <CheckCircle className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <p className="text-purple-900 font-semibold text-sm">
+                            Your problem statement has been approved by your mentor!
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Title */}
                     <div>
                       <h3 className="text-2xl font-bold text-gray-900 mb-3 leading-tight">
