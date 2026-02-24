@@ -1,5 +1,5 @@
 import express from 'express';
-import evaluationFormController from '../../controllers/admin/evaluationFormController.js';
+import evaluationFormController, { uploadEvaluationFileMiddleware } from '../../controllers/admin/evaluationFormController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -62,6 +62,19 @@ router.post(
   authMiddleware.verifyToken,
   authMiddleware.authorize(['mentor']),
   evaluationFormController.submitEvaluation
+);
+
+/**
+ * @route   POST /api/mentors/evaluation-forms/:formId/upload
+ * @desc    Upload a file for evaluation fields
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/evaluation-forms/:formId/upload',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  uploadEvaluationFileMiddleware,
+  evaluationFormController.uploadEvaluationFile
 );
 
 export default router;

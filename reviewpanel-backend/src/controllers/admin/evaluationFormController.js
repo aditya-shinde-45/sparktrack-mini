@@ -1,3 +1,5 @@
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import ApiResponse from '../../utils/apiResponse.js';
 import evaluationFormModel from '../../models/evaluationFormModel.js';
@@ -5,6 +7,16 @@ import problemStatementModel from '../../models/problemStatementModel.js';
 import supabase from '../../config/database.js';
 
 const YEAR_OPTIONS = ['SY', 'TY', 'LY'];
+const EVALUATION_UPLOAD_BUCKET = 'evaluation-forms';
+
+const evaluationUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024
+  }
+});
+
+export const uploadEvaluationFileMiddleware = evaluationUpload.single('file');
 
 const normalizeAllowedYears = (years) => {
   if (!Array.isArray(years)) return [];
@@ -29,7 +41,7 @@ class EvaluationFormController {
   });
 
   createForm = asyncHandler(async (req, res) => {
-    const { name, total_marks, fields, allowed_years } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
     if (!name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Name, total marks, and at least one field are required');
     }
@@ -37,15 +49,39 @@ class EvaluationFormController {
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
     const normalizedYears = normalizeAllowedYears(allowed_years);
 
-    const sanitizedFields = fields.map((field, index) => ({
-      key: field.key || `field_${index + 1}`,
-      label: field.label?.trim() || `Field ${index + 1}`,
-      max_marks: Number(field.max_marks) || 0,
-      order: typeof field.order === 'number' ? field.order : index
-    }));
+    const sanitizedFields = fields.map((field, index) => {
+      const normalizedType = ['number', 'boolean', 'text', 'select', 'file'].includes(field.type)
+        ? field.type
+        : (Number(field.max_marks) > 0 ? 'number' : 'boolean');
+      const options = normalizedType === 'select'
+        ? Array.from(new Set((field.options || []).map((value) => String(value || '').trim()).filter(Boolean)))
+        : [];
+      const scope = ['select', 'file'].includes(normalizedType)
+        ? (field.scope === 'individual' ? 'individual' : 'common')
+        : undefined;
+      const allowedTypes = normalizedType === 'file'
+        ? String(field.allowed_types || 'all').trim().toLowerCase()
+        : undefined;
+      const maxSizeMb = normalizedType === 'file'
+        ? Number(field.max_size_mb) || null
+        : undefined;
+
+      return {
+        key: field.key || `field_${index + 1}`,
+        label: field.label?.trim() || `Field ${index + 1}`,
+        type: normalizedType,
+        max_marks: normalizedType === 'number' ? Number(field.max_marks) || 0 : 0,
+        order: typeof field.order === 'number' ? field.order : index,
+        options,
+        scope,
+        allowed_types: allowedTypes,
+        max_size_mb: maxSizeMb
+      };
+    });
 
     const form = await evaluationFormModel.createForm({
       name: name.trim(),
+      sheet_title: sheet_title ? String(sheet_title).trim() : null,
       total_marks: Number(total_marks),
       fields: sanitizedFields,
       created_by,
@@ -73,23 +109,47 @@ class EvaluationFormController {
 
   updateForm = asyncHandler(async (req, res) => {
     const { formId } = req.params;
-    const { name, total_marks, fields, allowed_years } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
 
     if (!formId || !name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Form ID, name, total marks, and fields are required');
     }
 
-    const sanitizedFields = fields.map((field, index) => ({
-      key: field.key || `field_${index + 1}`,
-      label: field.label?.trim() || `Field ${index + 1}`,
-      max_marks: Number(field.max_marks) || 0,
-      order: typeof field.order === 'number' ? field.order : index
-    }));
+    const sanitizedFields = fields.map((field, index) => {
+      const normalizedType = ['number', 'boolean', 'text', 'select', 'file'].includes(field.type)
+        ? field.type
+        : (Number(field.max_marks) > 0 ? 'number' : 'boolean');
+      const options = normalizedType === 'select'
+        ? Array.from(new Set((field.options || []).map((value) => String(value || '').trim()).filter(Boolean)))
+        : [];
+      const scope = ['select', 'file'].includes(normalizedType)
+        ? (field.scope === 'individual' ? 'individual' : 'common')
+        : undefined;
+      const allowedTypes = normalizedType === 'file'
+        ? String(field.allowed_types || 'all').trim().toLowerCase()
+        : undefined;
+      const maxSizeMb = normalizedType === 'file'
+        ? Number(field.max_size_mb) || null
+        : undefined;
+
+      return {
+        key: field.key || `field_${index + 1}`,
+        label: field.label?.trim() || `Field ${index + 1}`,
+        type: normalizedType,
+        max_marks: normalizedType === 'number' ? Number(field.max_marks) || 0 : 0,
+        order: typeof field.order === 'number' ? field.order : index,
+        options,
+        scope,
+        allowed_types: allowedTypes,
+        max_size_mb: maxSizeMb
+      };
+    });
 
     const normalizedYears = normalizeAllowedYears(allowed_years);
 
     const updated = await evaluationFormModel.updateForm(formId, {
       name: name.trim(),
+      sheet_title: sheet_title ? String(sheet_title).trim() : null,
       total_marks: Number(total_marks),
       fields: sanitizedFields,
       allowed_years: normalizedYears
@@ -166,6 +226,82 @@ class EvaluationFormController {
     });
 
     return ApiResponse.success(res, 'Evaluation submitted successfully', submission, 201);
+  });
+
+  uploadEvaluationFile = asyncHandler(async (req, res) => {
+    const { formId } = req.params;
+    const { group_id, field_key, scope, enrollment_no } = req.body;
+
+    if (!formId) {
+      throw ApiError.badRequest('Form ID is required');
+    }
+
+    if (!req.file) {
+      throw ApiError.badRequest('File is required');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    const fields = Array.isArray(form?.fields) ? form.fields : [];
+    const targetField = fields.find((field) => field.key === field_key);
+
+    if (!targetField || targetField.type !== 'file') {
+      throw ApiError.badRequest('Invalid file field key for this form');
+    }
+
+    const allowedType = String(targetField.allowed_types || 'all').toLowerCase();
+    const allowedMap = {
+      image: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+      pdf: ['application/pdf'],
+      docx: [
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ],
+      ppt: [
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ]
+    };
+
+    if (allowedType !== 'all') {
+      const allowed = allowedMap[allowedType] || [];
+      if (!allowed.includes(req.file.mimetype)) {
+        throw ApiError.badRequest('Unsupported file type for this field');
+      }
+    }
+
+    const maxSizeMb = Number(targetField.max_size_mb) || null;
+    if (maxSizeMb && req.file.size > maxSizeMb * 1024 * 1024) {
+      throw ApiError.badRequest('File exceeds the configured size limit');
+    }
+
+    const safeGroupId = String(group_id || 'group').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeFieldKey = String(field_key || 'field').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeEnrollment = enrollment_no ? String(enrollment_no).replace(/[^a-zA-Z0-9_-]/g, '_') : 'common';
+    const extension = req.file.originalname.split('.').pop();
+    const uniqueName = `${safeFieldKey}_${safeEnrollment}_${uuidv4()}.${extension}`;
+    const filePath = `files/${formId}/${safeGroupId}/${uniqueName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(EVALUATION_UPLOAD_BUCKET)
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw ApiError.internalError(`Failed to upload evaluation file: ${uploadError.message}`);
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(EVALUATION_UPLOAD_BUCKET)
+      .getPublicUrl(filePath);
+
+    return ApiResponse.success(res, 'Evaluation file uploaded successfully', {
+      file_url: urlData.publicUrl,
+      file_name: req.file.originalname,
+      file_type: req.file.mimetype,
+      scope: scope === 'individual' ? 'individual' : 'common'
+    });
   });
 
   getFormSubmissions = asyncHandler(async (req, res) => {
