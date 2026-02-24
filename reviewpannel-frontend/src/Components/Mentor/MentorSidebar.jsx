@@ -5,7 +5,7 @@ import {
   Users,
   FileCheck,
   Calendar,
-  Settings,
+  UserCog,
   LogOut,
   ClipboardCheck,
   Lock
@@ -18,7 +18,7 @@ const mentorRoutes = [
   { name: "Reviews", path: "/mentor/evaluation", icon: FileCheck, disabled: false },
   { name: "Zeroth Review", path: "/mentor/zeroth-review", icon: ClipboardCheck, disabled: true },
   { name: "Schedule", path: "/mentor/schedule", icon: Calendar, disabled: true },
-  { name: "Settings", path: "/mentor/settings", icon: Settings, disabled: false },
+  { name: "Industry Mentor", path: "/mentor/settings", icon: UserCog, disabled: false },
 ];
 
 const MentorSidebar = () => {
