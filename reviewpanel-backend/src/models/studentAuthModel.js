@@ -64,14 +64,12 @@ class StudentAuthModel {
       status: student.status
     });
     
-    // Check if student is active
-    // Accept 'Active', '#N/A' (from Excel imports), null, or empty string
-    const validStatuses = ['active', '#n/a', ''];
+    // Check if student is active (only reject if explicitly 'Inactive')
     const statusLower = student.status ? student.status.toLowerCase().trim() : '';
     
-    if (student.status && !validStatuses.includes(statusLower)) {
-      console.log('❌ Student status is not valid:', student.status);
-      return null; // Invalid/Inactive student cannot login
+    if (statusLower === 'inactive') {
+      console.log('❌ Student is inactive:', student.status);
+      return null;
     }
     console.log('✅ Student status accepted:', student.status);
     
