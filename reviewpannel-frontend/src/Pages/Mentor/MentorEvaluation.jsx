@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { apiRequest } from "../../api";
+import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
@@ -15,10 +15,31 @@ const normalizeAllowedYears = (years = []) => {
   return Array.from(new Set(normalized));
 };
 
+const normalizeFieldType = (field) => {
+  const rawType = String(field?.type || "").trim().toLowerCase();
+  if (["number", "boolean", "text", "select", "file"].includes(rawType)) return rawType;
+  const hasOptions = Array.isArray(field?.options) && field.options.length > 0;
+  if (hasOptions) return "select";
+  const maxMarks = Number(field?.max_marks) || 0;
+  if (maxMarks > 0) return "number";
+  const label = String(field?.label || "").toLowerCase();
+  if (label.includes("link") || label.includes("url")) return "text";
+  return "boolean";
+};
+
+const FILE_ACCEPT_MAP = {
+  image: "image/*",
+  pdf: "application/pdf",
+  docx: ".doc,.docx",
+  ppt: ".ppt,.pptx",
+  all: ""
+};
+
 const MentorEvaluation = () => {
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formName, setFormName] = useState("");
+  const [sheetTitle, setSheetTitle] = useState("");
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
   const [allowedYears, setAllowedYears] = useState([]);
@@ -43,13 +64,33 @@ const MentorEvaluation = () => {
   const isFormSelected = Boolean(selectedFormId);
 
   const computedTotal = useMemo(() => {
-    return fields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
+    return fields.reduce((sum, field) => {
+      if (field.type !== "number") return sum;
+      return sum + (Number(field.max_marks) || 0);
+    }, 0);
   }, [fields]);
 
   const orderedFields = useMemo(() => {
-    const numericFields = fields.filter((field) => field.type !== "boolean");
+    const numericFields = fields.filter((field) => field.type === "number");
     const booleanFields = fields.filter((field) => field.type === "boolean");
-    return { numericFields, booleanFields };
+    const textFields = fields.filter((field) => field.type === "text");
+    const selectFields = fields.filter((field) => field.type === "select");
+    const fileFields = fields.filter((field) => field.type === "file");
+    const commonSelectFields = selectFields.filter((field) => field.scope !== "individual");
+    const individualSelectFields = selectFields.filter((field) => field.scope === "individual");
+    const commonFileFields = fileFields.filter((field) => field.scope !== "individual");
+    const individualFileFields = fileFields.filter((field) => field.scope === "individual");
+    return {
+      numericFields,
+      booleanFields,
+      textFields,
+      selectFields,
+      commonSelectFields,
+      individualSelectFields,
+      fileFields,
+      commonFileFields,
+      individualFileFields
+    };
   }, [fields]);
 
   const filteredGroups = useMemo(() => {
@@ -98,6 +139,7 @@ const MentorEvaluation = () => {
 
     if (!formId) {
       setFormName("");
+      setSheetTitle("");
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
@@ -108,11 +150,16 @@ const MentorEvaluation = () => {
     if (response?.success) {
       const form = response.data;
       setFormName(form?.name || "");
+      setSheetTitle(form?.sheet_title || "");
       setTotalMarks(form?.total_marks || 0);
       const incomingFields = Array.isArray(form?.fields) ? form.fields : [];
       const normalizedFields = incomingFields.map((field) => ({
         ...field,
-        type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
+        type: normalizeFieldType(field),
+        options: Array.isArray(field.options) ? field.options : [],
+        scope: field.scope === "individual" ? "individual" : "common",
+        allowed_types: field.allowed_types || "all",
+        max_size_mb: Number(field.max_size_mb) || 10
       }));
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
@@ -143,7 +190,11 @@ const MentorEvaluation = () => {
 
     const freshStudents = (response.data?.students || []).map((student) => {
       const marks = fields.reduce((acc, field) => {
-        acc[field.key] = field.type === "boolean" ? false : "";
+        if (field.type === "boolean") {
+          acc[field.key] = false;
+        } else {
+          acc[field.key] = "";
+        }
         return acc;
       }, {});
 
@@ -184,7 +235,7 @@ const MentorEvaluation = () => {
 
         const marks = { ...student.marks, ...(existing.marks || {}) };
         const total = existing.total ?? fields.reduce((sum, field) => {
-          if (field.type === "boolean") return sum;
+          if (field.type !== "number") return sum;
           return sum + (Number(marks[field.key]) || 0);
         }, 0);
 
@@ -222,7 +273,7 @@ const MentorEvaluation = () => {
     student.total = student.absent
       ? "AB"
       : fields.reduce((sum, field) => {
-          if (field.type === "boolean") return sum;
+          if (field.type !== "number") return sum;
           return sum + (Number(student.marks[field.key]) || 0);
         }, 0);
 
@@ -252,7 +303,7 @@ const MentorEvaluation = () => {
       student.total = "AB";
     } else {
       student.total = fields.reduce((sum, field) => {
-        if (field.type === "boolean") return sum;
+        if (field.type !== "number") return sum;
         return sum + (Number(student.marks[field.key]) || 0);
       }, 0);
     }
@@ -263,6 +314,68 @@ const MentorEvaluation = () => {
   const handleProblemStatementSuccess = (savedData) => {
     setProjectTitle(savedData.title);
     setProblemStatement(savedData);
+  };
+
+  const getFileMeta = (value) => {
+    if (!value) return null;
+    if (typeof value === "string") {
+      return {
+        url: value,
+        name: value.split("/").pop(),
+        type: ""
+      };
+    }
+    if (typeof value === "object") return value;
+    return null;
+  };
+
+  const uploadEvaluationFile = async (file, field, studentIndex = null) => {
+    if (!file || !selectedFormId || !selectedGroupId) return;
+
+    const maxSizeMb = Number(field.max_size_mb) || 0;
+    if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
+      setStatusMessage(`File exceeds the ${maxSizeMb}MB limit.`);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("group_id", selectedGroupId);
+    formData.append("field_key", field.key);
+    formData.append("scope", field.scope === "individual" ? "individual" : "common");
+    if (studentIndex !== null) {
+      formData.append("enrollment_no", students[studentIndex]?.enrollment_no || "");
+    }
+
+    setStatusMessage("Uploading file...");
+    const response = await uploadFile(
+      `/api/mentors/evaluation-forms/${selectedFormId}/upload`,
+      formData,
+      token
+    );
+
+    if (!response?.success) {
+      setStatusMessage(response?.message || "Failed to upload file.");
+      return;
+    }
+
+    const fileData = {
+      url: response.data?.file_url,
+      name: response.data?.file_name,
+      type: response.data?.file_type
+    };
+
+    const updated = [...students];
+    if (field.scope === "individual" && studentIndex !== null) {
+      updated[studentIndex].marks[field.key] = fileData;
+    } else {
+      updated.forEach((student) => {
+        student.marks[field.key] = fileData;
+      });
+    }
+
+    setStudents(updated);
+    setStatusMessage("File uploaded successfully.");
   };
 
   const handleSubmit = async () => {
@@ -366,7 +479,9 @@ const MentorEvaluation = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-xs font-semibold text-gray-500">MIT School of Computing</p>
-                  <h1 className="text-lg sm:text-xl font-bold text-purple-700">IdeaSpark Evaluation Sheet</h1>
+                  <h1 className="text-lg sm:text-xl font-bold text-purple-700">
+                    {sheetTitle || "Evaluation Sheet"}
+                  </h1>
                 </div>
                 <div className="text-sm text-gray-700">
                   <label className="block font-semibold">Date:</label>
@@ -426,6 +541,77 @@ const MentorEvaluation = () => {
               </div>
             </div>
 
+            {(orderedFields.textFields.length > 0 || orderedFields.commonSelectFields.length > 0 || orderedFields.commonFileFields.length > 0) && (
+              <div className="border-b border-gray-300 p-4 text-sm">
+                <div className="space-y-4">
+                  {[...orderedFields.textFields, ...orderedFields.commonSelectFields, ...orderedFields.commonFileFields].map((field) => (
+                    <div key={field.key}>
+                      <label className="block font-semibold">{field.label}</label>
+                      {field.type === "select" ? (
+                        <select
+                          value={students[0]?.marks?.[field.key] || ""}
+                          onChange={(e) => {
+                            if (isReadOnly) return;
+                            const updated = [...students];
+                            updated.forEach((student) => {
+                              student.marks[field.key] = e.target.value;
+                            });
+                            setStudents(updated);
+                          }}
+                          disabled={!isFormSelected || isReadOnly}
+                          className="w-full border border-gray-300 p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Select</option>
+                          {(field.options || []).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.type === "file" ? (
+                        <div className="mt-1 flex flex-col gap-2">
+                          {getFileMeta(students[0]?.marks?.[field.key])?.url ? (
+                            <a
+                              href={getFileMeta(students[0]?.marks?.[field.key])?.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm text-purple-600 hover:underline"
+                            >
+                              {getFileMeta(students[0]?.marks?.[field.key])?.name || "View file"}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-500">No file uploaded.</span>
+                          )}
+                          <input
+                            type="file"
+                            onChange={(e) => uploadEvaluationFile(e.target.files?.[0], field)}
+                            disabled={!isFormSelected || isReadOnly}
+                            accept={FILE_ACCEPT_MAP[field.allowed_types] || ""}
+                            className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={students[0]?.marks?.[field.key] || ""}
+                          onChange={(e) => {
+                            if (isReadOnly) return;
+                            const updated = [...students];
+                            updated.forEach((student) => {
+                              student.marks[field.key] = e.target.value;
+                            });
+                            setStudents(updated);
+                          }}
+                          disabled={!isFormSelected || isReadOnly}
+                          className="w-full border border-gray-300 p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {isLoading && (
               <div className="text-center text-gray-500 py-4">Loading group details...</div>
             )}
@@ -443,13 +629,28 @@ const MentorEvaluation = () => {
                       </th>
                     ))}
                     <th className="border border-gray-300 px-3 py-2">Total Marks ({totalMarks || computedTotal})</th>
+                    {orderedFields.individualSelectFields.map((field) => (
+                      <th key={field.key} className="border border-gray-300 px-3 py-2">
+                        <div className="text-xs font-semibold">{field.label}</div>
+                        <div className="text-[10px] text-gray-500">Dropdown</div>
+                      </th>
+                    ))}
+                    {orderedFields.individualFileFields.map((field) => (
+                      <th key={field.key} className="border border-gray-300 px-3 py-2">
+                        <div className="text-xs font-semibold">{field.label}</div>
+                        <div className="text-[10px] text-gray-500">File</div>
+                      </th>
+                    ))}
                     <th className="border border-gray-300 px-3 py-2">Absent</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.length === 0 && (
                     <tr>
-                      <td colSpan={4 + orderedFields.numericFields.length} className="border border-gray-300 px-3 py-4 text-gray-500">
+                      <td
+                        colSpan={4 + orderedFields.numericFields.length + orderedFields.individualSelectFields.length + orderedFields.individualFileFields.length}
+                        className="border border-gray-300 px-3 py-4 text-gray-500"
+                      >
                         Select a form and group to load students.
                       </td>
                     </tr>
@@ -490,6 +691,53 @@ const MentorEvaluation = () => {
                         </td>
                       ))}
                       <td className="border border-gray-300 px-3 py-2 font-semibold">{student.total}</td>
+                      {orderedFields.individualSelectFields.map((field) => (
+                        <td key={field.key} className="border border-gray-300 px-2 py-2">
+                          <select
+                            value={student.marks[field.key] || ""}
+                            onChange={(e) => {
+                              if (isReadOnly) return;
+                              const updated = [...students];
+                              updated[index].marks[field.key] = e.target.value;
+                              setStudents(updated);
+                            }}
+                            disabled={student.absent || isReadOnly}
+                            className="w-28 border border-gray-300 rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Select</option>
+                            {(field.options || []).map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      ))}
+                      {orderedFields.individualFileFields.map((field) => (
+                        <td key={field.key} className="border border-gray-300 px-2 py-2">
+                          <div className="flex flex-col gap-1">
+                            {getFileMeta(student.marks[field.key])?.url ? (
+                              <a
+                                href={getFileMeta(student.marks[field.key])?.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-purple-600 hover:underline"
+                              >
+                                {getFileMeta(student.marks[field.key])?.name || "View file"}
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-gray-500">No file</span>
+                            )}
+                            <input
+                              type="file"
+                              onChange={(e) => uploadEvaluationFile(e.target.files?.[0], field, index)}
+                              disabled={student.absent || isReadOnly}
+                              accept={FILE_ACCEPT_MAP[field.allowed_types] || ""}
+                              className="w-28 border border-gray-300 rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                            />
+                          </div>
+                        </td>
+                      ))}
                       <td className="border border-gray-300 px-3 py-2 text-center">
                         <input
                           type="checkbox"
