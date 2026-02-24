@@ -182,10 +182,8 @@ const StudentDashboard = () => {
           return; // Don't open drawer
 
         case "Upload Document":
-          title = "Upload Document";
-          message =
-            "⚠️ After group creation and Mentor Allocation, you can upload documents related to your project.";
-          break;
+          navigate('/student/documentation');
+          return;
 
         case "Team Chat":
           title = "Team Chat";
