@@ -32,10 +32,7 @@ export class ApiError extends Error {
   }
 }
 
-import logger from './logger.js';
-import config from '../config/index.js';
-
-/**
+import logger from './logger.js';\n\n/**
  * Global error handler middleware
  */
 export const errorHandler = (err, req, res, next) => {
@@ -51,10 +48,13 @@ export const errorHandler = (err, req, res, next) => {
   
   const responseBody = {
     success: false,
-    message,
-    ...(err.errors && { errors: err.errors }),
-    ...(config.server.env === 'development' && { stack: err.stack })
+    message
   };
+
+  // Only attach validation details for 4xx operational errors
+  if (err.errors && err.isOperational) {
+    responseBody.errors = err.errors;
+  }
 
   res.status(statusCode).json(responseBody);
 };

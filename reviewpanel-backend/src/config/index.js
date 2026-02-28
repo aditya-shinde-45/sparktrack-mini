@@ -24,6 +24,18 @@ const parseAllowedOrigins = () => {
   ];
 };
 
+const jwtSecret = ensureEnv('JWT_SECRET');
+
+// Enforce a strong secret in production to prevent brute-force signing attacks
+if (
+  (process.env.NODE_ENV === 'production') &&
+  (jwtSecret.length < 32 || /^(supersecret|changeme|secret|password)/i.test(jwtSecret))
+) {
+  throw new Error(
+    'JWT_SECRET is too weak for production. Use a random string of at least 32 characters.'
+  );
+}
+
 const config = {
   server: {
     port: Number(process.env.PORT) || 5000,
@@ -33,14 +45,8 @@ const config = {
     allowedOrigins: parseAllowedOrigins()
   },
   jwt: {
-    secret: ensureEnv('JWT_SECRET'),
+    secret: jwtSecret,
     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
-  },
-  security: {
-    rateLimit: {
-      windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-      maxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 300
-    }
   },
   database: {
     testTable: 'pbl'

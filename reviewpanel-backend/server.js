@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -44,6 +43,9 @@ import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
+// Rate limiting
+import { apiLimiter } from './src/middleware/rateLimiter.js';
+
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
 
@@ -72,19 +74,13 @@ app.use(cors(corsOptions));
 
 app.use(helmet());
 
-const limiter = rateLimit({
-  windowMs: config.security.rateLimit.windowMs,
-  max: config.security.rateLimit.maxRequests,
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-app.use('/api', limiter);
+// Global rate limit – route-specific tighter limits are applied inside route files
+app.use('/api', apiLimiter);
 
 // Basic middleware
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false }));
-app.use(morgan("dev"));
+app.use(morgan(config.server.env === 'production' ? 'combined' : 'dev'));
 
 
 
@@ -152,20 +148,11 @@ if (config.server.env !== 'production') {
 // Global error handling middleware
 app.use(errorHandler);
 
-// Catch-all route for debugging
+// Catch-all 404
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found',
-    requestedPath: req.originalUrl,
-    method: req.method,
-    availableRoutes: [
-      'GET /',
-      'GET /health',
-      'POST /api/mentors/login',
-      'POST /api/auth/login',
-      'GET /api/test'
-    ]
+    message: 'Route not found'
   });
 });
 
