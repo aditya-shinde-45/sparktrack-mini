@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from 'helmet';
+import hpp from 'hpp';
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -58,8 +59,13 @@ const PORT = config.server.port;
 
 app.disable('x-powered-by');
 
+// ─── CORS ──────────────────────────────────────────────────────────────────
 const corsOptions = {
   origin: (origin, callback) => {
+    // In production, never allow plain-HTTP origins
+    if (config.server.env === 'production' && origin && origin.startsWith('http://')) {
+      return callback(new Error(`Insecure HTTP origin ${origin} is not allowed in production`));
+    }
     if (!origin || config.cors.allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -72,7 +78,29 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    }
+  },
+  hsts: {
+    maxAge: 31536000,   // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginEmbedderPolicy: false // allow S3/CDN resources
+}));
+
+// HTTP Parameter Pollution protection
+app.use(hpp());
 
 // Global rate limit – route-specific tighter limits are applied inside route files
 app.use('/api', apiLimiter);
@@ -173,6 +201,21 @@ if (process.env.NODE_ENV !== 'lambda') {
     testConnection();
   });
 }
+
+// ─── Process-level error guards ────────────────────────────────────────────
+// Prevent the process from crashing on unexpected async errors
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Promise Rejection:', reason);
+  if (config.server.env === 'production') {
+    // Give the logger time to flush before exiting
+    setTimeout(() => process.exit(1), 200);
+  }
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception – shutting down:', err);
+  setTimeout(() => process.exit(1), 200);
+});
 
 // Export app for serverless
 export default app;

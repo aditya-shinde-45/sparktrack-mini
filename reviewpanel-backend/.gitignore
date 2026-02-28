@@ -26,3 +26,24 @@ build/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Security scan reports & credential files – NEVER commit these
+*.securetrail.json
+securetrail-*.json
+*-service-account*.json
+*-credentials*.json
+firebase-adminsdk-*.json
+google-credentials*.json
+serviceAccountKey*.json
+aws-credentials.json
+
+# Uploaded files (served separately)
+uploads/*
+!uploads/.gitkeep
+
+# SSL/TLS certificates
+*.pem
+*.key
+*.crt
+*.p12
+Thumbs.db

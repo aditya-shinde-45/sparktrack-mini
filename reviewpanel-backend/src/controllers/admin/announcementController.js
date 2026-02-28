@@ -4,31 +4,25 @@ import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import announcementModel from '../../models/announcementModel.js';
 import evaluationFormModel from '../../models/evaluationFormModel.js';
 import deadlineModel from '../../models/deadlineModel.js';
+import { createUploader } from '../../utils/secureUpload.js';
 
-// Configure multer for file upload
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Allow images and PDFs only
-    const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only images (JPEG, JPG, PNG, GIF, WEBP) and PDF files are allowed.'));
-    }
-  }
-});
+// Secure upload: images and PDF only, 10 MB max
+const _uploader = createUploader('imageOrPdf');
 
 // Export multer middleware for route usage
-export const uploadFile = upload.single('file');
+export const uploadFile = (req, res, next) => {
+  _uploader.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'File size must not exceed 10 MB.' });
+      }
+      return res.status(400).json({ success: false, message: 'File upload error: ' + err.message });
+    } else if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
 
 /**
  * Controller for announcement operations

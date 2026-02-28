@@ -1,6 +1,7 @@
 import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import studentAuthModel from '../../models/studentAuthModel.js';
+import { validatePassword } from '../../utils/passwordValidator.js';
 
 /**
  * Controller for student authentication operations
@@ -62,8 +63,9 @@ class StudentAuthController {
       throw ApiError.badRequest('Enrollment number, OTP, and new password are required.');
     }
 
-    if (newPassword.length < 6) {
-      throw ApiError.badRequest('Password must be at least 6 characters long.');
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      throw ApiError.badRequest(pwCheck.message);
     }
 
     const studentRecord = await studentAuthModel.findStudentByEnrollmentNo(enrollment_no);
@@ -118,8 +120,9 @@ class StudentAuthController {
       throw ApiError.badRequest('Email, OTP, and new password are required.');
     }
 
-    if (newPassword.length < 6) {
-      throw ApiError.badRequest('Password must be at least 6 characters long.');
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      throw ApiError.badRequest(pwCheck.message);
     }
 
     const result = await studentAuthModel.resetPasswordWithOTP(email, otp, newPassword);
@@ -157,8 +160,9 @@ class StudentAuthController {
       throw ApiError.badRequest('Current password and new password are required.');
     }
 
-    if (newPassword.length < 6) {
-      throw ApiError.badRequest('Password must be at least 6 characters long.');
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      throw ApiError.badRequest(pwCheck.message);
     }
 
     const verifiedStudent = await studentAuthModel.validateCredentials(enrollmentNo, oldPassword);

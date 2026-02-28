@@ -2,6 +2,7 @@ import express from 'express';
 import pbl3Controller from '../../controllers/mentor/pbl3Controller.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 import { deadlineBlocker } from '../../middleware/deadlineMiddleware.js';
+import { loginLimiter, otpLimiter } from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const router = express.Router();
  * @desc    Mentor login for PBL3
  * @access  Public
  */
-router.post('/mentor/login', pbl3Controller.mentorLogin);
+router.post('/mentor/login', loginLimiter, pbl3Controller.mentorLogin);
 
 /**
  * @route   GET /api/pbl3/mentor/groups
@@ -83,6 +84,7 @@ router.post(
 router.post(
   '/register-externals',
   authMiddleware.verifyToken,
+  otpLimiter,
   deadlineBlocker('pbl_review_3'),
   pbl3Controller.registerExternals
 );

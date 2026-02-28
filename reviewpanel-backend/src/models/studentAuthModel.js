@@ -1,9 +1,9 @@
 import supabase from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 import config from '../config/index.js';
-import nodemailer from 'nodemailer';
+import emailService from '../services/emailService.js';
 
 /**
  * Student auth model for student authentication
@@ -138,7 +138,7 @@ class StudentAuthModel {
    * @param {string} newPassword - New password
    */
   async setPassword(enrollmentNo, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     const { error } = await supabase
       .from(this.studentsTable)
@@ -150,12 +150,12 @@ class StudentAuthModel {
   }
 
   /**
-   * Update student password (contact number)
+   * Update student password
    * @param {string} enrollmentNo - Student enrollment number
-   * @param {string} newPassword - New contact number
+   * @param {string} newPassword - New password
    */
   async updatePassword(enrollmentNo, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     const { error } = await supabase
       .from(this.studentsTable)
@@ -212,8 +212,8 @@ class StudentAuthModel {
 
       const student = data[0];
 
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      // Generate cryptographically secure 6-digit OTP
+      const otp = randomInt(100000, 1000000).toString();
       
       // Store OTP with 10 minute expiry
       this.otpStore.set(email, {
@@ -222,36 +222,8 @@ class StudentAuthModel {
         enrollment_no: student.enrollment_no
       });
 
-      // Send OTP via email
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
-
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Password Reset OTP - SparkTrack',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #7B74EF;">Password Reset Request</h2>
-            <p>Hello Student,</p>
-            <p>You have requested to reset your password. Use the OTP below to proceed:</p>
-            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
-              <h1 style="color: #4C1D95; margin: 0; font-size: 32px; letter-spacing: 5px;">${otp}</h1>
-            </div>
-            <p style="color: #666;">This OTP will expire in 10 minutes.</p>
-            <p style="color: #666;">If you didn't request this, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px;">SparkTrack - MIT ADT University</p>
-          </div>
-        `
-      };
-
-      await transporter.sendMail(mailOptions);
+      // Send OTP via shared email service
+      await emailService.sendOtpEmail(email, otp);
       return true;
     } catch (error) {
       console.error('Error in sendForgotPasswordOTP:', error);
@@ -273,7 +245,7 @@ class StudentAuthModel {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Update password
     const { error } = await supabase

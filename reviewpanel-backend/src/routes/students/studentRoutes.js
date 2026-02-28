@@ -22,6 +22,7 @@ router.get('/check-membership/:enrollment_no',
 
 router.get('/admintools/class/:classPrefix',
   authMiddleware.authenticateUser,
+  authMiddleware.restrictTo('admin', 'mentor', 'industry_mentor'),
   studentController.getAnnouncements
 );
 
