@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -52,17 +54,36 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = config.server.port;
 
-// CORS configuration - Allow all origins for serverless
-app.use(cors({
-  origin: '*',
+app.disable('x-powered-by');
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || config.cors.allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
-}));
+  credentials: true
+};
 
+app.use(cors(corsOptions));
+
+app.use(helmet());
+
+const limiter = rateLimit({
+  windowMs: config.security.rateLimit.windowMs,
+  max: config.security.rateLimit.maxRequests,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api', limiter);
 
 // Basic middleware
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 
 
@@ -98,7 +119,9 @@ app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/student/documents", documentRoutes); // Student document upload/management
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
-app.use("/api", testRoutes); // Test routes for CI/CD
+if (config.server.env !== 'production') {
+  app.use("/api", testRoutes); // Test routes for CI/CD
+}
 
 // Basic route
 app.get("/", (req, res) => {
@@ -110,20 +133,21 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Database connection test route
-app.get("/db-test", async (req, res) => {
-  try {
-    const result = await dbConfig.testConnection();
-    res.json({
-      success: true,
-      message: "Database connected successfully!",
-      sampleData: result.data,
-      supabaseUrl: process.env.SUPABASE_URL,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Database connection test route (development only)
+if (config.server.env !== 'production') {
+  app.get("/db-test", async (req, res) => {
+    try {
+      const result = await dbConfig.testConnection();
+      res.json({
+        success: true,
+        message: "Database connected successfully!",
+        sampleData: result.data
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}
 
 // Global error handling middleware
 app.use(errorHandler);

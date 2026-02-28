@@ -117,7 +117,7 @@ class ExternalOTPService {
     this.recordRequest(normalizedEmail);
     
     // Log for monitoring (remove OTP in production logs)
-    console.log(`OTP created for ${normalizedEmail}, expires in ${this.OTP_EXPIRY / 1000 / 60} minutes`);
+    console.info(`OTP created, expires in ${this.OTP_EXPIRY / 1000 / 60} minutes`);
     
     return {
       sessionToken,
@@ -185,7 +185,7 @@ class ExternalOTPService {
     otpData.verified = true;
     otpData.verifiedAt = Date.now();
     
-    console.log(`OTP verified successfully for ${otpData.email}`);
+    console.info('OTP verified successfully');
     
     return {
       success: true,
@@ -256,7 +256,7 @@ class ExternalOTPService {
     
     this.recordRequest(normalizedEmail);
     
-    console.log(`OTP resent for ${normalizedEmail}`);
+    console.info('OTP resent');
     
     return {
       sessionToken,
@@ -272,7 +272,7 @@ class ExternalOTPService {
    */
   invalidateSession(sessionToken) {
     this.otpStore.delete(sessionToken);
-    console.log(`Session invalidated: ${sessionToken}`);
+    console.info('OTP session invalidated');
   }
 
   /**
@@ -305,7 +305,7 @@ class ExternalOTPService {
     }
     
     if (cleanedOTPs > 0 || cleanedRateLimits > 0) {
-      console.log(`Cleanup completed: ${cleanedOTPs} OTPs, ${cleanedRateLimits} rate limits removed`);
+      console.info(`Cleanup completed: ${cleanedOTPs} OTPs, ${cleanedRateLimits} rate limits removed`);
     }
   }
 

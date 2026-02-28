@@ -2,6 +2,7 @@ import supabase from "../../config/database.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import config from "../../config/index.js";
 
 /**
@@ -309,7 +310,8 @@ export const roleLogin = async (req, res) => {
         username: role.user_id,
         role: "admin",
         isRoleBased: true,
-        tablePermissions: role.table_permissions
+        tablePermissions: role.table_permissions,
+        jti: randomUUID()
       },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn || "7d" }

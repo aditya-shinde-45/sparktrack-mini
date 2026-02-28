@@ -57,7 +57,6 @@ class AuthMiddleware {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('Token decoded:', decoded);
         
         try {
           // Check user type from token payload
@@ -135,7 +134,6 @@ class AuthMiddleware {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('Admin token decoded:', decoded);
         
         if (decoded.role !== 'admin') {
           throw ApiError.forbidden('Admin access required');
@@ -156,7 +154,6 @@ class AuthMiddleware {
         } catch (dbError) {
           console.error('Database error when finding admin:', dbError);
           // If findById isn't implemented or database error, fall back to token data
-          console.log('Falling back to token data only for admin authentication');
           req.user = { ...decoded, role: 'admin' };
         }
         

@@ -14,11 +14,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     const devMode = import.meta.env.MODE === 'development' && false; // Set to true to bypass auth in dev
     
     const validateToken = async () => {
-      // Log initial check state
-      console.log(`ProtectedRoute: Checking auth for path ${window.location.pathname}`);
-      console.log(`Token exists: ${!!token}, Role: ${userRole}`);
-      console.log(`Allowed roles: ${allowedRoles.join(', ')}`);
-      
       if (!token) {
         console.warn("No token found in localStorage");
         setIsAuthenticated(false);
@@ -28,7 +23,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       
       // Dev bypass for testing
       if (devMode) {
-        console.warn('DEV MODE: Bypassing token validation');
         setIsAuthenticated(true);
         setIsLoading(false);
         return;
@@ -42,7 +36,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         try {
           // Decode token to check expiration and role
           decoded = jwtDecode(token);
-          console.log("Token decoded:", decoded);
           const currentTime = Date.now() / 1000;
           
           // Check if token has required fields
@@ -56,11 +49,9 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
           } else {
             // Token has role and is not expired
             isValid = true;
-            console.log("Token is valid, role:", decoded.role);
             
             // Store role from token if not already in localStorage
             if (!localStorage.getItem('role') && decoded.role) {
-              console.log("Storing role in localStorage:", decoded.role);
               localStorage.setItem('role', decoded.role);
             }
           }
@@ -81,7 +72,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
               console.warn('Server rejected token during validation');
               setIsAuthenticated(false);
             } else {
-              console.log("Token validated by server");
               setIsAuthenticated(true);
             }
           } catch (apiError) {
@@ -89,7 +79,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
             console.error('Token validation API error:', apiError);
           }
         } else if (isValid && decoded && decoded.role === 'reviewerAdmin') {
-          console.log("ReviewerAdmin token - skipping server validation");
           setIsAuthenticated(true);
         }
       } catch (error) {
@@ -136,8 +125,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     // Create normalized array of allowed roles
     const normalizedAllowedRoles = allowedRoles.map(role => role.toLowerCase());
     
-    console.log(`Role check: User role=${normalizedUserRole}, Allowed roles=${normalizedAllowedRoles.join(', ')}`);
-    
     if (!normalizedUserRole || !normalizedAllowedRoles.includes(normalizedUserRole)) {
       console.warn(`Access denied: User role ${userRole} not in allowed roles: ${allowedRoles.join(', ')}`);
       
@@ -146,8 +133,6 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       localStorage.removeItem('role');
       
       return <Navigate to="/login" replace />;
-    } else {
-      console.log(`Role authorized: ${normalizedUserRole} is allowed`);
     }
   }
 

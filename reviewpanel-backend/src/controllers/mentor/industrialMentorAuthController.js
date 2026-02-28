@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import ApiResponse from '../../utils/apiResponse.js';
 import industrialMentorModel from '../../models/industrialMentorModel.js';
@@ -25,7 +26,8 @@ class IndustrialMentorAuthController {
         name: mentor.name,
         contact: mentor.contact,
         email: mentor.email,
-        role: 'industry_mentor'
+        role: 'industry_mentor',
+        jti: randomUUID()
       },
       config.jwt.secret,
       { expiresIn: '7d' }

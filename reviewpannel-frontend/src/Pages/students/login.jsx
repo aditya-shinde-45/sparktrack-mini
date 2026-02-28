@@ -13,6 +13,10 @@ const StudentLogin = () => {
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [setupEmail, setSetupEmail] = useState("");
+  const [setupOtp, setSetupOtp] = useState("");
+  const [setupOtpSent, setSetupOtpSent] = useState(false);
+  const [setupOtpSending, setSetupOtpSending] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotOtp, setForgotOtp] = useState("");
@@ -35,6 +39,9 @@ const StudentLogin = () => {
         setMessage(res.message || "Login failed.");
       } else if (res.data?.needsPasswordSetup) {
         setNeedsPasswordSetup(true);
+        setSetupEmail(res.data.email || "");
+        setSetupOtp("");
+        setSetupOtpSent(false);
         setMessage("Please set your password to continue.");
       } else {
         const token = res.data?.token || res.token;
@@ -73,12 +80,24 @@ const StudentLogin = () => {
       return;
     }
 
+    if (!setupOtp) {
+      setMessage("Enter the OTP sent to your email.");
+      return;
+    }
+
+    if (!setupEmail) {
+      setMessage("Unable to verify your email. Please try logging in again.");
+      return;
+    }
+
     setLoading(true);
     
     try {
       const res = await apiRequest("/api/student-auth/set-password", "POST", { 
         enrollment_no: enrollmentNo, 
-        newPassword
+        newPassword,
+        otp: setupOtp,
+        email: setupEmail
       });
       
       if (res.success === false) {
@@ -90,12 +109,40 @@ const StudentLogin = () => {
           setPassword("");
           setNewPassword("");
           setConfirmPassword("");
+          setSetupEmail("");
+          setSetupOtp("");
+          setSetupOtpSent(false);
         }, 2000);
       }
     } catch (error) {
       setMessage("Failed to set password. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendSetupOTP = async () => {
+    if (!setupEmail) {
+      setMessage("Registered email not available. Please contact support.");
+      return;
+    }
+
+    setSetupOtpSending(true);
+    setMessage("");
+
+    try {
+      const res = await apiRequest("/api/student-auth/forgot-password/send-otp", "POST", { email: setupEmail });
+
+      if (res.success === false) {
+        setMessage(res.message || "Failed to send OTP.");
+      } else {
+        setMessage("OTP sent to your registered email.");
+        setSetupOtpSent(true);
+      }
+    } catch (error) {
+      setMessage("Failed to send OTP. Please try again.");
+    } finally {
+      setSetupOtpSending(false);
     }
   };
 
@@ -362,6 +409,43 @@ const StudentLogin = () => {
                 )
               ) : (
                 <form onSubmit={handleSetPassword} className="space-y-4 sm:space-y-6">
+                  <div className="relative">
+                    <input
+                      type="email"
+                      className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                               focus:border-white/60 transition-all duration-300 shadow-lg"
+                      value={setupEmail}
+                      readOnly
+                      placeholder="Registered email"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSendSetupOTP}
+                    disabled={setupOtpSending || !setupEmail}
+                    className="w-full py-3 sm:py-4 bg-white/80 hover:bg-white text-[#4C1D95] font-semibold text-sm sm:text-base
+                             rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
+                             border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {setupOtpSending ? 'Sending OTP...' : setupOtpSent ? 'Resend OTP' : 'Send OTP'}
+                  </button>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 sm:px-6 sm:py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
+                               text-white text-sm sm:text-base placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
+                               focus:border-white/60 transition-all duration-300 shadow-lg"
+                      value={setupOtp}
+                      onChange={(e) => setSetupOtp(e.target.value)}
+                      required
+                      maxLength="6"
+                      placeholder="Enter OTP"
+                    />
+                  </div>
+
                   <div className="relative">
                     <input
                       type="password"

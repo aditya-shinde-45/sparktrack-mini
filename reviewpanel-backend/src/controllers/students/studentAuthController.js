@@ -11,23 +11,14 @@ class StudentAuthController {
    */
   studentLogin = asyncHandler(async (req, res) => {
     const { enrollment_no, password } = req.body;
-    
-    console.log('=== STUDENT LOGIN CONTROLLER ===');
-    console.log('Enrollment No:', enrollment_no);
-    console.log('Password provided:', password ? 'Yes' : 'No');
-    console.log('Password length:', password?.length);
 
     if (!enrollment_no || !password) {
-      console.log('❌ Missing enrollment_no or password');
       throw ApiError.badRequest('Enrollment number and password are required.');
     }
 
-    console.log('📞 Calling validateCredentials...');
     const student = await studentAuthModel.validateCredentials(enrollment_no, password);
-    console.log('📋 Result from validateCredentials:', student);
     
     if (!student) {
-      console.log('❌ validateCredentials returned null/falsy');
       throw ApiError.unauthorized('Invalid enrollment number or password.');
     }
 
@@ -65,17 +56,35 @@ class StudentAuthController {
    * Set password for first-time student
    */
   setPassword = asyncHandler(async (req, res) => {
-    const { enrollment_no, newPassword } = req.body;
+    const { enrollment_no, newPassword, otp, email } = req.body;
 
-    if (!enrollment_no || !newPassword) {
-      throw ApiError.badRequest('Enrollment number and new password are required.');
+    if (!enrollment_no || !newPassword || !otp) {
+      throw ApiError.badRequest('Enrollment number, OTP, and new password are required.');
     }
 
     if (newPassword.length < 6) {
       throw ApiError.badRequest('Password must be at least 6 characters long.');
     }
 
+    const studentRecord = await studentAuthModel.findStudentByEnrollmentNo(enrollment_no);
+
+    if (!studentRecord) {
+      throw ApiError.notFound('Student not found.');
+    }
+
+    const targetEmail = email || studentRecord.student_email_id;
+
+    if (!targetEmail) {
+      throw ApiError.badRequest('Student email is required for OTP verification.');
+    }
+    const otpData = studentAuthModel.getValidOtpEntry(targetEmail, otp);
+
+    if (!otpData) {
+      throw ApiError.badRequest('Invalid or expired OTP.');
+    }
+
     await studentAuthModel.setPassword(enrollment_no, newPassword);
+    studentAuthModel.clearOtp(targetEmail);
 
     return ApiResponse.success(res, 'Password set successfully. You can now login.');
   });
