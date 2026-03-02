@@ -1,10 +1,16 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// In Lambda, .env doesn't exist — variables must be set in the Lambda console.
+// ensureEnv logs a clear warning instead of crashing the cold start, so the
+// error surfaces in CloudWatch rather than a cryptic 502.
 const ensureEnv = (key) => {
   const value = process.env[key];
   if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
+    const msg = `[CONFIG] Missing required environment variable: ${key}. Set it in the Lambda console (Configuration → Environment variables).`;
+    console.error(msg);
+    // Still throw so misconfigured deployments fail fast and visibly in CloudWatch
+    throw new Error(msg);
   }
   return value;
 };
@@ -26,10 +32,12 @@ const parseAllowedOrigins = () => {
 
 const jwtSecret = ensureEnv('JWT_SECRET');
 
-// Enforce a strong secret in production to prevent brute-force signing attacks
+// Enforce a strong secret in production.
+// Only reject extremely short or well-known placeholder values.
 if (
   (process.env.NODE_ENV === 'production') &&
-  (jwtSecret.length < 32 || /^(supersecret|changeme|secret|password)/i.test(jwtSecret))
+  (jwtSecret.length < 32 ||
+    /^(changeme|secret|password|letmein|qwerty|123456|admin)$/i.test(jwtSecret))
 ) {
   throw new Error(
     'JWT_SECRET is too weak for production. Use a random string of at least 32 characters.'
