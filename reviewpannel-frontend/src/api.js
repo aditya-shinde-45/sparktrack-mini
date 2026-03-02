@@ -119,7 +119,6 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
   
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-    console.log(`API Request: ${method} ${endpoint} with token ${token.substring(0, 15)}...`);
   } else if (!isAuthEndpoint) {
     console.warn(`API Request: ${method} ${endpoint} with NO TOKEN`);
   }
@@ -317,7 +316,6 @@ export const uploadFile = async (endpoint, formData, token = null) => {
   const headers = {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
-    console.log(`File Upload: POST ${endpoint} with token ${token.substring(0, 15)}...`);
   }
 
   try {

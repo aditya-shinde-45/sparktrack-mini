@@ -1,16 +1,53 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import config from "../config/index.js";
 
-// In a real production application, this should be stored in a database
-const users = [
-  {
-    id: 1,
-    username: "8698078603",
-    passwordHash: bcrypt.hashSync("strawhats", 10),
-    role: "Admin",
-  },
-];
+const normalizeRole = (role) => (role ? role.toLowerCase() : 'admin');
+
+const buildUserRecord = (rawUser, index) => {
+  if (!rawUser?.username) {
+    throw new Error('Each admin user must include a username');
+  }
+
+  const passwordHash = rawUser.passwordHash || (rawUser.password ? bcrypt.hashSync(rawUser.password, 12) : null);
+
+  if (!passwordHash) {
+    throw new Error(`Admin user ${rawUser.username} must include either password or passwordHash`);
+  }
+
+  return {
+    id: rawUser.id ?? index + 1,
+    username: rawUser.username,
+    passwordHash,
+    role: normalizeRole(rawUser.role)
+  };
+};
+
+const loadUsersFromEnv = () => {
+  if (process.env.ADMIN_USERS_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.ADMIN_USERS_JSON);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('ADMIN_USERS_JSON must be a non-empty array');
+      }
+      return parsed.map((user, index) => buildUserRecord(user, index));
+    } catch (error) {
+      throw new Error(`Unable to parse ADMIN_USERS_JSON: ${error.message}`);
+    }
+  }
+
+  const username = process.env.ADMIN_DEFAULT_USERNAME;
+  const password = process.env.ADMIN_DEFAULT_PASSWORD;
+
+  if (username && password) {
+    return [buildUserRecord({ id: 1, username, password, role: process.env.ADMIN_DEFAULT_ROLE || 'admin' }, 0)];
+  }
+
+  throw new Error('No administrator credentials configured. Set ADMIN_USERS_JSON or ADMIN_DEFAULT_USERNAME and ADMIN_DEFAULT_PASSWORD.');
+};
+
+const users = loadUsersFromEnv();
 
 /**
  * User model for authentication
@@ -71,7 +108,7 @@ class UserModel {
     const role = user.role ? user.role.toLowerCase() : 'admin';
     
     return jwt.sign(
-      { id: user.id, username: user.username, role: role },
+      { id: user.id, username: user.username, role: role, jti: randomUUID() },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
     );

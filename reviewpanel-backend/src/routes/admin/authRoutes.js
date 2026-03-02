@@ -1,6 +1,7 @@
 import express from 'express';
 import authController from '../../controllers/admin/authController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
+import { loginLimiter, tokenValidationLimiter } from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -9,14 +10,14 @@ const router = express.Router();
  * @desc    Login user and get token
  * @access  Public
  */
-router.post('/login', authController.login);
+router.post('/login', loginLimiter, authController.login);
 
 /**
  * @route   POST /api/auth/validate
  * @desc    Validate token
  * @access  Public
  */
-router.post('/validate', authController.validateToken);
+router.post('/validate', tokenValidationLimiter, authController.validateToken);
 
 /**
  * @route   GET /api/auth/me

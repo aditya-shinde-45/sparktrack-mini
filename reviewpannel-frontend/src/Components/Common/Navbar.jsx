@@ -27,9 +27,8 @@ const Navbar = () => {
 
         </nav>
 
-        {/* Login Button */}
+        {/* Student Login Button */}
         <div className="hidden md:flex items-center space-x-4">
-          <Link to="/login" className="px-4 py-2 loginbutton text-white text-sm rounded transition">Login</Link>
           <Link to="/studentlogin" className="px-4 py-2 loginbutton text-white text-sm rounded transition">Student Login</Link>
         </div>
 
@@ -48,7 +47,6 @@ const Navbar = () => {
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/students">Students</Link>
-          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/login">Login</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/studentlogin">Student Login</Link>
 
           

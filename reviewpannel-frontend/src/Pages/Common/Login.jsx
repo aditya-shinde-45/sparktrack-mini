@@ -19,6 +19,27 @@ const Login = () => {
   const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
   const [mentorContactNumber, setMentorContactNumber] = useState("");
   const [mentorName, setMentorName] = useState("");
+  // OTP flow states
+  const [otpStep, setOtpStep] = useState('otp'); // 'otp' | 'password'
+  const [mentorOtp, setMentorOtp] = useState("");
+  const [mentorSessionToken, setMentorSessionToken] = useState("");
+  const [otpMaskedEmail, setOtpMaskedEmail] = useState("");
+  const [otpExpiresIn, setOtpExpiresIn] = useState(10);
+  const [otpModalLoading, setOtpModalLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
+  // Forgot Password modal states
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [fpStep, setFpStep] = useState('contact'); // 'contact' | 'otp' | 'password'
+  const [fpContact, setFpContact] = useState('');
+  const [fpOtp, setFpOtp] = useState('');
+  const [fpSessionToken, setFpSessionToken] = useState('');
+  const [fpMaskedEmail, setFpMaskedEmail] = useState('');
+  const [fpExpiresIn, setFpExpiresIn] = useState(10);
+  const [fpPassword, setFpPassword] = useState('');
+  const [fpConfirmPassword, setFpConfirmPassword] = useState('');
+  const [fpLoading, setFpLoading] = useState(false);
+  const [fpError, setFpError] = useState('');
 
   // External login removed
 
@@ -129,51 +150,54 @@ const Login = () => {
         return;
       }
 
-      // If we reach here, login was successful
-      // Clear any existing tokens/data first
-      localStorage.removeItem('token');
-      localStorage.removeItem('student_token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('name');
-      localStorage.removeItem('id');
-      localStorage.removeItem('groups');
-      
-      // Store new token and data - handling both response structures
-      const token = data.token || (data.data && data.data.token);
-      
-      if (!token) {
-        setErrorMsg("Login successful but no token received");
-        return;
-      }
-      
-      // Clear old session data first
-      sessionStorage.clear();
-      
-      // Set token and role in localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("role", role.toLowerCase());
-
-      // Extract additional data from the response - handling both structures
-      const user = data.user || (data.data && data.data.user);
-      if (user) {
-        localStorage.setItem("user_id", user.id);
-        localStorage.setItem("username", user.username);
-      }
-
       if (role === "Mentor") {
-        // Store mentor data from response
         const mentorData = data.data || data;
-        
-        // Check if this is first-time login (password needs to be set)
+
+        // First-time login: backend returns no token, just a requirePasswordChange flag
         if (mentorData.requirePasswordChange) {
-          // Show password setup modal for first-time users
-          setMentorContactNumber(username);
+          // Reset OTP flow and open modal
+          const contactNum = mentorData.contact_number || username;
+          setMentorContactNumber(contactNum);
           setMentorName(mentorData.mentor_name || username);
+          setOtpStep('otp');
+          setMentorOtp('');
+          setMentorSessionToken('');
+          setOtpMaskedEmail('');
+          setOtpError('');
+          setMentorPassword('');
+          setMentorConfirmPassword('');
           setShowMentorPasswordModal(true);
           setLoading(false);
+          // Auto-send OTP
+          try {
+            setOtpModalLoading(true);
+            const otpRes = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: contactNum });
+            if (otpRes && otpRes.success) {
+              setMentorSessionToken(otpRes.data.session_token);
+              setOtpMaskedEmail(otpRes.data.email);
+              setOtpExpiresIn(otpRes.data.expires_in_minutes);
+            } else {
+              setOtpError(otpRes?.message || 'Failed to send OTP. Please try again.');
+            }
+          } catch (err) {
+            setOtpError(err.message || 'Failed to send OTP.');
+          } finally {
+            setOtpModalLoading(false);
+          }
           return;
         }
-        
+
+        // Normal mentor login — extract and store token
+        const token = data.token || (data.data && data.data.token);
+        if (!token) {
+          setErrorMsg("Login successful but no token received");
+          return;
+        }
+
+        localStorage.removeItem('student_token');
+        sessionStorage.clear();
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", "mentor");
         // Store mentor token separately for mentor routes
         localStorage.setItem("mentor_token", token);
         localStorage.setItem("name", mentorData.mentor_name || username);
@@ -203,7 +227,15 @@ const Login = () => {
 
       if (role === "Industry Mentor") {
         const mentorData = data.data || data;
-
+        const token = data.token || (data.data && data.data.token);
+        if (!token) {
+          setErrorMsg("Login successful but no token received");
+          return;
+        }
+        localStorage.removeItem('student_token');
+        sessionStorage.clear();
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", "industry_mentor");
         localStorage.setItem("industry_mentor_token", token);
         localStorage.setItem("name", mentorData.name || username);
         localStorage.setItem("industry_mentor_code", mentorData.industrial_mentor_code || "");
@@ -256,50 +288,216 @@ const Login = () => {
     }
   };
 
-  // Handle mentor password setup
+  // Step 1: Resend OTP
+  const handleResendOtp = async () => {
+    setOtpError('');
+    setMentorOtp('');
+    try {
+      setOtpModalLoading(true);
+      const otpRes = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: mentorContactNumber });
+      if (otpRes && otpRes.success) {
+        setMentorSessionToken(otpRes.data.session_token);
+        setOtpMaskedEmail(otpRes.data.email);
+        setOtpExpiresIn(otpRes.data.expires_in_minutes);
+      } else {
+        setOtpError(otpRes?.message || 'Failed to resend OTP.');
+      }
+    } catch (err) {
+      setOtpError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setOtpModalLoading(false);
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    if (!mentorOtp || mentorOtp.length !== 6) {
+      setOtpError('Please enter the 6-digit OTP.');
+      return;
+    }
+    try {
+      setOtpModalLoading(true);
+      const res = await apiRequest('/api/mentors/verify-otp', 'POST', {
+        session_token: mentorSessionToken,
+        otp: mentorOtp,
+      });
+      if (res && res.success) {
+        setOtpStep('password');
+        setOtpError('');
+      } else {
+        setOtpError(res?.message || 'Invalid OTP. Please try again.');
+      }
+    } catch (err) {
+      setOtpError(err.message || 'OTP verification failed.');
+    } finally {
+      setOtpModalLoading(false);
+    }
+  };
+
+  // Step 3: Set Password
   const handleMentorPasswordSetup = async (e) => {
     e.preventDefault();
-    setErrorMsg("");
+    setOtpError('');
 
     if (!mentorPassword || !mentorConfirmPassword) {
-      setErrorMsg("Please enter and confirm your password.");
+      setOtpError('Please enter and confirm your password.');
       return;
     }
-
     if (mentorPassword !== mentorConfirmPassword) {
-      setErrorMsg("Passwords do not match.");
+      setOtpError('Passwords do not match.');
       return;
     }
-
     if (mentorPassword.length < 6) {
-      setErrorMsg("Password must be at least 6 characters long.");
+      setOtpError('Password must be at least 6 characters long.');
       return;
     }
 
     try {
-      setLoading(true);
-      const data = await apiRequest("/api/mentors/set-password", "POST", {
+      setOtpModalLoading(true);
+      const data = await apiRequest('/api/mentors/set-password', 'POST', {
         contact_number: mentorContactNumber,
+        session_token: mentorSessionToken,
         password: mentorPassword,
-        confirm_password: mentorConfirmPassword
+        confirm_password: mentorConfirmPassword,
       });
 
       if (data && data.success) {
-        setErrorMsg("");
         setShowMentorPasswordModal(false);
-        setMentorPassword("");
-        setMentorConfirmPassword("");
-        alert("Password set successfully! Please login with your new password.");
-        // Clear the username field so mentor can re-enter
-        setPassword("");
+        setMentorPassword('');
+        setMentorConfirmPassword('');
+        setMentorSessionToken('');
+        setMentorOtp('');
+        setPassword('');
+        alert('Password set successfully! Please login with your new password.');
       } else {
-        setErrorMsg(data?.message || "Failed to set password.");
+        setOtpError(data?.message || 'Failed to set password.');
       }
     } catch (error) {
-      console.error("Password setup error:", error);
-      setErrorMsg(error.message || "Failed to set password.");
+      setOtpError(error.message || 'Failed to set password.');
     } finally {
-      setLoading(false);
+      setOtpModalLoading(false);
+    }
+  };
+
+  // ── Forgot Password handlers ──
+  const openForgotModal = () => {
+    setFpStep('contact');
+    setFpContact('');
+    setFpOtp('');
+    setFpSessionToken('');
+    setFpMaskedEmail('');
+    setFpPassword('');
+    setFpConfirmPassword('');
+    setFpError('');
+    setShowForgotModal(true);
+  };
+
+  const handleFpRequestOtp = async (e) => {
+    e.preventDefault();
+    setFpError('');
+    if (!fpContact || fpContact.length < 10) {
+      setFpError('Please enter a valid 10-digit contact number.');
+      return;
+    }
+    try {
+      setFpLoading(true);
+      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      if (res && res.success) {
+        setFpSessionToken(res.data.session_token);
+        setFpMaskedEmail(res.data.email);
+        setFpExpiresIn(res.data.expires_in_minutes);
+        setFpStep('otp');
+      } else {
+        setFpError(res?.message || 'Failed to send OTP. Please check your contact number.');
+      }
+    } catch (err) {
+      setFpError(err.message || 'Failed to send OTP.');
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  const handleFpResendOtp = async () => {
+    setFpError('');
+    setFpOtp('');
+    try {
+      setFpLoading(true);
+      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      if (res && res.success) {
+        setFpSessionToken(res.data.session_token);
+        setFpMaskedEmail(res.data.email);
+        setFpExpiresIn(res.data.expires_in_minutes);
+      } else {
+        setFpError(res?.message || 'Failed to resend OTP.');
+      }
+    } catch (err) {
+      setFpError(err.message || 'Failed to resend OTP.');
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  const handleFpVerifyOtp = async (e) => {
+    e.preventDefault();
+    setFpError('');
+    if (!fpOtp || fpOtp.length !== 6) {
+      setFpError('Please enter the 6-digit OTP.');
+      return;
+    }
+    try {
+      setFpLoading(true);
+      const res = await apiRequest('/api/mentors/verify-otp', 'POST', {
+        session_token: fpSessionToken,
+        otp: fpOtp,
+      });
+      if (res && res.success) {
+        setFpStep('password');
+        setFpError('');
+      } else {
+        setFpError(res?.message || 'Invalid OTP. Please try again.');
+      }
+    } catch (err) {
+      setFpError(err.message || 'OTP verification failed.');
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  const handleFpResetPassword = async (e) => {
+    e.preventDefault();
+    setFpError('');
+    if (!fpPassword || !fpConfirmPassword) {
+      setFpError('Please enter and confirm your new password.');
+      return;
+    }
+    if (fpPassword !== fpConfirmPassword) {
+      setFpError('Passwords do not match.');
+      return;
+    }
+    if (fpPassword.length < 6) {
+      setFpError('Password must be at least 6 characters long.');
+      return;
+    }
+    try {
+      setFpLoading(true);
+      const res = await apiRequest('/api/mentors/set-password', 'POST', {
+        contact_number: fpContact,
+        session_token: fpSessionToken,
+        password: fpPassword,
+        confirm_password: fpConfirmPassword,
+      });
+      if (res && res.success) {
+        setShowForgotModal(false);
+        alert('Password reset successfully! Please login with your new password.');
+      } else {
+        setFpError(res?.message || 'Failed to reset password.');
+      }
+    } catch (err) {
+      setFpError(err.message || 'Failed to reset password.');
+    } finally {
+      setFpLoading(false);
     }
   };
 
@@ -451,81 +649,367 @@ const Login = () => {
                 )}
               </button>
 
+              {/* Forgot Password – only for mentors */}
+              {role === 'Mentor' && (
+                <p className="text-center text-white/70 text-sm">
+                  Forgot your password?{' '}
+                  <button
+                    type="button"
+                    onClick={openForgotModal}
+                    className="underline text-white hover:text-white/90 font-medium"
+                  >
+                    Reset it here
+                  </button>
+                </p>
+              )}
+
             </form>
           </div>
         </div>
       </main>
 
-      {/* Mentor Password Setup Modal */}
+      {/* Mentor Password Setup Modal – 2-step OTP flow */}
       {showMentorPasswordModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] rounded-2xl p-8 max-w-md w-full shadow-2xl border-2 border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-2">Set Your Password</h2>
-            <p className="text-white/80 mb-6 text-sm">
-              Welcome, <span className="font-semibold">{mentorName}</span>! Please set a password for your account.
-            </p>
 
-            <form onSubmit={handleMentorPasswordSetup} className="space-y-4">
-              <div className="relative">
-                <input
-                  type="password"
-                  className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                           text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                           focus:border-white/60 transition-all duration-300 shadow-lg"
-                  placeholder="New Password (min 6 characters)"
-                  value={mentorPassword}
-                  onChange={(e) => setMentorPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
+            {/* ── Step 1: OTP entry ── */}
+            {otpStep === 'otp' && (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-2">Verify Your Email</h2>
+                <p className="text-white/80 mb-1 text-sm">
+                  Welcome, <span className="font-semibold">{mentorName}</span>!
+                </p>
+                {otpModalLoading && !otpMaskedEmail ? (
+                  <p className="text-white/70 text-sm mb-6">Sending OTP to your registered email…</p>
+                ) : (
+                  <p className="text-white/70 text-sm mb-6">
+                    A 6-digit OTP has been sent to{' '}
+                    <span className="font-semibold text-white">{otpMaskedEmail}</span>.
+                    {' '}It expires in {otpExpiresIn} minutes.
+                  </p>
+                )}
 
-              <div className="relative">
-                <input
-                  type="password"
-                  className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl 
-                           text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 
-                           focus:border-white/60 transition-all duration-300 shadow-lg"
-                  placeholder="Confirm Password"
-                  value={mentorConfirmPassword}
-                  onChange={(e) => setMentorConfirmPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 text-center text-2xl tracking-[0.5em]
+                             focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60
+                             transition-all duration-300 shadow-lg"
+                    placeholder="── ── ── ── ── ──"
+                    value={mentorOtp}
+                    onChange={(e) => setMentorOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    disabled={otpModalLoading}
+                    required
+                  />
 
-              {errorMsg && (
-                <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
-                  <p className="text-white text-sm">{errorMsg}</p>
-                </div>
-              )}
+                  {otpError && (
+                    <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                      <p className="text-white text-sm">{otpError}</p>
+                    </div>
+                  )}
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMentorPasswordModal(false);
-                    setMentorPassword("");
-                    setMentorConfirmPassword("");
-                    setErrorMsg("");
-                  }}
-                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold 
-                           rounded-xl transition-all duration-300 border-2 border-white/30"
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold 
-                           rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl 
-                           border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={loading}
-                >
-                  {loading ? 'Setting...' : 'Set Password'}
-                </button>
-              </div>
-            </form>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowMentorPasswordModal(false); setOtpError(''); }}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold
+                               rounded-xl transition-all duration-300 border-2 border-white/30"
+                      disabled={otpModalLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold
+                               rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={otpModalLoading || mentorOtp.length !== 6}
+                    >
+                      {otpModalLoading ? 'Verifying…' : 'Verify OTP'}
+                    </button>
+                  </div>
+
+                  <p className="text-center text-white/60 text-xs pt-1">
+                    Didn't receive it?{' '}
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      className="underline text-white/80 hover:text-white disabled:opacity-40"
+                      disabled={otpModalLoading}
+                    >
+                      Resend OTP
+                    </button>
+                  </p>
+                </form>
+              </>
+            )}
+
+            {/* ── Step 2: Set password ── */}
+            {otpStep === 'password' && (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-2">Set Your Password</h2>
+                <p className="text-white/80 mb-6 text-sm">
+                  OTP verified! Please create a password for your account.
+                </p>
+
+                <form onSubmit={handleMentorPasswordSetup} className="space-y-4">
+                  <input
+                    type="password"
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
+                             focus:border-white/60 transition-all duration-300 shadow-lg"
+                    placeholder="New Password (min 6 characters)"
+                    value={mentorPassword}
+                    onChange={(e) => setMentorPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={otpModalLoading}
+                  />
+                  <input
+                    type="password"
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
+                             focus:border-white/60 transition-all duration-300 shadow-lg"
+                    placeholder="Confirm Password"
+                    value={mentorConfirmPassword}
+                    onChange={(e) => setMentorConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={otpModalLoading}
+                  />
+
+                  {otpError && (
+                    <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                      <p className="text-white text-sm">{otpError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowMentorPasswordModal(false); setOtpError(''); }}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold
+                               rounded-xl transition-all duration-300 border-2 border-white/30"
+                      disabled={otpModalLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold
+                               rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={otpModalLoading}
+                    >
+                      {otpModalLoading ? 'Setting…' : 'Set Password'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
+      {/* ── Forgot Password Modal ── */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] rounded-2xl p-8 max-w-md w-full shadow-2xl border-2 border-white/20">
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-6">
+              {['contact', 'otp', 'password'].map((s, i) => (
+                <React.Fragment key={s}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all
+                    ${ ['contact','otp','password'].indexOf(fpStep) >= i
+                      ? 'bg-white text-[#5D3FD3] border-white'
+                      : 'bg-white/10 text-white/50 border-white/30'}`}>
+                    {i + 1}
+                  </div>
+                  {i < 2 && <div className={`flex-1 h-0.5 transition-all ${ ['contact','otp','password'].indexOf(fpStep) > i ? 'bg-white' : 'bg-white/20'}`} />}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* ── Step 1: Enter contact number ── */}
+            {fpStep === 'contact' && (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-2">Forgot Password</h2>
+                <p className="text-white/70 text-sm mb-6">
+                  Enter your registered contact number and we'll send an OTP to your email.
+                </p>
+                <form onSubmit={handleFpRequestOtp} className="space-y-4">
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
+                             focus:border-white/60 transition-all duration-300 shadow-lg"
+                    placeholder="Registered Contact Number"
+                    value={fpContact}
+                    onChange={(e) => setFpContact(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    disabled={fpLoading}
+                    required
+                  />
+                  {fpError && (
+                    <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                      <p className="text-white text-sm">{fpError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold
+                               rounded-xl transition-all duration-300 border-2 border-white/30"
+                      disabled={fpLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold
+                               rounded-xl transition-all duration-300 shadow-lg
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={fpLoading || fpContact.length < 10}
+                    >
+                      {fpLoading ? 'Sending…' : 'Send OTP'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {/* ── Step 2: Enter OTP ── */}
+            {fpStep === 'otp' && (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-2">Enter OTP</h2>
+                <p className="text-white/70 text-sm mb-6">
+                  A 6-digit OTP has been sent to{' '}
+                  <span className="font-semibold text-white">{fpMaskedEmail}</span>.
+                  {' '}It expires in {fpExpiresIn} minutes.
+                </p>
+                <form onSubmit={handleFpVerifyOtp} className="space-y-4">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 text-center text-2xl tracking-[0.5em]
+                             focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/60
+                             transition-all duration-300 shadow-lg"
+                    placeholder="── ── ── ── ── ──"
+                    value={fpOtp}
+                    onChange={(e) => setFpOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    disabled={fpLoading}
+                    required
+                  />
+                  {fpError && (
+                    <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                      <p className="text-white text-sm">{fpError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setFpStep('contact'); setFpError(''); setFpOtp(''); }}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold
+                               rounded-xl transition-all duration-300 border-2 border-white/30"
+                      disabled={fpLoading}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold
+                               rounded-xl transition-all duration-300 shadow-lg
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={fpLoading || fpOtp.length !== 6}
+                    >
+                      {fpLoading ? 'Verifying…' : 'Verify OTP'}
+                    </button>
+                  </div>
+                  <p className="text-center text-white/60 text-xs pt-1">
+                    Didn't receive it?{' '}
+                    <button
+                      type="button"
+                      onClick={handleFpResendOtp}
+                      className="underline text-white/80 hover:text-white disabled:opacity-40"
+                      disabled={fpLoading}
+                    >
+                      Resend OTP
+                    </button>
+                  </p>
+                </form>
+              </>
+            )}
+
+            {/* ── Step 3: New Password ── */}
+            {fpStep === 'password' && (
+              <>
+                <h2 className="text-2xl font-bold text-white mb-2">Reset Password</h2>
+                <p className="text-white/70 text-sm mb-6">
+                  OTP verified! Please enter your new password.
+                </p>
+                <form onSubmit={handleFpResetPassword} className="space-y-4">
+                  <input
+                    type="password"
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
+                             focus:border-white/60 transition-all duration-300 shadow-lg"
+                    placeholder="New Password (min 6 characters)"
+                    value={fpPassword}
+                    onChange={(e) => setFpPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={fpLoading}
+                  />
+                  <input
+                    type="password"
+                    className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
+                             text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
+                             focus:border-white/60 transition-all duration-300 shadow-lg"
+                    placeholder="Confirm New Password"
+                    value={fpConfirmPassword}
+                    onChange={(e) => setFpConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={fpLoading}
+                  />
+                  {fpError && (
+                    <div className="p-3 bg-red-500/20 border-2 border-red-300/50 rounded-xl">
+                      <p className="text-white text-sm">{fpError}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold
+                               rounded-xl transition-all duration-300 border-2 border-white/30"
+                      disabled={fpLoading}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-white hover:bg-white/95 text-[#4C1D95] font-semibold
+                               rounded-xl transition-all duration-300 shadow-lg
+                               border border-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={fpLoading}
+                    >
+                      {fpLoading ? 'Resetting…' : 'Reset Password'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
           </div>
         </div>
       )}

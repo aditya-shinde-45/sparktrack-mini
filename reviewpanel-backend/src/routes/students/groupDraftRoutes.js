@@ -10,8 +10,12 @@ import {
   cancelDraft,
 } from "../../controllers/students/groupDraftController.js";
 import { deadlineBlocker } from "../../middleware/deadlineMiddleware.js";
+import authMiddleware from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// All group-draft routes require authentication
+router.use(authMiddleware.authenticateStudent);
 
 // Apply deadline check to all group creation routes
 router.use(deadlineBlocker('group_creation'));
@@ -37,7 +41,7 @@ router.get("/draft/:groupId", getGroupDetails);
 // Confirm and finalize group (Step 3)
 router.post("/confirm/:groupId", confirmGroup);
 
-// Cancel draft group
+// Cancel draft group – requires ownership check in the controller
 router.delete("/draft/:groupId", cancelDraft);
 
 export default router;

@@ -2,46 +2,21 @@ import multer from 'multer';
 import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import postModel from '../../models/postModel.js';
+import { createUploader } from '../../utils/secureUpload.js';
 
-// Configure multer for file upload
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files (JPEG, JPG, PNG, GIF, WebP) are allowed!'), false);
-    }
-  }
-});
+// Secure upload: images only, 10 MB max, with extension whitelist
+const _uploader = createUploader('image');
 
 // Export multer middleware for route usage
 export const uploadImage = (req, res, next) => {
-  upload.single('image')(req, res, (err) => {
+  _uploader.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return ApiResponse.error(
-          res, 
-          'Image size should be less than 10MB',
-          400
-        );
+        return ApiResponse.error(res, 'Image size should be less than 10MB', 400);
       }
-      return ApiResponse.error(
-        res, 
-        'File upload error: ' + err.message,
-        400
-      );
+      return ApiResponse.error(res, 'File upload error: ' + err.message, 400);
     } else if (err) {
-      return ApiResponse.error(
-        res, 
-        err.message,
-        400
-      );
+      return ApiResponse.error(res, err.message, 400);
     }
     next();
   });

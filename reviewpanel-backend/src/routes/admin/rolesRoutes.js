@@ -8,11 +8,12 @@ import {
   roleLogin
 } from "../../controllers/admin/rolesController.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
+import { loginLimiter } from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 // Public route - Role login
-router.post("/login", roleLogin);
+router.post("/login", loginLimiter, roleLogin);
 
 // Protected routes - Require admin authentication
 router.post("/", authMiddleware.authenticateUser, createRole);

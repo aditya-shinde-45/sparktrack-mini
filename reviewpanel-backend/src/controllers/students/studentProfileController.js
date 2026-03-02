@@ -1,28 +1,32 @@
+import path from 'path';
 import multer from 'multer';
 import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import studentProfileModel from '../../models/studentProfileModel.js';
+import { PROFILES } from '../../utils/secureUpload.js';
 
-// Configure multer for in-memory uploads
-const storage = multer.memoryStorage();
-
+// Build a per-field upload with individual profile constraints.
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 2 },
   fileFilter: (req, file, cb) => {
     if (file.fieldname === 'resume') {
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ];
-      if (!allowedTypes.includes(file.mimetype)) {
+      const p = PROFILES.resume;
+      if (!p.mimes.has(file.mimetype)) {
         return cb(new Error('Only PDF or Word documents are allowed for resume uploads.'));
       }
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (!p.exts.has(ext)) {
+        return cb(new Error(`Invalid resume extension. Allowed: ${[...p.exts].join(', ')}`));
+      }
     } else if (file.fieldname === 'profilePicture') {
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-      if (!allowedTypes.includes(file.mimetype)) {
-        return cb(new Error('Only JPG, PNG, or WebP images are allowed for profile pictures.'));
+      const p = PROFILES.profilePicture;
+      if (!p.mimes.has(file.mimetype)) {
+        return cb(new Error('Only JPEG, PNG, or WebP images are allowed for profile pictures.'));
+      }
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (!p.exts.has(ext)) {
+        return cb(new Error(`Invalid image extension. Allowed: ${[...p.exts].join(', ')}`));
       }
     }
     cb(null, true);

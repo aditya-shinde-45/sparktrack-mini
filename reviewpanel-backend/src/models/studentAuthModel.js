@@ -1,8 +1,9 @@
 import supabase from '../config/database.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomUUID, randomInt } from 'node:crypto';
 import config from '../config/index.js';
-import nodemailer from 'nodemailer';
+import emailService from '../services/emailService.js';
 
 /**
  * Student auth model for student authentication
@@ -11,6 +12,29 @@ class StudentAuthModel {
   constructor() {
     this.studentsTable = 'students';
     this.otpStore = new Map(); // Temporary OTP storage
+  }
+
+  getValidOtpEntry(email, otp) {
+    const otpData = this.otpStore.get(email);
+
+    if (!otpData) {
+      return null;
+    }
+
+    if (otpData.otp !== otp) {
+      return null;
+    }
+
+    if (Date.now() > otpData.expiresAt) {
+      this.otpStore.delete(email);
+      return null;
+    }
+
+    return otpData;
+  }
+
+  clearOtp(email) {
+    this.otpStore.delete(email);
   }
 
   /**
@@ -37,8 +61,6 @@ class StudentAuthModel {
    * @param {string} password - Student password
    */
   async validateCredentials(enrollmentNo, password) {
-    console.log('🔍 Login attempt:', { enrollmentNo, passwordLength: password?.length });
-    
     const { data: student, error } = await supabase
       .from(this.studentsTable)
       .select('enrollment_no, student_email_id, student_contact_no, name_of_student, password, status')
@@ -55,49 +77,26 @@ class StudentAuthModel {
       return null;
     }
     
-    console.log('✅ Student found:', {
-      enrollment_no: student.enrollment_no,
-      email: student.student_email_id,
-      contact: student.student_contact_no,
-      name: student.name_of_student,
-      hasPassword: !!student.password,
-      status: student.status
-    });
-    
     // Check if student is active (only reject if explicitly 'Inactive')
     const statusLower = student.status ? student.status.toLowerCase().trim() : '';
     
     if (statusLower === 'inactive') {
-      console.log('❌ Student is inactive:', student.status);
       return null;
     }
-    console.log('✅ Student status accepted:', student.status);
     
     // Check if password is set
     if (!student.password) {
-      console.log('⚠️ No password set. Checking if contact number matches...');
-      console.log('Contact from DB:', student.student_contact_no);
-      console.log('Password entered:', password);
-      
-      // Verify contact number for password setup
-      if (password === student.student_contact_no) {
-        console.log('✅ Contact number matches - password setup required');
-        return {
-          needsPasswordSetup: true,
-          enrollment_no: student.enrollment_no,
-          email: student.student_email_id,
-          contact: student.student_contact_no,
-          name: student.name_of_student
-        };
-      }
-      console.log('❌ Contact number does not match');
-      return null; // Invalid contact number
+      return {
+        needsPasswordSetup: true,
+        enrollment_no: student.enrollment_no,
+        email: student.student_email_id,
+        contact: student.student_contact_no,
+        name: student.name_of_student
+      };
     }
     
     // Validate password
-    console.log('🔐 Validating hashed password...');
     const isValid = await bcrypt.compare(password, student.password);
-    console.log('Password valid:', isValid);
     if (!isValid) return null;
     
     return {
@@ -115,7 +114,7 @@ class StudentAuthModel {
    * @param {string} expiresIn - Token expiration time (default: 1d)
    */
   generateToken(student, expiresIn = '1d') {
-    return jwt.sign(student, config.jwt.secret, { expiresIn });
+    return jwt.sign({ ...student, jti: randomUUID() }, config.jwt.secret, { expiresIn });
   }
 
   /**
@@ -139,7 +138,7 @@ class StudentAuthModel {
    * @param {string} newPassword - New password
    */
   async setPassword(enrollmentNo, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     const { error } = await supabase
       .from(this.studentsTable)
@@ -151,12 +150,12 @@ class StudentAuthModel {
   }
 
   /**
-   * Update student password (contact number)
+   * Update student password
    * @param {string} enrollmentNo - Student enrollment number
-   * @param {string} newPassword - New contact number
+   * @param {string} newPassword - New password
    */
   async updatePassword(enrollmentNo, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     
     const { error } = await supabase
       .from(this.studentsTable)
@@ -202,33 +201,19 @@ class StudentAuthModel {
         .select('enrollment_no, student_email_id, name_of_student, password, status')
         .eq('student_email_id', email);
 
-      console.log('Forgot password lookup:', { 
-        email, 
-        dataLength: data?.length, 
-        found: !!data && data.length > 0, 
-        hasPassword: data && data.length > 0 ? !!data[0]?.password : false, 
-        error: error?.message 
-      });
-
       if (error) {
         console.error('Supabase error:', error);
         return null;
       }
 
       if (!data || data.length === 0) {
-        console.log('Student not found with email:', email);
         return null;
       }
 
       const student = data[0];
 
-      if (!student.password) {
-        console.log('Student found but password not set:', email);
-        return null;
-      }
-
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      // Generate cryptographically secure 6-digit OTP
+      const otp = randomInt(100000, 1000000).toString();
       
       // Store OTP with 10 minute expiry
       this.otpStore.set(email, {
@@ -237,39 +222,8 @@ class StudentAuthModel {
         enrollment_no: student.enrollment_no
       });
 
-      console.log('OTP generated and stored for:', email);
-
-      // Send OTP via email
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
-
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Password Reset OTP - SparkTrack',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #7B74EF;">Password Reset Request</h2>
-            <p>Hello Student,</p>
-            <p>You have requested to reset your password. Use the OTP below to proceed:</p>
-            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px;">
-              <h1 style="color: #4C1D95; margin: 0; font-size: 32px; letter-spacing: 5px;">${otp}</h1>
-            </div>
-            <p style="color: #666;">This OTP will expire in 10 minutes.</p>
-            <p style="color: #666;">If you didn't request this, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px;">SparkTrack - MIT ADT University</p>
-          </div>
-        `
-      };
-
-      await transporter.sendMail(mailOptions);
-      console.log('OTP email sent successfully to:', email);
+      // Send OTP via shared email service
+      await emailService.sendOtpEmail(email, otp);
       return true;
     } catch (error) {
       console.error('Error in sendForgotPasswordOTP:', error);
@@ -284,14 +238,14 @@ class StudentAuthModel {
    * @param {string} newPassword - New password
    */
   async resetPasswordWithOTP(email, otp, newPassword) {
-    const otpData = this.otpStore.get(email);
+    const otpData = this.getValidOtpEntry(email, otp);
 
-    if (!otpData || otpData.otp !== otp || Date.now() > otpData.expiresAt) {
+    if (!otpData) {
       return null;
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
 
     // Update password
     const { error } = await supabase
@@ -302,7 +256,7 @@ class StudentAuthModel {
     if (error) throw error;
 
     // Clear OTP
-    this.otpStore.delete(email);
+    this.clearOtp(email);
 
     return true;
   }

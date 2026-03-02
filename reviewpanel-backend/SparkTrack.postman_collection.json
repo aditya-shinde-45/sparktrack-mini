@@ -1,0 +1,409 @@
+{
+  "info": {
+    "_postman_id": "f4c6c1a2-5d2b-4a0e-a726-9eaaf7f4de01",
+    "name": "SparkTrack API Collection",
+    "description": "Use this Postman collection to exercise all major SparkTrack backend APIs. Configure the environment variables before running the requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Diagnostics",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Database Connectivity (dev only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/db-test",
+              "host": ["{{baseUrl}}"],
+              "path": ["db-test"]
+            },
+            "description": "Only available when NODE_ENV != production"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Validate Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{adminToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Role-Based Admin",
+      "item": [
+        {
+          "name": "Role Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"role-admin\",\n  \"password\": \"change_me\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roles", "login"]
+            }
+          }
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{roleAdminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roles"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Announcements & Deadlines",
+      "item": [
+        {
+          "name": "List Announcements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/announcements",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "announcements"]
+            }
+          }
+        },
+        {
+          "name": "List Deadlines",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/deadlines",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deadlines"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PBL & Reviews",
+      "item": [
+        {
+          "name": "List PBL Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pbl",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pbl"]
+            }
+          }
+        },
+        {
+          "name": "List Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{adminToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reviews"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mentor APIs",
+      "item": [
+        {
+          "name": "Mentor Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"9876543210\",\n  \"password\": \"mentor@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/mentors/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mentors", "login"]
+            }
+          }
+        },
+        {
+          "name": "Mentor Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{mentorToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/mentors/groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "mentors", "groups"]
+            }
+          }
+        },
+        {
+          "name": "Industrial Mentor Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"mentor001\",\n  \"password\": \"industry@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/industrial-mentors/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "industrial-mentors", "login"]
+            }
+          }
+        },
+        {
+          "name": "Industrial Mentor Groups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{industrialMentorToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/industrial-mentors/groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "industrial-mentors", "groups"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Auth",
+      "item": [
+        {
+          "name": "Student Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enrollment_no\": \"MIT2021CS001\",\n  \"password\": \"student@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student-auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{studentToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student-auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student-auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Send Forgot Password OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-auth/forgot-password/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student-auth", "forgot-password", "send-otp"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password With OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"student@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student-auth/forgot-password/reset",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student-auth", "forgot-password", "reset"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Operations",
+      "item": [
+        {
+          "name": "Problem Statements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{studentToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/problem-statements",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "students", "problem-statements"]
+            }
+          }
+        },
+        {
+          "name": "Student Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{studentToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "documents"]
+            }
+          }
+        },
+        {
+          "name": "Group Drafts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{studentToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/groups-draft",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "groups-draft"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:5000"},
+    {"key": "adminUsername", "value": "admin@example.com"},
+    {"key": "adminPassword", "value": "change_me"},
+    {"key": "adminToken", "value": ""},
+    {"key": "roleAdminToken", "value": ""},
+    {"key": "mentorToken", "value": ""},
+    {"key": "industrialMentorToken", "value": ""},
+    {"key": "studentToken", "value": ""}
+  ]
+}

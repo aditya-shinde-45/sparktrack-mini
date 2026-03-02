@@ -57,54 +57,35 @@ class AuthMiddleware {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('Token decoded:', decoded);
-        
-        try {
-          // Check user type from token payload
-          if (decoded.role === 'student') {
-            try {
-              const student = await studentAuthModel.findById(decoded.student_id);
-              if (!student) {
-                console.warn(`Student with ID ${decoded.student_id} not found`);
-                // Fall back to token data for development
-                req.user = { ...decoded };
-              } else {
-                req.user = { ...decoded, ...student };
-              }
-            } catch (dbError) {
-              console.error('Error finding student:', dbError);
-              // Fall back to token data
-              req.user = { ...decoded };
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        // Check user type from token payload
+        if (decoded.role === 'student') {
+          const student = await studentAuthModel.findById(decoded.student_id);
+          if (!student) {
+            if (isProduction) {
+              throw ApiError.unauthorized('Student not found');
             }
-          } else if (decoded.role === 'mentor' || decoded.role === 'industry_mentor') {
-            // Mentor - token contains mentor_id, mentor_name, contact_number
-            // No need to fetch from DB, all data is in token
-            req.user = { ...decoded };
-          } else if (decoded.role === 'reviewerAdmin') {
-            // ReviewerAdmin - token contains username and role
-            // No need to fetch from DB, all data is in token
+            // Development fallback only
             req.user = { ...decoded };
           } else {
-            // Admin
-            try {
-              const user = await userModel.findById(decoded.id);
-              if (!user) {
-                console.warn(`User with ID ${decoded.id} not found`);
-                // Fall back to token data for development
-                req.user = { ...decoded };
-              } else {
-                req.user = { ...decoded, ...user };
-              }
-            } catch (dbError) {
-              console.error('Error finding user:', dbError);
-              // Fall back to token data
-              req.user = { ...decoded };
-            }
+            req.user = { ...decoded, ...student };
           }
-        } catch (lookupError) {
-          console.error('User lookup error:', lookupError);
-          // For development, allow token-only authentication
+        } else if (decoded.role === 'mentor' || decoded.role === 'industry_mentor') {
           req.user = { ...decoded };
+        } else if (decoded.role === 'reviewerAdmin') {
+          req.user = { ...decoded };
+        } else {
+          // Admin
+          const user = await userModel.findById(decoded.id);
+          if (!user) {
+            if (isProduction) {
+              throw ApiError.unauthorized('User not found');
+            }
+            req.user = { ...decoded };
+          } else {
+            req.user = { ...decoded, ...user };
+          }
         }
         
         next();
@@ -135,29 +116,26 @@ class AuthMiddleware {
       
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('Admin token decoded:', decoded);
         
         if (decoded.role !== 'admin') {
           throw ApiError.forbidden('Admin access required');
         }
         
-        try {
-          const admin = await userModel.findById(decoded.id);
-          
-          if (!admin) {
-            console.warn(`Admin user with ID ${decoded.id} not found in database. Falling back to token data.`);
-            req.user = { ...decoded, role: 'admin' };
-          } else {
-            if (admin.role.toLowerCase() !== 'admin') {
-              throw ApiError.forbidden('Admin access required');
-            }
-            req.user = { ...decoded, ...admin };
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        const admin = await userModel.findById(decoded.id);
+        
+        if (!admin) {
+          if (isProduction) {
+            throw ApiError.unauthorized('Admin user not found');
           }
-        } catch (dbError) {
-          console.error('Database error when finding admin:', dbError);
-          // If findById isn't implemented or database error, fall back to token data
-          console.log('Falling back to token data only for admin authentication');
+          // Development fallback only
           req.user = { ...decoded, role: 'admin' };
+        } else {
+          if (admin.role.toLowerCase() !== 'admin') {
+            throw ApiError.forbidden('Admin access required');
+          }
+          req.user = { ...decoded, ...admin };
         }
         
         next();

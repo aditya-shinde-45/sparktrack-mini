@@ -84,7 +84,21 @@ JWT_SECRET=your_secret_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 SUPABASE_ANON_KEY=your_anon_key
+CORS_ALLOWED_ORIGINS=https://your-frontend.example.com,http://localhost:5173
+
+# Administrator credentials (choose one approach)
+ADMIN_USERS_JSON=[{"id":1,"username":"admin@example.com","passwordHash":"$2a$12$hashGoesHere","role":"admin"}]
+# or
+ADMIN_DEFAULT_USERNAME=admin@example.com
+ADMIN_DEFAULT_PASSWORD=change_me
+ADMIN_DEFAULT_ROLE=admin
+
+# Optional rate-limiter tuning
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=300
 ```
+
+> **Security note:** `JWT_SECRET` and administrator credentials are required at runtime. The server will refuse to boot if they are missing.
 
 ### Running the Server
 Development:
@@ -122,3 +136,8 @@ npm start
 - `POST /api/admin/mentors` - Add new mentor
 - `PUT /api/admin/mentors/:mentor_name` - Update mentor
 - `DELETE /api/admin/mentors/:mentor_name` - Delete mentor
+
+### Student Password Setup & Recovery
+- Students who have not set a password must request a one-time password (OTP) via `/api/student-auth/forgot-password/send-otp` before calling `/api/student-auth/set-password`.
+- The `/set-password` endpoint now requires `enrollment_no`, `newPassword`, `otp`, and `email` to prevent unauthorized password resets.
+- OTPs expire after 10 minutes and can only be used once.

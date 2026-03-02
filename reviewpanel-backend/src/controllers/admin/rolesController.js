@@ -2,7 +2,9 @@ import supabase from "../../config/database.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "node:crypto";
 import config from "../../config/index.js";
+import { validatePassword } from "../../utils/passwordValidator.js";
 
 /**
  * Create a new role
@@ -22,6 +24,11 @@ export const createRole = async (req, res) => {
 
     if (password.length < 6) {
       return ApiResponse.error(res, "Password must be at least 6 characters", 400);
+    }
+
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      return ApiResponse.error(res, pwCheck.message, 400);
     }
 
     if (tablePermissions.length === 0) {
@@ -53,7 +60,7 @@ export const createRole = async (req, res) => {
     }
 
     // Hash password
-    const saltRounds = 10;
+    const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Insert role
@@ -198,7 +205,12 @@ export const updateRole = async (req, res) => {
         return ApiResponse.error(res, "Password must be at least 6 characters", 400);
       }
 
-      const saltRounds = 10;
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.valid) {
+        return ApiResponse.error(res, pwCheck.message, 400);
+      }
+
+      const saltRounds = 12;
       updateData.password_hash = await bcrypt.hash(password, saltRounds);
     }
 
@@ -309,7 +321,8 @@ export const roleLogin = async (req, res) => {
         username: role.user_id,
         role: "admin",
         isRoleBased: true,
-        tablePermissions: role.table_permissions
+        tablePermissions: role.table_permissions,
+        jti: randomUUID()
       },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn || "7d" }

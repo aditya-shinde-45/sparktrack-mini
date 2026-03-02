@@ -5,6 +5,7 @@ import zerothReviewController from '../../controllers/mentor/zerothReviewControl
 import mentorDocumentController from '../../controllers/mentor/mentorDocumentController.js';
 import problemStatementReviewController from '../../controllers/mentor/problemStatementReviewController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
+import { loginLimiter, passwordResetLimiter } from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -13,21 +14,35 @@ const router = express.Router();
  * @desc    Check if mentor exists and has set password
  * @access  Public
  */
-router.post('/check-status', mentorAuthController.checkMentorStatus);
+router.post('/check-status', loginLimiter, mentorAuthController.checkMentorStatus);
+
+/**
+ * @route   POST /api/mentors/request-otp
+ * @desc    Step 1 – Send OTP to mentor's registered email for password setup
+ * @access  Public
+ */
+router.post('/request-otp', passwordResetLimiter, mentorAuthController.requestOtp);
+
+/**
+ * @route   POST /api/mentors/verify-otp
+ * @desc    Step 2 – Verify OTP; returns verified session_token required by set-password
+ * @access  Public
+ */
+router.post('/verify-otp', loginLimiter, mentorAuthController.verifyOtp);
 
 /**
  * @route   POST /api/mentors/set-password
- * @desc    Set password for first-time mentor login
- * @access  Public
+ * @desc    Step 3 – Set password (requires session_token from verified OTP)
+ * @access  Public (OTP-gated)
  */
-router.post('/set-password', mentorAuthController.setMentorPassword);
+router.post('/set-password', passwordResetLimiter, mentorAuthController.setMentorPassword);
 
 /**
  * @route   POST /api/mentors/login
  * @desc    Mentor login with phone number and password
  * @access  Public
  */
-router.post('/login', mentorAuthController.mentorLogin);
+router.post('/login', loginLimiter, mentorAuthController.mentorLogin);
 
 /**
  * @route   GET /api/mentors/groups

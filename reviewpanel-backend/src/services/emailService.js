@@ -194,6 +194,81 @@ SparkTrack Team`;
   }
 
   /**
+   * Send an OTP email to a mentor for password setup verification
+   * @param {string} email - Mentor email
+   * @param {string} otp - One-time password
+   * @param {string} mentorName - Mentor's name
+   * @param {number} expiresInMinutes - OTP expiry in minutes
+   */
+  async sendMentorOtpEmail(email, otp, mentorName, expiresInMinutes = 10) {
+    const subject = 'SparkTrack – Mentor Password Setup Verification Code';
+
+    const text = `Dear ${mentorName},
+
+You requested to set up your SparkTrack mentor account password.
+
+Your verification code is: ${otp}
+
+This code will expire in ${expiresInMinutes} minutes.
+
+If you did not request this, please ignore this email or contact your administrator.
+
+Security Note: Do not share this code with anyone.
+
+Best regards,
+SparkTrack Team`;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+    .otp-box { background: white; border: 2px solid #185a9d; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }
+    .otp-code { font-size: 40px; font-weight: bold; color: #185a9d; letter-spacing: 10px; margin: 10px 0; }
+    .warning-box { background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0; }
+    .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 SparkTrack Mentor Portal</h1>
+      <p>Password Setup Verification</p>
+    </div>
+    <div class="content">
+      <p>Dear <strong>${mentorName}</strong>,</p>
+      <p>You requested to set up your SparkTrack mentor account password. Use the verification code below to proceed.</p>
+
+      <div class="otp-box">
+        <p style="margin: 0; color: #666; font-size: 14px;">Your Verification Code</p>
+        <div class="otp-code">${otp}</div>
+        <p style="margin: 0; color: #666; font-size: 12px;">Valid for ${expiresInMinutes} minutes</p>
+      </div>
+
+      <div class="warning-box">
+        <p style="margin: 0;"><strong>⚠️ Security Note:</strong> Do not share this code with anyone. Our team will never ask for your verification code.</p>
+      </div>
+
+      <p>If you did not request this, please ignore this email or contact your administrator immediately.</p>
+
+      <p>Best regards,<br><strong>SparkTrack Team</strong></p>
+    </div>
+    <div class="footer">
+      <p>This is an automated message. Please do not reply to this email.</p>
+      <p>&copy; 2024 SparkTrack. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    return this.sendMail(email, subject, text, html);
+  }
+
+  /**
    * Send welcome email to verified external evaluator
    * @param {string} email - External evaluator email
    * @param {string} name - Evaluator name

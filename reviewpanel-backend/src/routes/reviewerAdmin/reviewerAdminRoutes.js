@@ -1,11 +1,12 @@
 import express from 'express';
 import reviewerAdminController from '../../controllers/reviewerAdmin/reviewerAdminController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
+import { loginLimiter } from '../../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 // Login route (no auth required)
-router.post('/login', reviewerAdminController.login);
+router.post('/login', loginLimiter, reviewerAdminController.login);
 
 // Protected routes (require reviewerAdmin role)
 router.get('/groups', 

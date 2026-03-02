@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from 'helmet';
+import hpp from 'hpp';
 import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from 'url';
@@ -42,6 +44,9 @@ import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
+// Rate limiting
+import { apiLimiter } from './src/middleware/rateLimiter.js';
+
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
 
@@ -52,18 +57,58 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = config.server.port;
 
-// CORS configuration - Allow all origins for serverless
-app.use(cors({
-  origin: '*',
+app.disable('x-powered-by');
+
+// ─── CORS ──────────────────────────────────────────────────────────────────
+const corsOptions = {
+  origin: (origin, callback) => {
+    // In production, never allow plain-HTTP origins
+    if (config.server.env === 'production' && origin && origin.startsWith('http://')) {
+      return callback(new Error(`Insecure HTTP origin ${origin} is not allowed in production`));
+    }
+    if (!origin || config.cors.allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false,
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+    }
+  },
+  hsts: {
+    maxAge: 31536000,   // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginEmbedderPolicy: false // allow S3/CDN resources
 }));
 
+// HTTP Parameter Pollution protection
+app.use(hpp());
+
+// Global rate limit – route-specific tighter limits are applied inside route files
+app.use('/api', apiLimiter);
 
 // Basic middleware
-app.use(express.json());
-app.use(morgan("dev"));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false }));
+app.use(morgan(config.server.env === 'production' ? 'combined' : 'dev'));
 
 
 
@@ -98,7 +143,9 @@ app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/student/documents", documentRoutes); // Student document upload/management
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
-app.use("/api", testRoutes); // Test routes for CI/CD
+if (config.server.env !== 'production') {
+  app.use("/api", testRoutes); // Test routes for CI/CD
+}
 
 // Basic route
 app.get("/", (req, res) => {
@@ -110,38 +157,30 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Database connection test route
-app.get("/db-test", async (req, res) => {
-  try {
-    const result = await dbConfig.testConnection();
-    res.json({
-      success: true,
-      message: "Database connected successfully!",
-      sampleData: result.data,
-      supabaseUrl: process.env.SUPABASE_URL,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Database connection test route (development only)
+if (config.server.env !== 'production') {
+  app.get("/db-test", async (req, res) => {
+    try {
+      const result = await dbConfig.testConnection();
+      res.json({
+        success: true,
+        message: "Database connected successfully!",
+        sampleData: result.data
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}
 
 // Global error handling middleware
 app.use(errorHandler);
 
-// Catch-all route for debugging
+// Catch-all 404
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found',
-    requestedPath: req.originalUrl,
-    method: req.method,
-    availableRoutes: [
-      'GET /',
-      'GET /health',
-      'POST /api/mentors/login',
-      'POST /api/auth/login',
-      'GET /api/test'
-    ]
+    message: 'Route not found'
   });
 });
 
@@ -162,6 +201,21 @@ if (process.env.NODE_ENV !== 'lambda') {
     testConnection();
   });
 }
+
+// ─── Process-level error guards ────────────────────────────────────────────
+// Prevent the process from crashing on unexpected async errors
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Promise Rejection:', reason);
+  if (config.server.env === 'production') {
+    // Give the logger time to flush before exiting
+    setTimeout(() => process.exit(1), 200);
+  }
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception – shutting down:', err);
+  setTimeout(() => process.exit(1), 200);
+});
 
 // Export app for serverless
 export default app;
