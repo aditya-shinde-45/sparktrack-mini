@@ -32,7 +32,9 @@ export class ApiError extends Error {
   }
 }
 
-import logger from './logger.js';\n\n/**
+import logger from './logger.js';
+
+/**
  * Global error handler middleware
  */
 export const errorHandler = (err, req, res, next) => {

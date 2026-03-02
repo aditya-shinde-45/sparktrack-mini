@@ -17,9 +17,23 @@ const router = express.Router();
 router.post('/check-status', loginLimiter, mentorAuthController.checkMentorStatus);
 
 /**
- * @route   POST /api/mentors/set-password
- * @desc    Set password for first-time mentor login
+ * @route   POST /api/mentors/request-otp
+ * @desc    Step 1 – Send OTP to mentor's registered email for password setup
  * @access  Public
+ */
+router.post('/request-otp', passwordResetLimiter, mentorAuthController.requestOtp);
+
+/**
+ * @route   POST /api/mentors/verify-otp
+ * @desc    Step 2 – Verify OTP; returns verified session_token required by set-password
+ * @access  Public
+ */
+router.post('/verify-otp', loginLimiter, mentorAuthController.verifyOtp);
+
+/**
+ * @route   POST /api/mentors/set-password
+ * @desc    Step 3 – Set password (requires session_token from verified OTP)
+ * @access  Public (OTP-gated)
  */
 router.post('/set-password', passwordResetLimiter, mentorAuthController.setMentorPassword);
 
