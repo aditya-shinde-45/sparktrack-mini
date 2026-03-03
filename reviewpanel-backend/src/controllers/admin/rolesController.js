@@ -1,6 +1,6 @@
 import supabase from "../../config/database.js";
 import ApiResponse from "../../utils/apiResponse.js";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "node:crypto";
 import config from "../../config/index.js";

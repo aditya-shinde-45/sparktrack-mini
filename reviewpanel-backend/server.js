@@ -59,21 +59,37 @@ const PORT = config.server.port;
 
 app.disable('x-powered-by');
 
+// Trust the first proxy hop (required for express-rate-limit behind API Gateway / ALB / nginx)
+app.set('trust proxy', 1);
+
 // ─── CORS ──────────────────────────────────────────────────────────────────
 const corsOptions = {
   origin: (origin, callback) => {
-    // In production, never allow plain-HTTP origins
-    if (config.server.env === 'production' && origin && origin.startsWith('http://')) {
-      return callback(new Error(`Insecure HTTP origin ${origin} is not allowed in production`));
+    // Always allow requests with no origin (server-to-server, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    // Allow explicitly listed origins first (takes priority over HTTP check)
+    if (config.cors.allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
     // Allow Vercel preview deployments (*.vercel.app)
-    if (origin && /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+    if (/^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
-    if (!origin || config.cors.allowedOrigins.includes(origin)) {
-      return callback(null, true);
+
+    // In production, block any other plain-HTTP origin not in the allowlist
+    if (config.server.env === 'production' && origin.startsWith('http://')) {
+      const err = new Error(`Insecure HTTP origin ${origin} is not allowed in production`);
+      err.statusCode = 403;
+      err.isOperational = true;
+      return callback(err);
     }
-    return callback(new Error(`Origin ${origin} is not allowed by CORS policy`));
+
+    const err = new Error(`Origin ${origin} is not allowed by CORS policy`);
+    err.statusCode = 403;
+    err.isOperational = true;
+    return callback(err);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
