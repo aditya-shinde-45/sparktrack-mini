@@ -44,8 +44,7 @@ import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
-// Rate limiting
-import { apiLimiter } from './src/middleware/rateLimiter.js';
+
 
 // Error handler middleware
 import { errorHandler } from './src/utils/errorHandler.js';
@@ -121,9 +120,6 @@ app.use(helmet({
 
 // HTTP Parameter Pollution protection
 app.use(hpp());
-
-// Global rate limit – route-specific tighter limits are applied inside route files
-app.use('/api', apiLimiter);
 
 // Basic middleware
 app.use(express.json({ limit: '1mb' }));
