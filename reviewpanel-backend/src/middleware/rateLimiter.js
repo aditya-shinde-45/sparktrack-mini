@@ -32,10 +32,10 @@ const standardMessage = {
   message: 'Too many requests from this IP address. Please try again later.'
 };
 
-// Disable express-rate-limit's built-in X-Forwarded-For validation — Lambda
-// Function URLs format this header differently and the validator throws a raw
-// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR error which becomes a 500.
-const lambdaValidate = { xForwardedForHeader: false };
+// Disable express-rate-limit's built-in validations that throw raw errors in Lambda:
+// - xForwardedForHeader: Lambda Function URL sends multiple X-Forwarded-For IPs
+// - trustProxy: app.set('trust proxy',1) + Lambda multi-hop triggers ERR_ERL_PERMISSIVE_TRUST_PROXY
+const lambdaValidate = { xForwardedForHeader: false, trustProxy: false };
 
 // ---------- Auth / Login ----------
 export const loginLimiter = rateLimit({
