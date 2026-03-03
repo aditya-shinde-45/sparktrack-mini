@@ -1,6 +1,16 @@
 import rateLimit from 'express-rate-limit';
 
 /**
+ * Safe key generator: handles Lambda/API Gateway where req.ip may be undefined
+ * because X-Forwarded-For hasn't been resolved yet.
+ */
+const lambdaSafeKeyGenerator = (req) =>
+  req.ip ||
+  req.headers?.['x-forwarded-for']?.split(',')[0]?.trim() ||
+  req.socket?.remoteAddress ||
+  'unknown';
+
+/**
  * Production-grade rate limiters.
  *
  * Each limiter is keyed by the client IP.  The values below are tuned for a
@@ -28,6 +38,7 @@ export const loginLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_LOGIN_MAX) || 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: lambdaSafeKeyGenerator,
   message: {
     ...standardMessage,
     message: 'Too many login attempts. Please try again after 15 minutes.'
@@ -40,6 +51,7 @@ export const otpLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_OTP_MAX) || 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: lambdaSafeKeyGenerator,
   message: {
     ...standardMessage,
     message: 'Too many OTP requests. Please try again after 15 minutes.'
@@ -52,6 +64,7 @@ export const passwordResetLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_PASSWORD_MAX) || 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: lambdaSafeKeyGenerator,
   message: {
     ...standardMessage,
     message: 'Too many password reset attempts. Please try again after 15 minutes.'
@@ -64,6 +77,7 @@ export const tokenValidationLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_VALIDATE_MAX) || 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: lambdaSafeKeyGenerator,
   message: standardMessage
 });
 
@@ -73,5 +87,6 @@ export const apiLimiter = rateLimit({
   max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 200,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: lambdaSafeKeyGenerator,
   message: standardMessage
 });
