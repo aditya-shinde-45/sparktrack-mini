@@ -32,6 +32,11 @@ const standardMessage = {
   message: 'Too many requests from this IP address. Please try again later.'
 };
 
+// Disable express-rate-limit's built-in X-Forwarded-For validation — Lambda
+// Function URLs format this header differently and the validator throws a raw
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR error which becomes a 500.
+const lambdaValidate = { xForwardedForHeader: false };
+
 // ---------- Auth / Login ----------
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -39,6 +44,7 @@ export const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: lambdaSafeKeyGenerator,
+  validate: lambdaValidate,
   message: {
     ...standardMessage,
     message: 'Too many login attempts. Please try again after 15 minutes.'
@@ -52,6 +58,7 @@ export const otpLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: lambdaSafeKeyGenerator,
+  validate: lambdaValidate,
   message: {
     ...standardMessage,
     message: 'Too many OTP requests. Please try again after 15 minutes.'
@@ -65,6 +72,7 @@ export const passwordResetLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: lambdaSafeKeyGenerator,
+  validate: lambdaValidate,
   message: {
     ...standardMessage,
     message: 'Too many password reset attempts. Please try again after 15 minutes.'
@@ -78,6 +86,7 @@ export const tokenValidationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: lambdaSafeKeyGenerator,
+  validate: lambdaValidate,
   message: standardMessage
 });
 
@@ -88,5 +97,6 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: lambdaSafeKeyGenerator,
+  validate: lambdaValidate,
   message: standardMessage
 });
