@@ -62,7 +62,7 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/pblmanagementdashboardlogin" element={<Login />} />
       <Route path="/problem-statementsih" element={<ProblemStatementSih />} />
       <Route path="/aboutpbl" element={<AboutPBL />} />
       <Route path="/download" element={<Download />} />

@@ -194,8 +194,8 @@ const testConnection = async () => {
   }
 };
 
-// Start server
-if (process.env.NODE_ENV !== 'lambda') {
+// Start server (skip in Lambda — detected via IS_LAMBDA env var)
+if (!process.env.IS_LAMBDA) {
   app.listen(PORT, () => {
     logger.serverStarted(PORT, config.server.env);
     testConnection();

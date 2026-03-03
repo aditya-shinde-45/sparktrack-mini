@@ -102,10 +102,17 @@ const Footer = () => {
               <span className="opacity-80">Contact:</span>
               <br />
               <a 
-                href="mailto:sparktrack@ideabliss.com" 
+                href="mailto:sparktrack.ideabliss@gmail.com" 
                 className="hover:underline font-medium"
               >
                 sparktrack.ideabliss@gmail.com
+              </a>
+              <br />
+              <a 
+                href="tel:9356138585" 
+                className="hover:underline font-medium"
+              >
+                9356138585
               </a>
             </li>
           </ul>
