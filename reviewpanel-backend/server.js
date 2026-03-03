@@ -66,6 +66,10 @@ const corsOptions = {
     if (config.server.env === 'production' && origin && origin.startsWith('http://')) {
       return callback(new Error(`Insecure HTTP origin ${origin} is not allowed in production`));
     }
+    // Allow Vercel preview deployments (*.vercel.app)
+    if (origin && /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
     if (!origin || config.cors.allowedOrigins.includes(origin)) {
       return callback(null, true);
     }

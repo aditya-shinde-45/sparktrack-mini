@@ -26,7 +26,8 @@ const parseAllowedOrigins = () => {
   return [
     'https://sparktrack.mituniversity.edu',
     'http://13.201.46.41/frontend',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'https://sparktrack-mini-8pjs.vercel.app'
   ];
 };
 
