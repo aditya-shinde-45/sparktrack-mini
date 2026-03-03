@@ -42,7 +42,10 @@ export const errorHandler = (err, req, res, next) => {
   if (err.isOperational) {
     logger.warn(`${err.statusCode} - ${err.message}`);
   } else {
-    logger.error('Unhandled exception:', err);
+    // Log the full error so CloudWatch / server logs show the real cause
+    logger.error('Unhandled exception on', req.method, req.originalUrl);
+    logger.error('Error message:', err.message);
+    logger.error('Stack trace:', err.stack);
   }
   
   const statusCode = err.statusCode || 500;
