@@ -1,6 +1,6 @@
 # 🚀 SparkTrack  
 ### Project-Based Learning (PBL) Management System  
-**MIT ADT University, Pune-412201 Loni Kalbhor**
+**MIT ADT University, Pune-412201 Loni Kalbhorr**
 
 <div align="center">
 
