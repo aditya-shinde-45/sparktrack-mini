@@ -31,7 +31,7 @@ const IndustryMentorSidebar = () => {
     localStorage.removeItem('industry_mentor');
     localStorage.removeItem('student_refresh_token');
     sessionStorage.clear();
-    navigate('/login');
+    navigate('/pblmanagementfacultydashboardlogin');
   };
 
   return (

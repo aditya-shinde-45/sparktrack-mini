@@ -42,7 +42,7 @@ const MentorHeader = ({ name, id }) => {
       localStorage.removeItem('mentor_id');
       localStorage.removeItem('role');
       localStorage.removeItem('token');
-      navigate('/login');
+      navigate('/pblmanagementfacultydashboardlogin');
     }
   };
 
