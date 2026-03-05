@@ -50,11 +50,36 @@ class MentorModel {
   }
 
   /**
-   * Check if mentor has set a password
-   * @param {string} contactNumber - Mobile number
+   * Get mentor by email
+   * @param {string} email - Mentor email address
    */
-  async hasPassword(contactNumber) {
-    const mentors = await this.getByContactNumber(contactNumber);
+  async getByEmail(email) {
+    const trimmedEmail = String(email || '').trim();
+    
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('mentor_code, mentor_name, contact_number, email, designation, password')
+      .ilike('email', trimmedEmail)
+      .not('email', 'is', null);
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Check if mentor has set a password
+   * @param {string} identifier - Email or mobile number
+   */
+  async hasPassword(identifier) {
+    // Check if identifier is an email
+    let mentors = [];
+    const trimmedIdentifier = String(identifier || '').trim();
+    
+    if (trimmedIdentifier && trimmedIdentifier.includes('@')) {
+      mentors = await this.getByEmail(trimmedIdentifier);
+    } else {
+      mentors = await this.getByContactNumber(trimmedIdentifier);
+    }
     
     if (!mentors || mentors.length === 0) {
       return null; // Mentor not found
@@ -87,11 +112,19 @@ class MentorModel {
 
   /**
    * Validate mentor credentials
-   * @param {string} contactNumber - Mobile number
+   * @param {string} identifier - Email or mobile number
    * @param {string} password - Password
    */
-  async validateCredentials(contactNumber, password) {
-    const mentors = await this.getByContactNumber(contactNumber);
+  async validateCredentials(identifier, password) {
+    // Check if identifier is an email
+    let mentors = [];
+    const trimmedIdentifier = String(identifier || '').trim();
+    
+    if (trimmedIdentifier && trimmedIdentifier.includes('@')) {
+      mentors = await this.getByEmail(trimmedIdentifier);
+    } else {
+      mentors = await this.getByContactNumber(trimmedIdentifier);
+    }
     
     if (!mentors || mentors.length === 0) {
       return null;

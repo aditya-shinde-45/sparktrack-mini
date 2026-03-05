@@ -546,7 +546,7 @@ const Login = () => {
                            focus:border-white/60 transition-all duration-300 shadow-lg"
                   placeholder={
                     role === "Mentor" || role === "Industry Mentor"
-                      ? "Phone Number (10 digits)"
+                      ? "Email Address"
                       : "Username"
                   }
                   type="text"
