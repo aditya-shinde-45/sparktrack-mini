@@ -45,7 +45,17 @@ class MentorModel {
       .select('mentor_code, mentor_name, contact_number, email, designation, password')
       .eq('contact_number', contactNumber);
 
-    if (error) throw error;
+    if (error) {
+      // Friendly hint when the password column hasn't been migrated yet
+      if (error.message && error.message.includes('password')) {
+        const migrationError = new Error(
+          'mentors.password column is missing. Run migrations/add_password_to_mentors.sql in Supabase.'
+        );
+        migrationError.isOperational = false;
+        throw migrationError;
+      }
+      throw error;
+    }
     return data || [];
   }
 
