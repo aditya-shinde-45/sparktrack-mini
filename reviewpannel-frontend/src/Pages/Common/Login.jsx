@@ -96,11 +96,11 @@ const Login = () => {
             if (username === "8698078603") {
               localStorage.setItem("isMainAdmin", "true");
               console.log("Redirecting to main admin dashboard");
-              window.location.href = "/admin-dashboard";
+              navigate("/admin-dashboard");
             } else {
               localStorage.setItem("isMainAdmin", "false");
               console.log("Redirecting to sub-admin dashboard");
-              window.location.href = "/sub-admin-dashboard";
+              navigate("/sub-admin-dashboard");
             }
             return;
           } else if (roleLoginResponse && !roleLoginResponse.success) {
@@ -221,7 +221,7 @@ const Login = () => {
         }
         
         // Redirect to mentor dashboard
-        window.location.href = "/mentor/dashboard";
+        navigate("/mentor/dashboard");
         return;
       }
 
@@ -242,7 +242,7 @@ const Login = () => {
         localStorage.setItem("mentor_code", mentorData.mentor_code || "");
         localStorage.setItem("contact_number", mentorData.contact || username);
 
-        window.location.href = "/industry-mentor/dashboard";
+        navigate("/industry-mentor/dashboard");
         return;
       }
 
@@ -278,7 +278,7 @@ const Login = () => {
         localStorage.setItem("isAuthenticated", "true");
         localStorage.setItem("isMainAdmin", "true");
         console.log("Regular admin login successful, redirecting to admin dashboard");
-        window.location.href = "/admin-dashboard";
+        navigate("/admin-dashboard");
       }
     } catch (error) {
       console.error("Login error:", error);
