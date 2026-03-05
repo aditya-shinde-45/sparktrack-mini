@@ -38,7 +38,7 @@ const MentorSidebar = () => {
     localStorage.removeItem('mentor');
     localStorage.removeItem('student_refresh_token');
     sessionStorage.clear();
-    navigate('/mentor/login');
+    navigate('/pblmanagementfacultydashboardlogin');
   };
 
   return (
