@@ -1,7 +1,7 @@
 # 🚀 SparkTrack  
 ### Project-Based Learning (PBL) Management System  
 **MIT ADT University, Pune-412201 Loni Kalbhorr**
-"Parth Chavan" 
+
 <div align="center">
 
 A cloud-enabled, role-based academic workflow system built to digitize and automate the complete PBL lifecycle across multiple evaluation cycles.
