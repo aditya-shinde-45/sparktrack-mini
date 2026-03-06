@@ -20,7 +20,7 @@ const MentorDashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem("mentor_token");
     if (!token) {
-      navigate('/login');
+      navigate('/pblmanagementfacultydashboardlogin');
       return;
     }
 

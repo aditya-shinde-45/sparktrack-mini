@@ -77,7 +77,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
       const storedRole = localStorage.getItem("role");
 
       if (!token || !storedUserId) {
-        navigate("/login");
+        navigate("/pblmanagementfacultydashboardlogin");
         return;
       }
 

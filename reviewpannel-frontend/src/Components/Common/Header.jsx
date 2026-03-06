@@ -124,7 +124,7 @@ const Header = ({ name, id }) => {
     localStorage.removeItem("meet_screenshot_url");
 
     // Redirect to login page
-    navigate("/login");
+    navigate("/pblmanagementfacultydashboardlogin");
     
     // Force reload to clear any in-memory state
     setTimeout(() => {

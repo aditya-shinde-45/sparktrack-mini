@@ -33,7 +33,7 @@ const MentorSettings = () => {
   useEffect(() => {
     const token = localStorage.getItem("mentor_token");
     if (!token) {
-      window.location.href = "/login";
+      window.location.href = "/pblmanagementfacultydashboardlogin";
       return;
     }
 

@@ -20,7 +20,7 @@ const IndustryMentorDashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem("industry_mentor_token");
     if (!token) {
-      navigate('/login');
+      navigate('/pblmanagementfacultydashboardlogin');
       return;
     }
 

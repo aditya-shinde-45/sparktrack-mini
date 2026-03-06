@@ -102,9 +102,9 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
         localStorage.removeItem('isAuthenticated');
         
         // Redirect to login if not already there
-        if (!window.location.pathname.includes('/login')) {
+        if (!window.location.pathname.includes('/pblmanagementfacultydashboardlogin')) {
           console.log('Redirecting to login due to expired token');
-          window.location.href = '/login';
+          window.location.href = '/pblmanagementfacultydashboardlogin';
           return { success: false, message: 'Authentication expired. Please log in again.' };
         }
         
@@ -202,9 +202,9 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           localStorage.removeItem('groups');
           
           // Don't redirect if we're already on the login page
-          if (!window.location.pathname.includes('/login')) {
+          if (!window.location.pathname.includes('/pblmanagementfacultydashboardlogin')) {
             console.log("Redirecting to login page due to 401");
-            window.location.href = '/login';
+            window.location.href = '/pblmanagementfacultydashboardlogin';
           } else {
             console.log("Already on login page, not redirecting");
           }
@@ -340,8 +340,8 @@ export const uploadFile = async (endpoint, formData, token = null) => {
         localStorage.removeItem('token');
         localStorage.removeItem('student_token');
         
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
+        if (!window.location.pathname.includes('/pblmanagementfacultydashboardlogin')) {
+          window.location.href = '/pblmanagementfacultydashboardlogin';
         }
       }
       

@@ -56,7 +56,7 @@ const IndustryMentorGroups = () => {
 
   useEffect(() => {
     if (!token) {
-      navigate("/login");
+      navigate("/pblmanagementfacultydashboardlogin");
       return;
     }
 

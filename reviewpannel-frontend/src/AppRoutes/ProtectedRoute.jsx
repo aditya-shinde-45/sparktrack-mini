@@ -109,7 +109,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     localStorage.removeItem('name');
     localStorage.removeItem('id');
     localStorage.removeItem('groups');
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/pblmanagementfacultydashboardlogin" replace />;
   }
 
   // Check role permissions
@@ -132,7 +132,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/pblmanagementfacultydashboardlogin" replace />;
     }
   }
 
