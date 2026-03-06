@@ -513,6 +513,25 @@ const StudentLogin = () => {
             )}
           </div>
         </div>
+
+        {/* Contact Details */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 py-3 px-4 z-20">
+          <div className="max-w-md mx-auto text-center">
+            <p className="text-xs text-gray-600 mb-1">
+              <span className="font-semibold">Development Team:</span> Strawhats
+            </p>
+            <p className="text-xs text-gray-700">
+              <span className="font-semibold">Contact:</span>{" "}
+              <a href="mailto:sparktrack.ideabliss@gmail.com" className="text-[#5D3FD3] hover:underline">
+                sparktrack.ideabliss@gmail.com
+              </a>
+              {" | "}
+              <a href="tel:9356138585" className="text-[#5D3FD3] hover:underline">
+                9356138585
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
