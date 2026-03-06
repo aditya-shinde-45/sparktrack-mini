@@ -65,7 +65,7 @@ const MentorGroups = () => {
 
   useEffect(() => {
     if (!token) {
-      navigate("/login");
+      navigate("/pblmanagementfacultydashboardlogin");
       return;
     }
 
