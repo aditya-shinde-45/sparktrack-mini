@@ -134,8 +134,14 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     options.body = isFormData ? body : JSON.stringify(body);
   }
 
+  // Abort request if backend takes more than 20 seconds (Lambda cold-start protection)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  options.signal = controller.signal;
+
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    clearTimeout(timeoutId);
 
     let data = null;
     try {
@@ -244,7 +250,18 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
 
     return data;
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error("API Error:", error.message);
+
+    // Request timed out (Lambda cold-start or network too slow)
+    if (error.name === 'AbortError') {
+      console.warn('Request timed out after 20 seconds:', endpoint);
+      return {
+        success: false,
+        status: 408,
+        message: 'Request timed out. The server is taking too long to respond. Please try again.',
+      };
+    }
     
     // Network errors (like when the backend is not running)
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
