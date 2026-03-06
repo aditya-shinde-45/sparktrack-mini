@@ -2,6 +2,7 @@ import ApiResponse from '../../utils/apiResponse.js';
 import { asyncHandler, ApiError } from '../../utils/errorHandler.js';
 import userModel from '../../models/userModel.js';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import config from '../../config/index.js';
 
 /**
@@ -23,8 +24,18 @@ class AuthController {
     if (!user) {
       throw ApiError.unauthorized('Invalid username or password');
     }
-    
-    const token = userModel.generateToken(user);
+
+    // Generate token directly (matching mentor/student pattern) with 7d expiry
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        jti: randomUUID()
+      },
+      config.jwt.secret,
+      { expiresIn: '7d' }
+    );
     
     return ApiResponse.success(res, 'Login successful', { 
       token,
