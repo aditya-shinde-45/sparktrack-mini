@@ -104,10 +104,16 @@ const Login = () => {
             }
             return;
           } else if (roleLoginResponse && !roleLoginResponse.success) {
-            // Role exists but wrong password - show error immediately
-            console.log("Role login failed:", roleLoginResponse.message);
-            setErrorMsg(roleLoginResponse.message || "Invalid credentials");
-            return;
+            // If 404 → user is not in roles table at all, fall through to regular admin login
+            if (roleLoginResponse.status === 404) {
+              console.log("User not in roles table, trying regular admin login");
+              // fall through
+            } else {
+              // 401/403 → user exists but wrong password or disabled — stop here
+              console.log("Role login failed:", roleLoginResponse.message);
+              setErrorMsg(roleLoginResponse.message || "Invalid credentials");
+              return;
+            }
           }
         } catch (roleError) {
           // Role login threw error - check if it's 401 (user not found) or other error

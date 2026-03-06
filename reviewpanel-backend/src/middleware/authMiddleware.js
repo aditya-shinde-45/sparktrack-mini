@@ -77,14 +77,20 @@ class AuthMiddleware {
           req.user = { ...decoded };
         } else {
           // Admin
-          const user = await userModel.findById(decoded.id);
-          if (!user) {
-            if (isProduction) {
-              throw ApiError.unauthorized('User not found');
-            }
+          if (decoded.isRoleBased) {
+            // Role-based sub-admins exist in the DB roles table, not in userModel (env-var store)
+            // Their token already carries all needed info (user_id, tablePermissions, etc.)
             req.user = { ...decoded };
           } else {
-            req.user = { ...decoded, ...user };
+            const user = await userModel.findById(decoded.id);
+            if (!user) {
+              if (isProduction) {
+                throw ApiError.unauthorized('User not found');
+              }
+              req.user = { ...decoded };
+            } else {
+              req.user = { ...decoded, ...user };
+            }
           }
         }
         

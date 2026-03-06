@@ -292,8 +292,9 @@ export const roleLogin = async (req, res) => {
       .eq("user_id", userId)
       .single();
 
+    // 404 = user does not exist in roles table at all (frontend should try regular admin login)
     if (error || !role) {
-      return ApiResponse.error(res, "Invalid credentials", 401);
+      return ApiResponse.error(res, "User not found in roles", 404);
     }
 
     // Check if active
@@ -301,7 +302,7 @@ export const roleLogin = async (req, res) => {
       return ApiResponse.error(res, "Account is disabled", 403);
     }
 
-    // Verify password
+    // Verify password — 401 = user exists but password is wrong
     const isPasswordValid = await bcrypt.compare(password, role.password_hash);
     if (!isPasswordValid) {
       return ApiResponse.error(res, "Invalid credentials", 401);
