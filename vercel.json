@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd reviewpannel-frontend && npm run build",
+  "outputDirectory": "reviewpannel-frontend/dist",
+  "installCommand": "cd reviewpannel-frontend && npm install",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}

@@ -68,15 +68,19 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
           try {
             const result = await apiRequest('/api/auth/validate', 'POST', { token });
             
-            if (result && result.success === false) {
-              console.warn('Server rejected token during validation');
+            if (result && result.success === false && result.status === 401) {
+              // Only reject if server explicitly says the token is invalid (401)
+              // Do NOT reject on network errors, backend-down, CORS, wrong URL, etc.
+              console.warn('Server rejected token as invalid (401)');
               setIsAuthenticated(false);
             } else {
+              // Token passed client-side decode — trust it on any non-401 outcome
               setIsAuthenticated(true);
             }
           } catch (apiError) {
             // Don't fail UI on API errors, but log them
             console.error('Token validation API error:', apiError);
+            setIsAuthenticated(true); // client-side decode passed, keep authenticated
           }
         } else if (isValid && decoded && decoded.role === 'reviewerAdmin') {
           setIsAuthenticated(true);
