@@ -129,19 +129,26 @@ class AuthMiddleware {
         
         const isProduction = process.env.NODE_ENV === 'production';
 
-        const admin = await userModel.findById(decoded.id);
-        
-        if (!admin) {
-          if (isProduction) {
-            throw ApiError.unauthorized('Admin user not found');
-          }
-          // Development fallback only
-          req.user = { ...decoded, role: 'admin' };
+        // Role-based sub-admins exist in the DB roles table, not in userModel (env-var store).
+        // Their token already carries all needed info (user_id, tablePermissions, etc.)
+        if (decoded.isRoleBased) {
+          req.user = { ...decoded };
         } else {
-          if (admin.role.toLowerCase() !== 'admin') {
-            throw ApiError.forbidden('Admin access required');
+          const admin = await userModel.findById(decoded.id);
+          
+          if (!admin) {
+            if (isProduction) {
+              throw ApiError.unauthorized('Admin user not found');
+            }
+            // Development fallback only
+            req.user = { ...decoded, role: 'admin' };
+          } else {
+            if (admin.role.toLowerCase() !== 'admin') {
+              throw ApiError.forbidden('Admin access required');
+            }
+            const { passwordHash, ...safeAdmin } = admin;
+            req.user = { ...decoded, ...safeAdmin };
           }
-          req.user = { ...decoded, ...admin };
         }
         
         next();
@@ -224,14 +231,8 @@ class AuthMiddleware {
         if (decoded.role === 'external') {
           req.user = { ...decoded };
         } else {
-          // Mentor
-          const mentor = await userModel.findById(decoded.id);
-          
-          if (!mentor || mentor.role !== 'mentor') {
-            throw ApiError.unauthorized('Invalid mentor authentication');
-          }
-          
-          req.user = { ...decoded, ...mentor };
+          // Mentor — token carries all needed info (mentor_id, mentor_name, contact_number)
+          req.user = { ...decoded };
         }
         
         next();
