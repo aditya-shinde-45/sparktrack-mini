@@ -11,6 +11,14 @@ router.get(
   industrialMentorController.getIndustrialMentor
 );
 
+// Search an existing industry mentor by code or contact (for linking)
+router.get(
+  '/industrial-mentor/search',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  industrialMentorController.searchIndustrialMentor
+);
+
 router.post(
   '/industrial-mentor',
   authMiddleware.verifyToken,
@@ -18,15 +26,23 @@ router.post(
   industrialMentorController.createIndustrialMentor
 );
 
+// Link an existing industry mentor to this faculty's class
+router.post(
+  '/industrial-mentor/link',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  industrialMentorController.linkIndustrialMentor
+);
+
 router.put(
-  '/industrial-mentor',
+  '/industrial-mentor/:industrial_mentor_code',
   authMiddleware.verifyToken,
   authMiddleware.authorize(['mentor']),
   industrialMentorController.updateIndustrialMentor
 );
 
 router.delete(
-  '/industrial-mentor',
+  '/industrial-mentor/:industrial_mentor_code',
   authMiddleware.verifyToken,
   authMiddleware.authorize(['mentor']),
   industrialMentorController.deleteIndustrialMentor

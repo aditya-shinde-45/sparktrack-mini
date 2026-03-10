@@ -79,11 +79,11 @@ class IndustrialMentorController {
       throw ApiError.badRequest('Mentor code is required.');
     }
 
-    const record = await industrialMentorModel.getByMentorCode(mentorCode);
-    const { password, ...safeRecord } = record || {};
+    const records = await industrialMentorModel.getByMentorCode(mentorCode);
+    const safeRecords = records.map(({ password, ...rest }) => rest);
 
-    return ApiResponse.success(res, 'Industrial mentor retrieved successfully.', {
-      industrialMentor: record ? safeRecord : null
+    return ApiResponse.success(res, 'Industrial mentors retrieved successfully.', {
+      industrialMentors: safeRecords
     });
   });
 
@@ -107,9 +107,34 @@ class IndustrialMentorController {
       throw ApiError.badRequest('Contact is required.');
     }
 
-    const existing = await industrialMentorModel.getByMentorCode(mentorCode);
-    if (existing) {
-      throw ApiError.badRequest('Industrial mentor already exists for this mentor.');
+    // Check if an industrial mentor with this email already exists anywhere
+    const existingByEmail = email
+      ? await industrialMentorModel.getByEmail(email.trim().toLowerCase())
+      : [];
+
+    if (existingByEmail.length > 0) {
+      // Check if already linked to THIS faculty
+      const alreadyForThisFaculty = existingByEmail.some(
+        (r) => r.mentor_code === mentorCode
+      );
+      if (alreadyForThisFaculty) {
+        throw ApiError.badRequest(
+          'An industrial mentor with this email is already linked to your class.'
+        );
+      }
+
+      // Linked to a DIFFERENT faculty — cannot auto-link until DB unique constraint on
+      // email is dropped. Return a structured error so the frontend can prompt the user.
+      const source = existingByEmail[0];
+      const safeSource = (({ password: _p, ...rest }) => rest)(source);
+      throw Object.assign(
+        ApiError.badRequest(
+          `This email already belongs to industrial mentor "${source.name}" ` +
+          `(code: ${source.industrial_mentor_code}). ` +
+          `Use the "Link Existing" option and enter their code or contact number to add them to your class.`
+        ),
+        { existingMentor: safeSource }
+      );
     }
 
     const industrialMentorCode = await industrialMentorModel.getNextIndustrialMentorCode();
@@ -128,13 +153,24 @@ class IndustrialMentorController {
       name,
       company_name: company_name || null,
       designation: designation || null,
-      email: email || null,
+      email: email ? email.trim().toLowerCase() : null,
       contact: contact || null,
       password: hashedPassword,
       mentor_code: mentorCode
     };
 
-    const record = await industrialMentorModel.create(payload);
+    let record;
+    try {
+      record = await industrialMentorModel.create(payload);
+    } catch (err) {
+      if (err.isUniqueViolation) {
+        throw ApiError.badRequest(
+          'An industrial mentor with this email or contact already exists. ' +
+          'Use "Link Existing" to add them to your class instead.'
+        );
+      }
+      throw err;
+    }
 
     const loginId = String(contact).trim();
     const { subject, text, html } = buildCredentialsEmail(name, loginId, plainPassword);
@@ -149,13 +185,21 @@ class IndustrialMentorController {
 
   updateIndustrialMentor = asyncHandler(async (req, res) => {
     const mentorCode = req.user?.mentor_id || req.user?.mentor_code;
+    const { industrial_mentor_code } = req.params;
     const { name, company_name, designation, email, contact } = req.body || {};
 
     if (!mentorCode) {
       throw ApiError.badRequest('Mentor code is required.');
     }
 
-    const existing = await industrialMentorModel.getByMentorCode(mentorCode);
+    if (!industrial_mentor_code) {
+      throw ApiError.badRequest('Industrial mentor code is required.');
+    }
+
+    const allForMentor = await industrialMentorModel.getByMentorCode(mentorCode);
+    const existing = allForMentor.find(
+      (r) => r.industrial_mentor_code === industrial_mentor_code
+    );
     if (!existing) {
       throw ApiError.notFound('Industrial mentor not found.');
     }
@@ -196,12 +240,20 @@ class IndustrialMentorController {
 
   deleteIndustrialMentor = asyncHandler(async (req, res) => {
     const mentorCode = req.user?.mentor_id || req.user?.mentor_code;
+    const { industrial_mentor_code } = req.params;
 
     if (!mentorCode) {
       throw ApiError.badRequest('Mentor code is required.');
     }
 
-    const existing = await industrialMentorModel.getByMentorCode(mentorCode);
+    if (!industrial_mentor_code) {
+      throw ApiError.badRequest('Industrial mentor code is required.');
+    }
+
+    const allForMentor = await industrialMentorModel.getByMentorCode(mentorCode);
+    const existing = allForMentor.find(
+      (r) => r.industrial_mentor_code === industrial_mentor_code
+    );
     if (!existing) {
       throw ApiError.notFound('Industrial mentor not found.');
     }
@@ -209,6 +261,96 @@ class IndustrialMentorController {
     await industrialMentorModel.deleteById(existing.id);
 
     return ApiResponse.success(res, 'Industrial mentor deleted successfully.');
+  });
+
+  // Search an existing industry mentor by their code or contact number
+  // so the faculty can preview before linking
+  searchIndustrialMentor = asyncHandler(async (req, res) => {
+    const { query } = req.query; // industrial_mentor_code or contact
+
+    if (!query) {
+      throw ApiError.badRequest('Search query (code or contact) is required.');
+    }
+
+    let record = await industrialMentorModel.getByIndustrialMentorCode(query.trim().toUpperCase());
+    if (!record) {
+      record = await industrialMentorModel.getOneByContact(query.trim());
+    }
+
+    if (!record) {
+      throw ApiError.notFound('No industry mentor found with that code or contact.');
+    }
+
+    const { password, ...safe } = record;
+    return ApiResponse.success(res, 'Industry mentor found.', { industrialMentor: safe });
+  });
+
+  // Link an existing industry mentor to the current faculty's class.
+  // Creates a new row with the current faculty's mentor_code but copies credentials.
+  linkIndustrialMentor = asyncHandler(async (req, res) => {
+    const mentorCode = req.user?.mentor_id || req.user?.mentor_code;
+    const { industrial_mentor_code } = req.body || {};
+
+    if (!mentorCode) {
+      throw ApiError.badRequest('Mentor code is required.');
+    }
+    if (!industrial_mentor_code) {
+      throw ApiError.badRequest('industrial_mentor_code of the mentor to link is required.');
+    }
+
+    // Find the source record
+    const source = await industrialMentorModel.getByIndustrialMentorCode(
+      industrial_mentor_code.trim().toUpperCase()
+    );
+    if (!source) {
+      throw ApiError.notFound('Industry mentor not found.');
+    }
+
+    // Check not already linked to this faculty
+    const existing = await industrialMentorModel.getByMentorCode(mentorCode);
+    const alreadyLinked = existing.some(
+      (r) => r.contact === source.contact
+    );
+    if (alreadyLinked) {
+      throw ApiError.badRequest('This industry mentor is already linked to your class.');
+    }
+
+    // Generate a new code for the new linkage row
+    const newCode = await industrialMentorModel.getNextIndustrialMentorCode();
+
+    const payload = {
+      industrial_mentor_code: newCode,
+      name: source.name,
+      company_name: source.company_name || null,
+      designation: source.designation || null,
+      // Set email to null on linked rows to avoid the UNIQUE(email) DB constraint.
+      // Login uses contact number, so credentials still work across all linked faculty classes.
+      email: null,
+      contact: source.contact || null,
+      password: source.password, // reuse the hashed password — same credentials
+      mentor_code: mentorCode
+    };
+
+    let record;
+    try {
+      record = await industrialMentorModel.create(payload);
+    } catch (err) {
+      if (err.isUniqueViolation) {
+        throw ApiError.badRequest(
+          'This mentor is already linked to your class. ' +
+          'If the unique constraint error persists, run the migration: drop_email_unique_industrial_mentors.sql'
+        );
+      }
+      throw err;
+    }
+    const { password, ...safe } = record;
+
+    return ApiResponse.success(
+      res,
+      'Industry mentor linked to your class successfully.',
+      { industrialMentor: safe },
+      201
+    );
   });
 }
 
