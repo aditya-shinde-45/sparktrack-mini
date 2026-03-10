@@ -223,6 +223,7 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
         status: res.status,
         message: data?.message || "API request failed",
         error: data?.error || null,
+        existingMentor: data?.existingMentor || null,
       };
     }
 

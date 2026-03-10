@@ -13,14 +13,13 @@ class IndustrialMentorModel {
     const { data, error } = await supabase
       .from(this.table)
       .select('*')
-      .eq('mentor_code', mentorCode)
-      .maybeSingle();
+      .eq('mentor_code', mentorCode);
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) {
       throw error;
     }
 
-    return data || null;
+    return data || [];
   }
 
   async getById(id) {
@@ -34,18 +33,49 @@ class IndustrialMentorModel {
     return data;
   }
 
-  async getByContact(contact) {
+  async getByIndustrialMentorCode(industrialMentorCode) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .eq('industrial_mentor_code', industrialMentorCode)
+      .limit(1);
+
+    if (error) throw error;
+    return (data && data[0]) || null;
+  }
+
+  async getOneByContact(contact) {
     const { data, error } = await supabase
       .from(this.table)
       .select('*')
       .eq('contact', contact)
-      .maybeSingle();
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') {
+    if (error) throw error;
+    return (data && data[0]) || null;
+  }
+
+  async getByContact(contact) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .eq('contact', contact);
+
+    if (error) {
       throw error;
     }
 
-    return data || null;
+    return data || [];
+  }
+
+  async getByEmail(email) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .eq('email', email.trim().toLowerCase());
+
+    if (error) throw error;
+    return data || [];
   }
 
   async create(payload) {
@@ -55,7 +85,25 @@ class IndustrialMentorModel {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Convert Supabase plain-object errors into proper Error instances
+      // so Express error handler can process them.
+      const err = new Error(error.message || 'Database error');
+      err.statusCode = 500;
+      err.isOperational = false;
+      err.dbCode = error.code;
+      // Mark unique-constraint violations as operational 400s
+      if (
+        error.code === '23505' ||
+        (error.message || '').toLowerCase().includes('duplicate') ||
+        (error.message || '').toLowerCase().includes('unique')
+      ) {
+        err.statusCode = 400;
+        err.isOperational = true;
+        err.isUniqueViolation = true;
+      }
+      throw err;
+    }
     return data;
   }
 
@@ -105,17 +153,23 @@ class IndustrialMentorModel {
   }
 
   async validateCredentials(contact, password) {
-    const record = await this.getByContact(contact);
-    if (!record || !record.password) {
+    const records = await this.getByContact(contact);
+    if (!records || records.length === 0) {
       return null;
     }
 
-    const isValid = await bcrypt.compare(password, record.password);
-    if (!isValid) {
-      return null;
+    // Verify password against the first record (each faculty sets an independent password;
+    // try all records in case passwords differ)
+    for (const record of records) {
+      if (!record.password) continue;
+      const isValid = await bcrypt.compare(password, record.password);
+      if (isValid) {
+        // Return all records so the login can include every linked faculty
+        return records;
+      }
     }
 
-    return record;
+    return null;
   }
 }
 

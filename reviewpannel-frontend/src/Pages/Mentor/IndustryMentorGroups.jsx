@@ -33,6 +33,7 @@ const IndustryMentorGroups = () => {
   const { groupId: groupIdParam } = useParams();
   const [mentor, setMentor] = useState(null);
   const [groups, setGroups] = useState([]);
+  const [groupsByFaculty, setGroupsByFaculty] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [students, setStudents] = useState([]);
   const [teamName, setTeamName] = useState("");
@@ -65,6 +66,7 @@ const IndustryMentorGroups = () => {
         setLoadingGroups(true);
         const groupsRes = await apiRequest("/api/industrial-mentors/groups", "GET", null, token);
         const mentorGroups = groupsRes?.data?.groups || groupsRes?.groups || [];
+        const facultyGroups = groupsRes?.data?.groupsByFaculty || groupsRes?.groupsByFaculty || [];
 
         const tokenData = JSON.parse(atob(token.split(".")[1]));
         setMentor({
@@ -73,6 +75,7 @@ const IndustryMentorGroups = () => {
         });
 
         setGroups(mentorGroups);
+        setGroupsByFaculty(facultyGroups);
         const initialGroup = groupIdParam || mentorGroups[0] || "";
         setSelectedGroupId(initialGroup);
       } catch (err) {
@@ -291,11 +294,22 @@ const IndustryMentorGroups = () => {
                     >
                       {loadingGroups && <option>Loading groups...</option>}
                       {!loadingGroups && groups.length === 0 && <option>No groups assigned</option>}
-                      {!loadingGroups && groups.map((groupId) => (
-                        <option key={groupId} value={groupId}>
-                          {groupId}
-                        </option>
-                      ))}
+                      {!loadingGroups && groupsByFaculty.length > 0
+                        ? groupsByFaculty.map((faculty) => (
+                            <optgroup key={faculty.mentor_code} label={`Faculty: ${faculty.faculty_name}`}>
+                              {faculty.groups.map((groupId) => (
+                                <option key={groupId} value={groupId}>
+                                  {groupId}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))
+                        : !loadingGroups && groups.map((groupId) => (
+                            <option key={groupId} value={groupId}>
+                              {groupId}
+                            </option>
+                          ))
+                      }
                     </select>
                     <ChevronDown className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-purple-500" />
                   </div>

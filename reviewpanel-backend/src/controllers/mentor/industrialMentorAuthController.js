@@ -14,18 +14,24 @@ class IndustrialMentorAuthController {
       throw ApiError.badRequest('Username and password are required');
     }
 
-    const mentor = await industrialMentorModel.validateCredentials(username, password);
-    if (!mentor) {
+    const records = await industrialMentorModel.validateCredentials(username, password);
+    if (!records || records.length === 0) {
       throw ApiError.unauthorized('Invalid industrial mentor credentials');
     }
 
+    // Primary record (first entry) used for identity fields
+    const primary = records[0];
+    // Collect all unique mentor_codes this industry mentor is linked to
+    const mentorCodes = [...new Set(records.map((r) => r.mentor_code).filter(Boolean))];
+
     const token = jwt.sign(
       {
-        industrial_mentor_code: mentor.industrial_mentor_code,
-        mentor_code: mentor.mentor_code,
-        name: mentor.name,
-        contact: mentor.contact,
-        email: mentor.email,
+        industrial_mentor_code: primary.industrial_mentor_code,
+        mentor_code: primary.mentor_code,
+        mentor_codes: mentorCodes,
+        name: primary.name,
+        contact: primary.contact,
+        email: primary.email,
         role: 'industry_mentor',
         jti: randomUUID()
       },
@@ -35,35 +41,76 @@ class IndustrialMentorAuthController {
 
     return ApiResponse.success(res, 'Industrial mentor login successful', {
       token,
-      industrial_mentor_code: mentor.industrial_mentor_code,
-      mentor_code: mentor.mentor_code,
-      name: mentor.name,
-      contact: mentor.contact,
-      email: mentor.email
+      industrial_mentor_code: primary.industrial_mentor_code,
+      mentor_code: primary.mentor_code,
+      mentor_codes: mentorCodes,
+      name: primary.name,
+      contact: primary.contact,
+      email: primary.email
     });
   });
 
   getIndustrialMentorGroups = asyncHandler(async (req, res) => {
-    const mentorCode = req.user?.mentor_code;
+    // Support both single mentor_code (legacy) and array mentor_codes
+    const primaryMentorCode = req.user?.mentor_code;
+    const mentorCodes = Array.isArray(req.user?.mentor_codes) && req.user.mentor_codes.length > 0
+      ? req.user.mentor_codes
+      : (primaryMentorCode ? [primaryMentorCode] : []);
 
-    if (!mentorCode) {
+    if (mentorCodes.length === 0) {
       throw ApiError.badRequest('Mentor code is required');
     }
 
-    const { data: pblRows, error } = await supabase
+    // Fetch PBL rows for all linked faculties
+    const { data: pblRows, error: pblError } = await supabase
       .from('pbl')
-      .select('group_id')
-      .eq('mentor_code', mentorCode);
+      .select('group_id, mentor_code')
+      .in('mentor_code', mentorCodes);
 
-    if (error) {
-      throw error;
+    if (pblError) {
+      throw pblError;
     }
 
+    // Fetch mentor names for all linked faculties
+    const { data: mentorRows, error: mentorError } = await supabase
+      .from('mentors')
+      .select('mentor_code, mentor_name')
+      .in('mentor_code', mentorCodes);
+
+    if (mentorError) {
+      throw mentorError;
+    }
+
+    const mentorNameMap = {};
+    (mentorRows || []).forEach((m) => {
+      mentorNameMap[m.mentor_code] = m.mentor_name;
+    });
+
+    // Group groups by faculty
+    const facultyMap = {};
+    (pblRows || []).forEach((row) => {
+      const code = row.mentor_code;
+      if (!facultyMap[code]) {
+        facultyMap[code] = {
+          mentor_code: code,
+          faculty_name: mentorNameMap[code] || code,
+          groups: []
+        };
+      }
+      if (!facultyMap[code].groups.includes(row.group_id)) {
+        facultyMap[code].groups.push(row.group_id);
+      }
+    });
+
+    const groupsByFaculty = Object.values(facultyMap);
+    // Flat list for backward compatibility
     const groups = [...new Set((pblRows || []).map((row) => row.group_id))];
 
     return ApiResponse.success(res, 'Industrial mentor groups retrieved successfully', {
       groups,
-      mentor_code: mentorCode
+      groupsByFaculty,
+      mentor_code: primaryMentorCode,
+      mentor_codes: mentorCodes
     });
   });
 }

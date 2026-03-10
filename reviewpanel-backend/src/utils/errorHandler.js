@@ -60,6 +60,10 @@ export const errorHandler = (err, req, res, next) => {
   if (err.errors && err.isOperational) {
     responseBody.errors = err.errors;
   }
+  // Pass existingMentor hint so frontend can auto-switch to Link Existing mode
+  if (err.existingMentor) {
+    responseBody.existingMentor = err.existingMentor;
+  }
 
   res.status(statusCode).json(responseBody);
 };
