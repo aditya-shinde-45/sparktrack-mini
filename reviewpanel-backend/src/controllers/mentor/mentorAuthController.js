@@ -7,6 +7,7 @@ import supabase from '../../config/database.js';
 import config from '../../config/index.js';
 import mentorOTPService from '../../services/mentorOTPService.js';
 import emailService from '../../services/emailService.js';
+import { validatePassword } from '../../utils/passwordValidator.js';
 
 class MentorAuthController {
   checkMentorStatus = asyncHandler(async (req, res) => {
@@ -111,9 +112,15 @@ class MentorAuthController {
       throw ApiError.badRequest('Passwords do not match');
     }
 
+    // Validate password strength before checking OTP session
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      throw ApiError.badRequest(pwCheck.message);
+    }
+
     // Ensure the OTP session is verified for this contact number
     if (!mentorOTPService.isVerified(session_token, contact_number)) {
-      throw ApiError.unauthorized('OTP not verified or session expired. Please verify your OTP first.');
+      throw ApiError.unauthorized('OTP session expired. Please restart the password setup process.');
     }
 
     await mentorModel.setPassword(contact_number, password);
