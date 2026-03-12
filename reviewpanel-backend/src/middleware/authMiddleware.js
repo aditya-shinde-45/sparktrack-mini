@@ -290,11 +290,17 @@ class AuthMiddleware {
    */
   extractToken = (req) => {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.split(' ')[1];
     }
-    
+
+    // Support token via query param for file-download endpoints
+    // (e.g. /api/export?token=<jwt>) where setting headers isn't possible
+    if (req.query && req.query.token) {
+      return req.query.token;
+    }
+
     return null;
   };
 }
