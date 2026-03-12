@@ -81,6 +81,18 @@ class IndustrialMentorModel {
     return data || [];
   }
 
+  async searchByName(name) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .ilike('name', `%${name.trim()}%`)
+      .order('name', { ascending: true })
+      .limit(10);
+
+    if (error) throw error;
+    return data || [];
+  }
+
   async create(payload) {
     const { data, error } = await supabase
       .from(this.table)

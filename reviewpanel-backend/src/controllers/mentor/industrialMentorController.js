@@ -368,34 +368,44 @@ class IndustrialMentorController {
     return ApiResponse.success(res, 'Industrial mentor deleted successfully.');
   });
 
-  // Search an existing industry mentor by their code or contact number
+  // Search an existing industry mentor by their code, contact number, or name
   // so the faculty can preview before linking
   searchIndustrialMentor = asyncHandler(async (req, res) => {
-    const { query } = req.query; // industrial_mentor_code or contact
+    const { query } = req.query; // industrial_mentor_code, contact, or name
 
     if (!query) {
-      throw ApiError.badRequest('Search query (code or contact) is required.');
+      throw ApiError.badRequest('Search query (code, contact, or name) is required.');
     }
 
+    // 1. Try exact code match
     let record = await industrialMentorModel.getByIndustrialMentorCode(query.trim().toUpperCase());
+
+    // 2. Try contact match
     if (!record) {
       record = await industrialMentorModel.getOneByContact(query.trim());
     }
 
-    if (!record) {
-      throw ApiError.notFound('No industry mentor found with that code or contact.');
-    }
-
-    // Resolve email if this is a linked row (email: null)
-    if (!record.email && record.contact) {
-      const source = await industrialMentorModel.getOneByContact(record.contact);
-      if (source && source.email) {
-        record = { ...record, email: source.email };
+    // 3. If exact match found, return single result
+    if (record) {
+      // Resolve email if this is a linked row (email: null)
+      if (!record.email && record.contact) {
+        const source = await industrialMentorModel.getOneByContact(record.contact);
+        if (source && source.email) {
+          record = { ...record, email: source.email };
+        }
       }
+      const { password, ...safe } = record;
+      return ApiResponse.success(res, 'Industry mentor found.', { industrialMentor: safe, results: [] });
     }
 
-    const { password, ...safe } = record;
-    return ApiResponse.success(res, 'Industry mentor found.', { industrialMentor: safe });
+    // 4. Fall back to name search — return list for dropdown
+    const nameResults = await industrialMentorModel.searchByName(query.trim());
+    if (!nameResults || nameResults.length === 0) {
+      throw ApiError.notFound('No industry mentor found with that code, contact, or name.');
+    }
+
+    const safeResults = nameResults.map(({ password, ...rest }) => rest);
+    return ApiResponse.success(res, 'Industry mentors found.', { industrialMentor: null, results: safeResults });
   });
 
   // Link an existing industry mentor to the current faculty's class.

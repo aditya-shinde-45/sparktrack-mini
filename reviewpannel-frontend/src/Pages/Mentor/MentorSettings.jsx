@@ -36,6 +36,7 @@ const MentorSettings = () => {
   const [linkSearching, setLinkSearching] = useState(false);
   const [linkPreview, setLinkPreview] = useState(null);
   const [linkSearchError, setLinkSearchError] = useState("");
+  const [linkDropdownResults, setLinkDropdownResults] = useState([]);
 
   useEffect(() => {
     const token = localStorage.getItem("mentor_token");
@@ -69,6 +70,7 @@ const MentorSettings = () => {
     setLinkQuery("");
     setLinkPreview(null);
     setLinkSearchError("");
+    setLinkDropdownResults([]);
   };
 
   const openLink = () => {
@@ -79,6 +81,7 @@ const MentorSettings = () => {
     setLinkQuery("");
     setLinkPreview(null);
     setLinkSearchError("");
+    setLinkDropdownResults([]);
   };
 
   const openEdit = (record) => {
@@ -95,6 +98,7 @@ const MentorSettings = () => {
     setLinkQuery("");
     setLinkPreview(null);
     setLinkSearchError("");
+    setLinkDropdownResults([]);
   };
 
   const closeForm = () => {
@@ -103,28 +107,44 @@ const MentorSettings = () => {
     setLinkQuery("");
     setLinkPreview(null);
     setLinkSearchError("");
+    setLinkDropdownResults([]);
   };
 
   const handleChange = (field) => (e) => setFormData((p) => ({ ...p, [field]: e.target.value }));
 
-  const handleSearchLink = async () => {
-    if (!linkQuery.trim()) return;
+  // Debounced auto-search as user types
+  useEffect(() => {
+    if (!linkQuery.trim() || linkPreview) return;
+    const timer = setTimeout(() => {
+      handleSearchLink(linkQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [linkQuery]);
+
+  const handleSearchLink = async (q) => {
+    const query = (q ?? linkQuery).trim();
+    if (!query) return;
     const token = localStorage.getItem("mentor_token");
     try {
       setLinkSearching(true);
       setLinkSearchError("");
-      setLinkPreview(null);
+      setLinkDropdownResults([]);
       const res = await apiRequest(
-        `/api/mentors/industrial-mentor/search?query=${encodeURIComponent(linkQuery.trim())}`,
+        `/api/mentors/industrial-mentor/search?query=${encodeURIComponent(query)}`,
         "GET",
         null,
         token
       );
-      const found = res?.data?.industrialMentor || res?.industrialMentor || null;
-      if (!found) {
-        setLinkSearchError("No mentor found with that code or contact.");
+      const single = res?.data?.industrialMentor || res?.industrialMentor || null;
+      const list = res?.data?.results || res?.results || [];
+      if (single) {
+        setLinkPreview(single);
+        setLinkDropdownResults([]);
+      } else if (list.length > 0) {
+        setLinkDropdownResults(list);
+        setLinkPreview(null);
       } else {
-        setLinkPreview(found);
+        setLinkSearchError("No mentor found with that code, contact, or name.");
       }
     } catch (err) {
       setLinkSearchError(err?.message || "Mentor not found.");
@@ -153,6 +173,7 @@ const MentorSettings = () => {
       setEditingRecord(null);
       setLinkPreview(null);
       setLinkQuery("");
+      setLinkDropdownResults([]);
       setStatus({ type: "success", message: `${linkPreview.name} linked to your class.` });
     } catch (err) {
       setStatus({ type: "error", message: err?.message || "Failed to link." });
@@ -196,6 +217,7 @@ const MentorSettings = () => {
           setLinkQuery(em.industrial_mentor_code || em.contact || "");
           setLinkPreview(em);
           setLinkSearchError("");
+          setLinkDropdownResults([]);
           setStatus({
             type: "error",
             message: `"${em.name}" already exists. Confirm below to link them to your class.`
@@ -361,7 +383,7 @@ const MentorSettings = () => {
                 {!editingRecord?.industrial_mentor_code && (
                   <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
                     <button
-                      onClick={() => { setModalMode("create"); setLinkPreview(null); setLinkQuery(""); setLinkSearchError(""); }}
+                      onClick={() => { setModalMode("create"); setLinkPreview(null); setLinkQuery(""); setLinkSearchError(""); setLinkDropdownResults([]); }}
                       className={`px-3 py-1.5 transition ${
                         modalMode === "create" ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
                       }`}
@@ -407,25 +429,45 @@ const MentorSettings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-700">
                     <Info className="w-4 h-4" />
-                    Enter the industry mentor's code (e.g. IM001) or contact number to find and link them to your class.
+                    Search by code (e.g. IM001), contact number, or mentor name to find and link them to your class.
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">Code or Contact Number</label>
+                    <label className="text-sm font-semibold text-gray-700">Code, Contact Number, or Name</label>
                     <div className="mt-1.5 flex gap-2">
-                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 bg-white">
-                        <Search className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                        <input
-                          type="text"
-                          value={linkQuery}
-                          onChange={(e) => { setLinkQuery(e.target.value); setLinkPreview(null); setLinkSearchError(""); }}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchLink())}
-                          className="w-full outline-none text-sm text-gray-900"
-                          placeholder="IM001 or contact number"
-                        />
+                      <div className="flex-1 relative">
+                        <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 bg-white">
+                          <Search className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                          <input
+                            type="text"
+                            value={linkQuery}
+                            onChange={(e) => { setLinkQuery(e.target.value); setLinkPreview(null); setLinkSearchError(""); setLinkDropdownResults([]); }}
+                            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearchLink())}
+                            className="w-full outline-none text-sm text-gray-900"
+                            placeholder="IM001, contact number, or name"
+                            autoComplete="off"
+                          />
+                          {linkSearching && <span className="text-xs text-purple-400 flex-shrink-0">searching...</span>}
+                        </div>
+                        {/* Dropdown results */}
+                        {linkDropdownResults.length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+                            {linkDropdownResults.map((item) => (
+                              <button
+                                key={item.industrial_mentor_code}
+                                type="button"
+                                onClick={() => { setLinkPreview(item); setLinkDropdownResults([]); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-purple-50 transition border-b border-gray-100 last:border-0"
+                              >
+                                <p className="text-sm font-semibold text-gray-900">{item.name}</p>
+                                <p className="text-xs text-gray-400">{item.industrial_mentor_code}{item.company_name ? ` · ${item.company_name}` : ""}{item.contact ? ` · ${item.contact}` : ""}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <button
                         type="button"
-                        onClick={handleSearchLink}
+                        onClick={() => handleSearchLink()}
                         disabled={linkSearching || !linkQuery.trim()}
                         className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition disabled:opacity-50"
                       >

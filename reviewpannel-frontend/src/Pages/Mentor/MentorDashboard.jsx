@@ -3,7 +3,7 @@ import { apiRequest } from "../../api";
 import { useNavigate } from "react-router-dom";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
-import { Users, BookOpen, Calendar, Award, TrendingUp } from "lucide-react";
+import { Users, BookOpen, Calendar, Award, TrendingUp, ChevronRight, UserCircle2 } from "lucide-react";
 
 const MentorDashboard = () => {
   const navigate = useNavigate();
@@ -23,20 +23,15 @@ const MentorDashboard = () => {
       navigate('/pblmanagementfacultydashboardlogin');
       return;
     }
-
     fetchMentorData(token);
   }, [navigate]);
 
   const fetchMentorData = async (token) => {
     try {
       setLoading(true);
-      
-      // Fetch mentor groups
       const groupsRes = await apiRequest("/api/mentors/groups", "GET", null, token);
       const mentorGroups = groupsRes?.data?.groups || groupsRes?.groups || [];
       const mentorName = groupsRes?.data?.mentor_name || groupsRes?.mentor_name;
-      
-      // Get mentor info from token
       const tokenData = JSON.parse(atob(token.split('.')[1]));
       setMentor({
         name: tokenData.mentor_name || mentorName,
@@ -44,44 +39,25 @@ const MentorDashboard = () => {
         contact: tokenData.contact_number
       });
 
-      // Fetch detailed group information
       if (mentorGroups.length > 0) {
         const groupDetails = await Promise.all(
           mentorGroups.map(async (groupId) => {
             try {
-              const studentsRes = await apiRequest(
-                `/api/students/group/${groupId}`,
-                "GET",
-                null,
-                token
-              );
+              const studentsRes = await apiRequest(`/api/students/group/${groupId}`, "GET", null, token);
               const students = studentsRes?.data?.students || studentsRes?.students || [];
-              
-              return {
-                groupId,
-                students,
-                studentCount: students.length
-              };
-            } catch (error) {
-              console.error(`Error fetching group ${groupId}:`, error);
-              return {
-                groupId,
-                students: [],
-                studentCount: 0
-              };
+              return { groupId, students, studentCount: students.length };
+            } catch {
+              return { groupId, students: [], studentCount: 0 };
             }
           })
         );
-        
         setGroups(groupDetails);
-        
-        // Calculate stats
         const totalStudents = groupDetails.reduce((sum, g) => sum + g.studentCount, 0);
         setStats({
           totalGroups: groupDetails.length,
           totalStudents,
-          pendingReviews: 0, // TODO: Implement reviews count
-          upcomingDeadlines: 0 // TODO: Implement deadlines count
+          pendingReviews: 0,
+          upcomingDeadlines: 0
         });
       }
     } catch (error) {
@@ -94,7 +70,10 @@ const MentorDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-lg text-gray-600">Loading...</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 text-sm font-medium">Loading dashboard…</p>
+        </div>
       </div>
     );
   }
@@ -107,166 +86,252 @@ const MentorDashboard = () => {
     );
   }
 
+  const statCards = [
+    {
+      label: "Total Groups",
+      value: stats.totalGroups,
+      icon: Users,
+      from: "from-purple-500",
+      to: "to-purple-700",
+      light: "text-purple-100",
+    },
+    {
+      label: "Total Students",
+      value: stats.totalStudents,
+      icon: BookOpen,
+      from: "from-blue-500",
+      to: "to-blue-700",
+      light: "text-blue-100",
+    },
+    {
+      label: "Pending Reviews",
+      value: stats.pendingReviews,
+      icon: Award,
+      from: "from-orange-500",
+      to: "to-orange-700",
+      light: "text-orange-100",
+    },
+    {
+      label: "Deadlines",
+      value: stats.upcomingDeadlines,
+      icon: Calendar,
+      from: "from-green-500",
+      to: "to-green-700",
+      light: "text-green-100",
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: "Review Projects",
+      desc: "Evaluate student work",
+      icon: Award,
+      color: "purple",
+      path: "/mentor/reviews",
+    },
+    {
+      label: "View Schedule",
+      desc: "Check upcoming deadlines",
+      icon: Calendar,
+      color: "blue",
+      path: "/mentor/schedule",
+    },
+    {
+      label: "Track Progress",
+      desc: "Monitor group performance",
+      icon: TrendingUp,
+      color: "green",
+      path: "/mentor/groups",
+    },
+  ];
+
+  const colorMap = {
+    purple: {
+      bg: "bg-purple-50 hover:bg-purple-100",
+      border: "border-purple-200 hover:border-purple-400",
+      icon: "text-purple-600",
+      title: "text-purple-800",
+    },
+    blue: {
+      bg: "bg-blue-50 hover:bg-blue-100",
+      border: "border-blue-200 hover:border-blue-400",
+      icon: "text-blue-600",
+      title: "text-blue-800",
+    },
+    green: {
+      bg: "bg-green-50 hover:bg-green-100",
+      border: "border-green-200 hover:border-green-400",
+      icon: "text-green-600",
+      title: "text-green-800",
+    },
+  };
+
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
-      <MentorHeader 
-        name={mentor.name} 
-        id={mentor.id}
-      />
-   <div className="flex flex-1 flex-col lg:flex-row mt-[80px]">
+      <MentorHeader name={mentor.name} id={mentor.id} />
+
+      <div className="flex flex-1 flex-col lg:flex-row mt-[80px]">
         <MentorSidebar />
-        <main className="flex-1 p-4 md:p-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
-          <div className="max-w-7xl mx-auto">
-            {/* Welcome Section */}
-            <div className="mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-purple-800 mb-3">
-                Welcome, {mentor.name}!
-              </h1>
-              <p className="text-gray-600 text-base md:text-lg">
-                Here's an overview of your assigned groups and upcoming activities.
-              </p>
-            </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-              <div className="bg-gradient-to-br from-purple-500/80 to-purple-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all border border-white/20">
-                <div className="flex items-center justify-between mb-3">
-                  <Users className="w-10 h-10 opacity-90" />
-                  <span className="text-4xl font-bold">{stats.totalGroups}</span>
-                </div>
-                <p className="text-purple-100 font-semibold text-lg">Total Groups</p>
+        <main className="flex-1 px-3 py-5 sm:px-5 md:px-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
+          <div className="max-w-7xl mx-auto space-y-6">
+
+            {/* ── Welcome Banner ── */}
+            <div className="bg-gradient-to-r from-purple-700 to-indigo-600 rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">
+                  Faculty Dashboard
+                </p>
+                <h1 className="text-2xl sm:text-3xl font-bold leading-tight">
+                  Welcome, {mentor.name}!
+                </h1>
+                <p className="text-purple-200 text-sm mt-1">
+                  Here's an overview of your assigned groups.
+                </p>
               </div>
-
-              <div className="bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all border border-white/20">
-                <div className="flex items-center justify-between mb-3">
-                  <BookOpen className="w-10 h-10 opacity-90" />
-                  <span className="text-4xl font-bold">{stats.totalStudents}</span>
+              <div className="flex items-center gap-3 bg-white/10 border border-white/20 rounded-xl px-4 py-3 self-start sm:self-auto">
+                <UserCircle2 className="w-8 h-8 text-purple-200 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-purple-200 font-medium">Mentor ID</p>
+                  <p className="text-white font-bold text-base">{mentor.id}</p>
                 </div>
-                <p className="text-blue-100 font-semibold text-lg">Total Students</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-500/80 to-orange-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all border border-white/20">
-                <div className="flex items-center justify-between mb-3">
-                  <Award className="w-10 h-10 opacity-90" />
-                  <span className="text-4xl font-bold">{stats.pendingReviews}</span>
-                </div>
-                <p className="text-orange-100 font-semibold text-lg">Pending Reviews</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-500/80 to-green-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all border border-white/20">
-                <div className="flex items-center justify-between mb-3">
-                  <Calendar className="w-10 h-10 opacity-90" />
-                  <span className="text-4xl font-bold">{stats.upcomingDeadlines}</span>
-                </div>
-                <p className="text-green-100 font-semibold text-lg">Deadlines</p>
               </div>
             </div>
 
-            {/* Assigned Groups Section */}
-            <div className="mb-8">
-              <h2 className="text-2xl md:text-3xl font-bold text-purple-800 mb-6">Assigned Groups</h2>
-              
+            {/* ── Stats Cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+              {statCards.map(({ label, value, icon: Icon, from, to, light }) => (
+                <div
+                  key={label}
+                  className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-4 sm:p-5 text-white shadow-md hover:shadow-xl transition-all`}
+                >
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <span className="text-3xl sm:text-4xl font-extrabold leading-none">{value}</span>
+                  </div>
+                  <p className={`${light} text-xs sm:text-sm font-semibold leading-tight`}>{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Assigned Groups ── */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-purple-800">Assigned Groups</h2>
+                {groups.length > 0 && (
+                  <button
+                    onClick={() => navigate('/mentor/groups')}
+                    className="text-sm text-purple-600 font-semibold flex items-center gap-1 hover:text-purple-800 transition"
+                  >
+                    View all <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
               {groups.length === 0 ? (
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg p-12 text-center border border-white/40">
-                  <Users className="w-20 h-20 mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500 text-xl font-medium">No groups assigned yet</p>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+                  <Users className="w-16 h-16 mx-auto text-gray-200 mb-3" />
+                  <p className="text-gray-400 font-medium">No groups assigned yet</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
                   {groups.map((group) => (
                     <div
                       key={group.groupId}
-                      className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 border-2 border-purple-200/50 hover:border-purple-400/70 transform hover:-translate-y-1"
+                      className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-purple-200 flex flex-col"
                     >
-                      <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-xl font-bold text-purple-700">
-                          {group.groupId}
-                        </h3>
-                        <div className="bg-purple-100 text-purple-700 px-4 py-1.5 rounded-full text-sm font-bold">
-                          {group.studentCount} {group.studentCount === 1 ? 'Student' : 'Students'}
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                            <Users className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <h3 className="text-base font-bold text-purple-800 truncate max-w-[120px]">
+                            {group.groupId}
+                          </h3>
                         </div>
+                        <span className="bg-purple-50 text-purple-700 border border-purple-200 px-3 py-1 rounded-full text-xs font-bold flex-shrink-0">
+                          {group.studentCount} {group.studentCount === 1 ? "student" : "students"}
+                        </span>
                       </div>
-                      
-                      {group.students.length > 0 ? (
-                        <div className="space-y-3">
-                          {group.students.slice(0, 4).map((student, idx) => (
-                            <div 
-                              key={idx}
-                              className="flex items-center gap-3 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 p-3 rounded-xl transition-colors"
-                            >
-                              <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center text-purple-700 font-bold text-base flex-shrink-0">
-                                {(student.student_name || student.name_of_students || student.name)?.charAt(0) || 'S'}
+
+                      {/* Student List */}
+                      <div className="px-4 py-3 flex-1">
+                        {group.students.length > 0 ? (
+                          <div className="space-y-2">
+                            {group.students.slice(0, 3).map((student, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-2"
+                              >
+                                <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center text-purple-700 font-bold text-sm flex-shrink-0">
+                                  {(student.student_name || student.name_of_students || student.name)?.charAt(0)?.toUpperCase() || "S"}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-800 truncate">
+                                    {student.student_name || student.name_of_students || student.name}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    {student.enrollment_no || student.enrollement_no || "—"}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex-1 overflow-hidden">
-                                <p className="font-semibold truncate text-gray-800">
-                                  {student.student_name || student.name_of_students || student.name}
-                                </p>
-                                <p className="text-xs text-gray-500 font-medium">
-                                  {student.enrollment_no || student.enrollement_no || "-"}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                          {group.studentCount > 4 && (
-                            <p className="text-sm text-purple-600 font-semibold text-center pt-3 border-t border-gray-100">
-                              +{group.studentCount - 4} more {group.studentCount - 4 === 1 ? 'student' : 'students'}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-gray-400 text-sm text-center py-4">No students in this group</p>
-                      )}
-                      
-                      <button 
-                        onClick={() => navigate(`/mentor/groups/${group.groupId}`)}
-                        className="mt-5 w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg"
-                      >
-                        View Details
-                      </button>
+                            ))}
+                            {group.studentCount > 3 && (
+                              <p className="text-xs text-purple-500 font-semibold text-center pt-1">
+                                +{group.studentCount - 3} more
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-gray-400 text-sm text-center py-4">No students</p>
+                        )}
+                      </div>
+
+                      {/* View Button */}
+                      <div className="px-4 pb-4">
+                        <button
+                          onClick={() => navigate(`/mentor/groups/${group.groupId}`)}
+                          className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors shadow-sm"
+                        >
+                          View Details
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg p-6 md:p-8 border border-white/40">
-              <h2 className="text-2xl md:text-3xl font-bold text-purple-800 mb-6">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                <button 
-                  onClick={() => navigate('/mentor/reviews')}
-                  className="flex items-center gap-4 p-5 bg-purple-50/60 backdrop-blur-sm rounded-xl hover:bg-purple-100/60 transition-colors text-left border-2 border-purple-200/50 hover:border-purple-300/70 shadow-sm hover:shadow-md"
-                >
-                  <Award className="w-10 h-10 text-purple-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-bold text-purple-800 text-lg">Review Projects</p>
-                    <p className="text-sm text-gray-600 mt-1">Evaluate student work</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => navigate('/mentor/schedule')}
-                  className="flex items-center gap-4 p-5 bg-blue-50/60 backdrop-blur-sm rounded-xl hover:bg-blue-100/60 transition-colors text-left border-2 border-blue-200/50 hover:border-blue-300/70 shadow-sm hover:shadow-md"
-                >
-                  <Calendar className="w-10 h-10 text-blue-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-bold text-blue-800 text-lg">View Schedule</p>
-                    <p className="text-sm text-gray-600 mt-1">Check deadlines</p>
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => navigate('/mentor/groups')}
-                  className="flex items-center gap-4 p-5 bg-green-50/60 backdrop-blur-sm rounded-xl hover:bg-green-100/60 transition-colors text-left border-2 border-green-200/50 hover:border-green-300/70 shadow-sm hover:shadow-md"
-                >
-                  <TrendingUp className="w-10 h-10 text-green-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-bold text-green-800 text-lg">Track Progress</p>
-                    <p className="text-sm text-gray-600 mt-1">Monitor performance</p>
-                  </div>
-                </button>
+            {/* ── Quick Actions ── */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-purple-800 mb-4">Quick Actions</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                {quickActions.map(({ label, desc, icon: Icon, color, path }) => {
+                  const c = colorMap[color];
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => navigate(path)}
+                      className={`flex items-center gap-4 p-4 sm:p-5 ${c.bg} rounded-xl border ${c.border} transition-all text-left shadow-sm hover:shadow-md`}
+                    >
+                      <div className={`p-2.5 bg-white rounded-xl shadow-sm flex-shrink-0`}>
+                        <Icon className={`w-6 h-6 ${c.icon}`} />
+                      </div>
+                      <div>
+                        <p className={`font-bold ${c.title} text-sm sm:text-base leading-tight`}>{label}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 ${c.icon} ml-auto flex-shrink-0`} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
+
           </div>
         </main>
       </div>
@@ -275,3 +340,5 @@ const MentorDashboard = () => {
 };
 
 export default MentorDashboard;
+
+
