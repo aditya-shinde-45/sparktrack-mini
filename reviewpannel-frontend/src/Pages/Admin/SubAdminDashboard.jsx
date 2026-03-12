@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Common/Header";
 import MarksTable from "../../Components/Admin/MarksTable";
 import Pagination from "../../Components/Admin/Pagination";
-import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, Filter, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, User, Shield } from "lucide-react";
 import { apiRequest } from "../../api";
 
 const SubAdminDashboard = ({ embedded = false }) => {
@@ -42,8 +42,10 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationSortBy, setEvaluationSortBy] = useState("group_id");
   const [evaluationSortOrder, setEvaluationSortOrder] = useState("asc");
   const [evaluationRowsPerPage] = useState(50);
+  const [groupPrefixInput, setGroupPrefixInput] = useState("");
+  const [groupPrefixFilter, setGroupPrefixFilter] = useState("");
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 
   const evaluationComputedTotal = React.useMemo(() => {
     return evaluationFormFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
@@ -195,14 +197,14 @@ const SubAdminDashboard = ({ embedded = false }) => {
     }
   };
 
-  const fetchEvaluationSubmissions = async (formId, page, search = "") => {
+  const fetchEvaluationSubmissions = async (formId, page, search = "", groupPrefix = "") => {
     if (!formId) return;
     const token = localStorage.getItem("token");
     setEvaluationLoading(true);
     setEvaluationError("");
 
     try {
-      const url = `/api/role-access/evaluation_form_submission?formId=${formId}&page=${page}&limit=${evaluationRowsPerPage}&search=${encodeURIComponent(search)}`;
+      const url = `/api/role-access/evaluation_form_submission?formId=${formId}&page=${page}&limit=${evaluationRowsPerPage}&search=${encodeURIComponent(search)}&groupPrefix=${encodeURIComponent(groupPrefix)}`;
       const response = await apiRequest(url, 'GET', null, token);
 
       if (response?.success && response.data) {
@@ -230,6 +232,47 @@ const SubAdminDashboard = ({ embedded = false }) => {
       setEvaluationError("Failed to load evaluation submissions.");
     } finally {
       setEvaluationLoading(false);
+    }
+  };
+
+  // ── Secure CSV export: fetch with Authorization header, trigger blob download ──
+  const handleExportCSV = async () => {
+    if (!selectedEvaluationFormId) {
+      alert("Please select an evaluation form before exporting.");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    const apiBase =
+      import.meta.env.MODE === "development"
+        ? import.meta.env.VITE_API_BASE_URL
+        : import.meta.env.VITE_API_BASE_URL_PROD;
+
+    const params = new URLSearchParams();
+    params.append("formId", selectedEvaluationFormId);
+    if (groupPrefixFilter.trim()) params.append("groupPrefix", groupPrefixFilter.trim());
+
+    try {
+      const response = await fetch(`${apiBase}/api/export?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Export failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = groupPrefixFilter.trim()
+        ? `evaluations_${groupPrefixFilter.trim()}.csv`
+        : "evaluations_all.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV export error:", err);
+      alert(`Export failed: ${err.message || "Please try again."}`);
     }
   };
 
@@ -263,18 +306,20 @@ const SubAdminDashboard = ({ embedded = false }) => {
     setSearchQuery('');
     setEvaluationCurrentPage(1);
     setEvaluationSearchQuery('');
+    setGroupPrefixInput('');
+    setGroupPrefixFilter('');
   }, [selectedTable]);
 
   useEffect(() => {
     if (selectedTable === 'evaluation_form_submission') {
       if (selectedEvaluationFormId) {
-        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery);
+        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
       } else {
         setEvaluationSubmissions([]);
         setEvaluationTotalRecords(0);
       }
     }
-  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery]);
+  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter]);
 
   // Fetch mentors and students when PBL table is selected and modal is opened
   useEffect(() => {
@@ -420,7 +465,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
       if (response.success) {
         alert("Evaluation marks deleted successfully!");
-        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery);
+        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
       } else {
         alert(`Failed to delete marks: ${response.message || "Unknown error"}`);
       }
@@ -630,16 +675,15 @@ const SubAdminDashboard = ({ embedded = false }) => {
       
       return (
         <div key={field} className="mb-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 capitalize">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5 capitalize">
             {field.replace(/_/g, ' ')}
-            {isReadOnly && field === 'mentor_name' && <span className="text-xs text-gray-500 ml-2">(from mentors table)</span>}
-            {isReadOnly && field === 'guide_contact' && <span className="text-xs text-gray-500 ml-2">(auto-filled from mentor)</span>}
+            {isReadOnly && field === 'mentor_name' && <span className="text-xs text-gray-400 ml-1.5">(from mentors table)</span>}
           </label>
           <input
             type="text"
             value={formData[field] || ''}
             onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-            className={`w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all ${isReadOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
             required={isRequired}
             readOnly={isReadOnly}
           />
@@ -661,11 +705,11 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
   if (loading) {
     return (
-      <div className={embedded ? "w-full flex items-center justify-center" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center"}>
+      <div className={embedded ? "w-full flex items-center justify-center" : "min-h-screen bg-gray-50 flex items-center justify-center"}>
         {!embedded && <Header name={userName} id={userId} />}
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm text-gray-500">Loading dashboard…</p>
         </div>
       </div>
     );
@@ -673,15 +717,15 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
   if (tablePermissions.length === 0) {
     return (
-      <div className={embedded ? "w-full" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"}>
+      <div className={embedded ? "w-full" : "min-h-screen bg-gray-50"}>
         {!embedded && <Header name={userName} id={userId} />}
         <div className={embedded ? "flex items-center justify-center min-h-[50vh]" : "flex items-center justify-center min-h-screen pt-24"}>
-          <div className="text-center bg-white rounded-2xl shadow-xl p-12 max-w-md">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
-              <Database className="w-10 h-10 text-red-600" />
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-10 max-w-sm w-full text-center">
+            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Database className="w-6 h-6 text-red-500" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Access Granted</h3>
-            <p className="text-gray-600">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">No Access Granted</h3>
+            <p className="text-sm text-gray-500">
               You don't have permission to access any tables. Please contact the administrator.
             </p>
           </div>
@@ -691,133 +735,264 @@ const SubAdminDashboard = ({ embedded = false }) => {
   }
 
   return (
-    <div className={embedded ? "w-full" : "min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"}>
+    <div className={embedded ? "w-full" : "min-h-screen bg-gray-50"}>
       {!embedded && <Header name={userName} id={userId} />}
-      
-      <div className={embedded ? "px-4 py-4" : "pt-24 px-8 pb-8"}>
-        {/* User Info Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">{userName}</h1>
-              <p className="text-gray-500">Sub-Administrator</p>
-            </div>
-            {tablePermissions.length > 1 && (
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-gray-700">Select Table:</label>
-                <select
-                  value={selectedTable}
-                  onChange={(e) => {
-                    const newTable = e.target.value;
-                    setSelectedTable(newTable);
-                    localStorage.setItem("selectedTable", newTable);
-                  }}
-                  className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all font-medium text-gray-900"
-                >
-                  {tablePermissions.map(table => (
-                    <option key={table} value={table}>
-                      {getTableDisplayName(table)}
-                    </option>
-                  ))}
-                </select>
+
+      <div className={embedded ? "px-4 py-4" : "w-full max-w-[1800px] mx-auto px-6 lg:px-10 pt-[88px] pb-12 space-y-5"}>
+
+        {/* ── Compact Header Card ──────────────────────────── */}
+        {!embedded && (
+          <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900">{userName}</h1>
+                  <p className="text-sm text-gray-500">Admin Portal · Manage students, mentors, PBL and evaluations</p>
+                </div>
               </div>
-            )}
+              <div className="hidden sm:flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                  Sub-Admin
+                </span>
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm">
+                  {(userName || "A").charAt(0).toUpperCase()}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Table Tabs ──────────────────────────────────────── */}
+        {tablePermissions.length > 0 && (
+          <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Data Tables</p>
+            <div className="flex flex-wrap gap-2">
+              {tablePermissions.map(table => (
+                <button
+                  key={table}
+                  onClick={() => {
+                    setSelectedTable(table);
+                    localStorage.setItem("selectedTable", table);
+                  }}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    selectedTable === table
+                      ? "bg-purple-100 text-purple-700"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {table === "evaluation_form_submission" ? <FileSpreadsheet className="w-4 h-4" /> : <Database className="w-4 h-4" />}
+                  {getTableDisplayName(table)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {selectedTable === 'evaluation_form_submission' ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <Database className="w-6 h-6 text-purple-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {getTableDisplayName(selectedTable)}
-              </h2>
-            </div>
+          <div className="space-y-5 mb-6">
 
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl shadow-lg p-6 mb-6">
-              <div className="flex flex-wrap gap-4 items-center">
-                <select
-                  value={selectedEvaluationFormId}
-                  onChange={(e) => {
-                    setSelectedEvaluationFormId(e.target.value);
-                    setEvaluationCurrentPage(1);
-                  }}
-                  className="px-4 py-2 rounded-lg font-semibold bg-white text-purple-700 shadow-lg"
-                >
-                  <option value="">Select Evaluation Form</option>
-                  {evaluationForms.map((form) => (
-                    <option key={form.id} value={form.id}>
-                      {form.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="text-white text-sm">
-                  <span className="font-semibold">Total Records:</span> {evaluationTotalRecords}
+            {/* ── Section Header + Form Selector ───────────────────── */}
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
+                {/* Left: title + form select */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                    <h2 className="text-xl font-semibold text-gray-900">Evaluation Form Submissions</h2>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-4">View, filter, and export evaluation results</p>
+                  <div className="relative max-w-sm">
+                    <FileSpreadsheet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <select
+                      value={selectedEvaluationFormId}
+                      onChange={(e) => { setSelectedEvaluationFormId(e.target.value); setEvaluationCurrentPage(1); }}
+                      className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 appearance-none cursor-pointer transition-all"
+                    >
+                      <option value="">— Select a form —</option>
+                      {evaluationForms.map((form) => (
+                        <option key={form.id} value={form.id}>{form.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Right: stats + export */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center min-w-[80px]">
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Records</p>
+                    <p className="text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalRecords.toLocaleString()}</p>
+                  </div>
+                  {evaluationTotalPages > 1 && (
+                    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center min-w-[80px]">
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pages</p>
+                      <p className="text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalPages}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={!selectedEvaluationFormId}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap hover:scale-[1.02]"
+                    title={!selectedEvaluationFormId ? 'Select a form first to export' : 'Download filtered data as CSV'}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </button>
                 </div>
               </div>
+              {/* Active filter chips */}
+              {(evaluationTotalRecords > 0 || groupPrefixFilter) && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+                  {evaluationTotalRecords > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                      {evaluationTotalRecords.toLocaleString()} records
+                    </span>
+                  )}
+                  {groupPrefixFilter && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                      <Filter className="w-3 h-3" />
+                      {groupPrefixFilter}*
+                      <button onClick={() => { setGroupPrefixInput(''); setGroupPrefixFilter(''); setEvaluationCurrentPage(1); }} className="ml-0.5 hover:text-purple-900 transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
-                  <input
-                    type="text"
-                    placeholder="Search by Group ID, Enrollment No or Student Name..."
-                    value={evaluationSearchQuery}
-                    onChange={(e) => {
-                      setEvaluationSearchQuery(e.target.value);
-                      setEvaluationCurrentPage(1);
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
-                  />
+            {/* ── Toolbar: Prefix Filter • Search • Sort ─────── */}
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+
+                {/* Group prefix filter */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-500 flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Group ID Prefix</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. LYAIA1"
+                        value={groupPrefixInput}
+                        onChange={(e) => setGroupPrefixInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { setGroupPrefixFilter(groupPrefixInput.trim()); setEvaluationCurrentPage(1); } }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                      />
+                      {groupPrefixInput && (
+                        <button onClick={() => setGroupPrefixInput('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setGroupPrefixFilter(groupPrefixInput.trim()); setEvaluationCurrentPage(1); }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap hover:scale-[1.02]"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      Apply
+                    </button>
+                    {groupPrefixFilter && (
+                      <button
+                        onClick={() => { setGroupPrefixInput(''); setGroupPrefixFilter(''); setEvaluationCurrentPage(1); }}
+                        className="p-2 border border-gray-300 hover:bg-red-50 hover:border-red-300 text-gray-500 hover:text-red-600 rounded-lg transition-all text-sm"
+                        title="Clear prefix filter"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Sort By</label>
+
+                {/* Full-text search */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-500 flex items-center gap-1"><Search className="w-3.5 h-3.5" /> Search Records</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Group ID, Enrollment No or Student Name…"
+                      value={evaluationSearchQuery}
+                      onChange={(e) => { setEvaluationSearchQuery(e.target.value); setEvaluationCurrentPage(1); }}
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Sort controls */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-500 flex items-center gap-1"><ArrowUpDown className="w-3.5 h-3.5" /> Sort</label>
                   <div className="flex gap-2">
                     <select
                       value={evaluationSortBy}
                       onChange={(e) => setEvaluationSortBy(e.target.value)}
-                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     >
                       <option value="group_id">Group ID</option>
                       <option value="enrollment_no">Enrollment No</option>
                       <option value="student_name">Student Name</option>
                       <option value="total">Total Marks</option>
-                      <option value="external_name">External Name</option>
+                      <option value="external_name">External</option>
                     </select>
                     <button
                       onClick={() => setEvaluationSortOrder(evaluationSortOrder === "asc" ? "desc" : "asc")}
-                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 font-semibold"
-                      title={`Sort ${evaluationSortOrder === "asc" ? "Ascending" : "Descending"}`}
+                      className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 hover:bg-gray-100 text-gray-600 rounded-lg transition-all text-sm font-medium"
+                      title={evaluationSortOrder === "asc" ? "Currently ascending" : "Currently descending"}
                     >
-                      {evaluationSortOrder === "asc" ? "↑ ASC" : "↓ DESC"}
+                      {evaluationSortOrder === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                      {evaluationSortOrder === "asc" ? "ASC" : "DESC"}
                     </button>
                   </div>
                 </div>
               </div>
+
+              {/* Active filter chips */}
+              {(groupPrefixFilter || evaluationSearchQuery) && (
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-400 font-medium">Active:</span>
+                  {groupPrefixFilter && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                      <Filter className="w-3 h-3" />
+                      {groupPrefixFilter}*
+                      <button onClick={() => { setGroupPrefixInput(''); setGroupPrefixFilter(''); setEvaluationCurrentPage(1); }} className="ml-0.5 hover:text-purple-900">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {evaluationSearchQuery && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
+                      <Search className="w-3 h-3" />
+                      "{evaluationSearchQuery}"
+                      <button onClick={() => { setEvaluationSearchQuery(''); setEvaluationCurrentPage(1); }} className="ml-0.5 hover:text-purple-900">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
+            {/* ── Loading state ──────────────────────────────────────── */}
             {evaluationLoading && (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-                <span className="ml-3 text-gray-600 font-semibold">Loading data...</span>
+              <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm p-14 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-4 border-gray-200 border-t-purple-600 rounded-full animate-spin" />
+                <p className="text-sm text-gray-500">Loading submissions…</p>
               </div>
             )}
 
+            {/* ── Error state ────────────────────────────────────────── */}
             {evaluationError && !evaluationLoading && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md">
-                <div className="flex items-center">
-                  <span className="material-icons text-red-500 mr-2">error</span>
-                  <p className="text-red-700 font-semibold">{evaluationError}</p>
-                </div>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+                <X className="w-4 h-4 text-red-500 shrink-0" />
+                <p className="text-sm text-red-700">{evaluationError}</p>
               </div>
             )}
 
-            {!evaluationLoading && !evaluationError && (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden mt-6">
+            {/* ── Data Table ─────────────────────────────────────────── */}
+            {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
+              <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <MarksTable
                     students={sortedEvaluationSubmissions}
@@ -829,19 +1004,13 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     onDeleteGroup={handleDeleteEvaluationGroup}
                   />
                 </div>
-              </div>
-            )}
-
-            {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-4 mt-6">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <div className="text-sm text-gray-600">
-                    Showing <span className="font-semibold text-purple-600">{((evaluationCurrentPage - 1) * evaluationRowsPerPage) + 1}</span> to{" "}
-                    <span className="font-semibold text-purple-600">
-                      {Math.min(evaluationCurrentPage * evaluationRowsPerPage, evaluationTotalRecords)}
-                    </span>{" "}
-                    of <span className="font-semibold text-purple-600">{evaluationTotalRecords}</span> entries
-                  </div>
+                {/* Pagination bar */}
+                <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50">
+                  <p className="text-sm text-gray-500">
+                    Showing <span className="font-medium text-gray-900">{((evaluationCurrentPage - 1) * evaluationRowsPerPage) + 1}</span>–
+                    <span className="font-medium text-gray-900">{Math.min(evaluationCurrentPage * evaluationRowsPerPage, evaluationTotalRecords)}</span>{" "}
+                    of <span className="font-medium text-gray-900">{evaluationTotalRecords.toLocaleString()}</span> entries
+                  </p>
                   <Pagination
                     currentPage={evaluationCurrentPage}
                     totalPages={evaluationTotalPages}
@@ -853,68 +1022,95 @@ const SubAdminDashboard = ({ embedded = false }) => {
               </div>
             )}
 
+            {/* ── Empty state ────────────────────────────────────────── */}
             {!evaluationLoading && !evaluationError && evaluationTotalRecords === 0 && (
-              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mt-6">
-                <span className="material-icons text-gray-400 text-6xl mb-4">inbox</span>
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Records Found</h3>
-                <p className="text-gray-500">Try adjusting your filters or search query.</p>
+              <div className="w-full bg-white rounded-xl border border-gray-200 shadow-sm p-14 flex flex-col items-center justify-center text-center gap-3">
+                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
+                  <FileSpreadsheet className="w-6 h-6 text-gray-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-800">No submissions found</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {!selectedEvaluationFormId
+                      ? "Select an evaluation form above to get started."
+                      : groupPrefixFilter || evaluationSearchQuery
+                        ? "No records match your current filters."
+                        : "This evaluation form has no submissions yet."}
+                  </p>
+                </div>
+                {(groupPrefixFilter || evaluationSearchQuery) && (
+                  <button
+                    onClick={() => { setGroupPrefixInput(''); setGroupPrefixFilter(''); setEvaluationSearchQuery(''); setEvaluationCurrentPage(1); }}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-gray-100 hover:bg-purple-100 rounded-lg transition-all duration-200"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear filters
+                  </button>
+                )}
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-purple-100 rounded-xl">
-                  <Database className="w-6 h-6 text-purple-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {getTableDisplayName(selectedTable)}
-                </h2>
-              </div>
+          <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3">
-                {selectedTable !== 'industrial_mentors' && (
-                  <button 
+            {/* ── Card header ─────────────────────────────────── */}
+            <div className="px-6 py-5 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <Database className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{getTableDisplayName(selectedTable)}</h2>
+                    <p className="text-xs text-gray-500">Manage {getTableDisplayName(selectedTable).toLowerCase()} records</p>
+                  </div>
+                </div>
+                {selectedTable !== "industrial_mentors" && (
+                  <button
                     onClick={handleAddRecord}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium">
-                    <Plus className="w-5 h-5" />
+                    className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg text-sm transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <Plus className="w-4 h-4" />
                     Add Record
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search in table..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
-                />
+            {/* ── Search + record count toolbar ───────────────── */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder={`Search ${getTableDisplayName(selectedTable)}…`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm transition-all"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-500 font-medium px-3 py-2 bg-white border border-gray-200 rounded-lg shrink-0">
+                  <Database className="w-4 h-4 text-purple-500" />
+                  {filteredData.length.toLocaleString()} record{filteredData.length !== 1 ? "s" : ""}
+                </div>
               </div>
             </div>
 
-            {/* Table */}
-            <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
+            {/* ── Table ───────────────────────────────────────── */}
+            <div className="w-full overflow-x-auto bg-white">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gradient-to-r from-purple-600 to-purple-700">
+                    <tr className="bg-gradient-to-r from-purple-600 to-purple-500">
                       {getTableColumns().map(col => (
-                        <th key={col} className="px-6 py-4 text-center text-sm font-semibold text-white capitalize">
+                        <th key={col} className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
                           {col.replace(/_/g, ' ')}
                         </th>
                       ))}
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {(() => {
                       const startIndex = (currentPage - 1) * recordsPerPage;
                       const endIndex = startIndex + recordsPerPage;
@@ -924,31 +1120,31 @@ const SubAdminDashboard = ({ embedded = false }) => {
                         currentRecords.map((row, index) => (
                         <tr
                           key={row.id || row.enrollment_no || row.mentor_code || index}
-                          className={`hover:bg-gray-50 transition-colors ${
-                            index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                          }`}
+                          className="hover:bg-gray-50 transition-all duration-200"
                         >
                           {getTableColumns().map(col => (
-                            <td key={col} className="px-6 py-4 text-center text-gray-900">
-                              {row[col] || "-"}
+                            <td key={col} className="px-4 py-3 text-center">
+                              <span className={`text-sm ${ !row[col] ? "text-gray-400" : "text-gray-700" }`}>
+                                {row[col] ?? "—"}
+                              </span>
                             </td>
                           ))}
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-2">
-                              <button 
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
                                 onClick={() => handleEditRecord(row)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-200"
                                 title="Edit record"
                               >
-                                <Edit className="w-5 h-5" />
+                                <Edit className="w-4 h-4" />
                               </button>
-                              {selectedTable !== 'industrial_mentors' && (
-                                <button 
+                              {selectedTable !== "industrial_mentors" && (
+                                <button
                                   onClick={() => handleDeleteRecord(row)}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  className="bg-red-50 text-red-600 hover:bg-red-100 rounded-md px-3 py-1 text-sm transition-all duration-200"
                                   title="Delete record"
                                 >
-                                  <Trash2 className="w-5 h-5" />
+                                  Delete
                                 </button>
                               )}
                             </div>
@@ -981,142 +1177,63 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     })()}
                   </tbody>
                 </table>
-              </div>
             </div>
 
             {/* Pagination */}
-            {(() => {
-              const totalPages = Math.ceil(filteredData.length / recordsPerPage);
-              const startIndex = (currentPage - 1) * recordsPerPage;
-              const endIndex = startIndex + recordsPerPage;
-              
-              const handlePageChange = (page) => {
-                setCurrentPage(page);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              };
-              
-              const getPageNumbers = () => {
-                const pageNumbers = [];
-                const maxVisiblePages = 5;
-                
-                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-                
-                if (endPage - startPage < maxVisiblePages - 1) {
-                  startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                }
-                
-                for (let i = startPage; i <= endPage; i++) {
-                  pageNumbers.push(i);
-                }
-                
-                return pageNumbers;
-              };
-              
-              return totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                        currentPage === 1
-                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                          : 'text-gray-700 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                        currentPage === totalPages
-                          ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                          : 'text-gray-700 bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                  
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(endIndex, filteredData.length)}</span> of{' '}
-                        <span className="font-medium">{filteredData.length}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                            currentPage === 1
-                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                              : 'text-gray-500 bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <ChevronLeft className="h-5 w-5" />
-                        </button>
-
-                        {getPageNumbers().map((pageNumber) => (
-                          <button
-                            key={pageNumber}
-                            onClick={() => handlePageChange(pageNumber)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              pageNumber === currentPage
-                                ? 'z-10 bg-purple-50 border-purple-500 text-purple-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        ))}
-
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                            currentPage === totalPages
-                              ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                              : 'text-gray-500 bg-white hover:bg-gray-50'
-                          }`}
-                        >
-                          <ChevronRight className="h-5 w-5" />
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            {filteredData.length > recordsPerPage && (
+              <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50">
+                <p className="text-sm text-gray-500">
+                  Showing{" "}
+                  <span className="font-medium text-gray-900">{((currentPage - 1) * recordsPerPage) + 1}</span>–
+                  <span className="font-medium text-gray-900">{Math.min(currentPage * recordsPerPage, filteredData.length)}</span>{" "}
+                  of{" "}
+                  <span className="font-medium text-gray-900">{filteredData.length.toLocaleString()}</span>{" "}
+                  entries
+                </p>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredData.length / recordsPerPage)}
+                  setCurrentPage={(page) => {
+                    setCurrentPage(page);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  totalItems={filteredData.length}
+                  rowsPerPage={recordsPerPage}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 backdrop-blur-md bg-gray-900/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Add New Record</h2>
+        <div className="fixed inset-0 backdrop-blur-sm bg-gray-900/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200">
+            {/* Modal header */}
+            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Add {getTableDisplayName(selectedTable)}</h2>
+                  <p className="text-xs text-gray-500">Fill in the details below</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
+            <div className="p-6">
             <form onSubmit={handleSubmitAdd}>
               {selectedTable === 'pbl' && (
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Group ID *
                     </label>
                     <input
@@ -1124,7 +1241,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                       value={formData.group_id || ''}
                       onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
                       placeholder="Enter group ID"
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                       required
                     />
                   </div>
@@ -1143,7 +1260,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                               value={student ? `${student.student_name} (${student.enrollment_no})` : ''}
                               placeholder={`Student ${index + 1}`}
                               readOnly
-                              className="w-full px-4 py-2 pr-10 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700"
+                              className="w-full px-3 py-2 pr-9 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-700"
                             />
                             {student && (
                               <button
@@ -1160,35 +1277,35 @@ const SubAdminDashboard = ({ embedded = false }) => {
                       })}
                     </div>
                     <div className="mt-3">
-                      <label className="block text-xs font-semibold text-gray-500 mb-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
                         Search and select students
                       </label>
                       <input
-                        type="text"
-                        value={formData.student_search || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({ ...formData, student_search: value });
-                          if (value.length > 0) {
-                            fetchStudents();
-                            setShowStudentDropdown(true);
-                          } else {
-                            setShowStudentDropdown(false);
-                          }
-                        }}
-                        onFocus={() => {
-                          if ((formData.student_search || '').length > 0) {
-                            fetchStudents();
-                            setShowStudentDropdown(true);
-                          }
-                        }}
-                        placeholder="Start typing student name or enrollment number..."
-                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
-                        autoComplete="off"
-                      />
+                              type="text"
+                              value={formData.student_search || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setFormData({ ...formData, student_search: value });
+                                if (value.length > 0) {
+                                  fetchStudents();
+                                  setShowStudentDropdown(true);
+                                } else {
+                                  setShowStudentDropdown(false);
+                                }
+                              }}
+                              onFocus={() => {
+                                if ((formData.student_search || '').length > 0) {
+                                  fetchStudents();
+                                  setShowStudentDropdown(true);
+                                }
+                              }}
+                              placeholder="Start typing student name or enrollment number..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                              autoComplete="off"
+                            />
                     </div>
                     {showStudentDropdown && studentList.length > 0 && (
-                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {studentList
                           .filter(student => 
                             student.name_of_students.toLowerCase().includes((formData.student_search || '').toLowerCase()) ||
@@ -1229,7 +1346,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
               {/* Mentor Name Dropdown for PBL - Add Modal */}
               {selectedTable === 'pbl' && showAddModal && (
                 <div className="mb-4 relative mentor-dropdown-container">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Mentor Name *
                   </label>
                   <input
@@ -1252,12 +1369,12 @@ const SubAdminDashboard = ({ embedded = false }) => {
                       }
                     }}
                     placeholder="Start typing mentor name..."
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     autoComplete="off"
                     required
                   />
                   {showMentorDropdown && mentorList.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {mentorList
                         .filter(mentor => 
                           mentor.mentor_name.toLowerCase().includes((formData.mentor_name || '').toLowerCase())
@@ -1269,10 +1386,9 @@ const SubAdminDashboard = ({ embedded = false }) => {
                               e.preventDefault(); // Prevent input blur
                               handleMentorSelect(mentor);
                             }}
-                            className="px-4 py-2 hover:bg-purple-50 cursor-pointer transition-colors"
-                          >
-                            <div className="font-medium text-gray-900">{mentor.mentor_name}</div>
-                            <div className="text-sm text-gray-500">Code: {mentor.mentor_code}</div>
+                            className="px-4 py-2.5 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0">
+                            <div className="text-sm font-medium text-gray-900">{mentor.mentor_name}</div>
+                            <div className="text-xs text-gray-500">Code: {mentor.mentor_code}</div>
                           </div>
                         ))
                       }
@@ -1284,45 +1400,54 @@ const SubAdminDashboard = ({ embedded = false }) => {
               <div className="flex items-center gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold"
+                  className="flex-1 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition-all duration-200 hover:scale-[1.02]"
                 >
                   Create Record
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
+                  className="flex-1 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm transition-all duration-200"
                 >
                   Cancel
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 backdrop-blur-md bg-gray-900/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Update Record</h2>
+        <div className="fixed inset-0 backdrop-blur-sm bg-gray-900/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200">
+            {/* Modal header */}
+            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                  <Edit className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Update {getTableDisplayName(selectedTable)}</h2>
+                  <p className="text-xs text-gray-500">Edit the record details below</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
+            <div className="p-6">
             <form onSubmit={handleSubmitEdit}>
               {renderFormFields()}
               
               {/* Mentor Name Dropdown for PBL - Edit Modal */}
               {selectedTable === 'pbl' && (
                 <div className="mb-4 relative mentor-dropdown-container">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Mentor Name *
                   </label>
                   <input
@@ -1345,12 +1470,12 @@ const SubAdminDashboard = ({ embedded = false }) => {
                       }
                     }}
                     placeholder="Start typing mentor name..."
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     autoComplete="off"
                     required
                   />
                   {showMentorDropdown && mentorList.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                       {mentorList
                         .filter(mentor => 
                           mentor.mentor_name.toLowerCase().includes((formData.mentor_name || '').toLowerCase())
@@ -1362,10 +1487,10 @@ const SubAdminDashboard = ({ embedded = false }) => {
                               e.preventDefault();
                               handleMentorSelect(mentor);
                             }}
-                            className="px-4 py-2 hover:bg-purple-50 cursor-pointer transition-colors"
+                            className="px-4 py-2.5 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
                           >
-                            <div className="font-medium text-gray-900">{mentor.mentor_name}</div>
-                            <div className="text-sm text-gray-500">Code: {mentor.mentor_code}</div>
+                            <div className="text-sm font-medium text-gray-900">{mentor.mentor_name}</div>
+                            <div className="text-xs text-gray-500">Code: {mentor.mentor_code}</div>
                           </div>
                         ))
                       }
@@ -1375,8 +1500,8 @@ const SubAdminDashboard = ({ embedded = false }) => {
               )}
               {(selectedTable === 'students' || selectedTable === 'mentors' || selectedTable === 'industrial_mentors') && (
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Update Password (Leave blank to keep current password)
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Update Password <span className="text-gray-400 font-normal">(leave blank to keep current)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -1384,7 +1509,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                       value={formData.password || ''}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Enter new password (optional)"
-                      className="w-full px-4 py-2 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all text-gray-900"
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     />
                     <button
                       type="button"
@@ -1408,19 +1533,20 @@ const SubAdminDashboard = ({ embedded = false }) => {
               <div className="flex items-center gap-3 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-semibold"
+                  className="flex-1 px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition-all duration-200 hover:scale-[1.02]"
                 >
                   Update Record
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
+                  className="flex-1 px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm transition-all duration-200"
                 >
                   Cancel
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

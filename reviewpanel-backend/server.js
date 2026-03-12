@@ -40,6 +40,7 @@ import internshipRoutes from "./src/routes/students/internshipRoutes.js";
 import documentRoutes from "./src/routes/students/documentRoutes.js";
 import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
+import exportRoutes from "./src/routes/admin/exportRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
 // Error handler middleware
@@ -98,6 +99,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reviews", pblReviewRoutes);
 app.use("/api/roles", rolesRoutes); // Role management routes
 app.use("/api/role-access", roleAccessRoutes); // Role-based table access for sub-admins
+app.use("/api/export", exportRoutes); // CSV export for evaluation submissions
 app.use("/api/admin", evaluationFormRoutes); // Admin evaluation form routes
 
 // Newly migrated routes
