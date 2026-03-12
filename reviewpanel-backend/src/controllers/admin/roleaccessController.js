@@ -282,7 +282,7 @@ class RoleAccessController {
         }
 
         const { data: student, error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .insert([{
             enrollment_no,
             name_of_student: name_of_students,
@@ -645,7 +645,7 @@ class RoleAccessController {
         }
 
         const { error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .delete()
           .eq('enrollment_no', id);
         
