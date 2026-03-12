@@ -104,19 +104,22 @@ const IndustryMentorDashboard = () => {
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <MentorHeader name={mentor.name} id={mentor.id} />
-      <div className="flex flex-1 flex-col lg:flex-row mt-[80px]">
+      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <IndustryMentorSidebar />
         <main className="flex-1 p-4 md:p-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
           <div className="max-w-7xl mx-auto">
 
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl md:text-4xl font-bold text-purple-800 mb-3">
-                Welcome, {mentor.name}!
-              </h1>
-              <p className="text-gray-600 text-base md:text-lg">
-                Overview of assigned groups and performance.
-              </p>
+            {/* Welcome Banner */}
+            <div className="rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8" style={{ background: 'linear-gradient(120deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)' }}>
+              <div>
+                <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">Industry Mentor Dashboard</p>
+                <h1 className="text-2xl sm:text-3xl font-bold leading-tight">Welcome, {mentor.name}!</h1>
+                <p className="text-purple-200 text-sm mt-1">Overview of assigned groups and performance.</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/10 border border-white/20 rounded-xl px-4 py-3 self-start sm:self-auto">
+                <span className="text-purple-200 text-xs font-medium">Mentor ID</span>
+                <span className="text-white font-bold text-base">{mentor.id}</span>
+              </div>
             </div>
 
             {/* Stats */}
@@ -129,12 +132,12 @@ const IndustryMentorDashboard = () => {
                 <p className="text-purple-100 font-semibold text-lg">Total Groups</p>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-500/80 to-blue-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl border border-white/20">
+              <div className="bg-gradient-to-br from-violet-500/80 to-violet-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl border border-white/20">
                 <div className="flex items-center justify-between mb-3">
                   <BookOpen className="w-10 h-10 opacity-90" />
                   <span className="text-4xl font-bold">{stats.totalStudents}</span>
                 </div>
-                <p className="text-blue-100 font-semibold text-lg">Total Students</p>
+                <p className="text-violet-100 font-semibold text-lg">Total Students</p>
               </div>
 
               <div className="bg-gradient-to-br from-indigo-500/80 to-indigo-600/80 backdrop-blur-md rounded-2xl p-6 text-white shadow-xl border border-white/20">
@@ -272,11 +275,11 @@ const IndustryMentorDashboard = () => {
 
                 <button
                   onClick={() => navigate('/mentor/settings')}
-                  className="flex items-center gap-4 p-5 bg-blue-50/60 backdrop-blur-sm rounded-xl hover:bg-blue-100/60 transition-colors text-left border-2 border-blue-200/50 hover:border-blue-300/70 shadow-sm hover:shadow-md"
+                  className="flex items-center gap-4 p-5 bg-indigo-50/60 backdrop-blur-sm rounded-xl hover:bg-indigo-100/60 transition-colors text-left border-2 border-indigo-200/50 hover:border-indigo-300/70 shadow-sm hover:shadow-md"
                 >
-                  <TrendingUp className="w-10 h-10 text-blue-600 flex-shrink-0" />
+                  <TrendingUp className="w-10 h-10 text-indigo-600 flex-shrink-0" />
                   <div>
-                    <p className="font-bold text-blue-800 text-lg">Update Profile</p>
+                    <p className="font-bold text-indigo-800 text-lg">Update Profile</p>
                     <p className="text-sm text-gray-600 mt-1">Manage your account</p>
                   </div>
                 </button>

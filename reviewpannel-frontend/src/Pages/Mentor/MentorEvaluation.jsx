@@ -413,11 +413,11 @@ const MentorEvaluation = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff]">
+    <div className="font-[Poppins] min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff] flex flex-col">
       <MentorHeader name={mentorName} id={mentorId} />
-      <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
+      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <MentorSidebar />
-        <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mt-0 sm:mt-1 lg:mt-2 text-gray-900">
+        <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mb-16 lg:mb-4 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
