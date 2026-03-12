@@ -10,7 +10,7 @@ import emailService from '../services/emailService.js';
  */
 class StudentAuthModel {
   constructor() {
-    this.studentsTable = 'students';
+    this.studentsTable = 'students1';
     this.otpStore = new Map(); // Temporary OTP storage
   }
 
