@@ -259,7 +259,7 @@ const MentorSettings = () => {
   return (
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <MentorHeader name={mentor?.name || "Mentor"} id={mentor?.id || "----"} />
-      <div className="flex flex-1 flex-col lg:flex-row mt-[80px]">
+      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <MentorSidebar />
         <main className="flex-1 p-4 md:p-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
           <div className="max-w-6xl mx-auto">

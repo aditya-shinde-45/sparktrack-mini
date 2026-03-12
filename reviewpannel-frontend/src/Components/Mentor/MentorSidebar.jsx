@@ -61,7 +61,7 @@ const MentorSidebar = () => {
     <>
       {/* ─────────────────────── DESKTOP SIDEBAR ─────────────────────── */}
       {isDesktop && (
-        <aside className="fixed top-[88px] left-5 w-[240px] h-[calc(100vh-104px)] flex flex-col rounded-2xl overflow-hidden shadow-2xl z-40"
+        <aside className="fixed top-[80px] left-5 w-[240px] h-[calc(100vh-92px)] flex flex-col rounded-2xl overflow-hidden shadow-2xl z-40"
           style={{ background: 'linear-gradient(160deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)' }}
         >
           {/* Subtle grid texture overlay */}

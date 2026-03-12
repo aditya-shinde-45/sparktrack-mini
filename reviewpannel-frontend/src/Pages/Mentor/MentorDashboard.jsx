@@ -99,25 +99,25 @@ const MentorDashboard = () => {
       label: "Total Students",
       value: stats.totalStudents,
       icon: BookOpen,
-      from: "from-blue-500",
-      to: "to-blue-700",
-      light: "text-blue-100",
+      from: "from-violet-500",
+      to: "to-violet-700",
+      light: "text-violet-100",
     },
     {
       label: "Pending Reviews",
       value: stats.pendingReviews,
       icon: Award,
-      from: "from-orange-500",
-      to: "to-orange-700",
-      light: "text-orange-100",
+      from: "from-indigo-500",
+      to: "to-indigo-700",
+      light: "text-indigo-100",
     },
     {
       label: "Deadlines",
       value: stats.upcomingDeadlines,
       icon: Calendar,
-      from: "from-green-500",
-      to: "to-green-700",
-      light: "text-green-100",
+      from: "from-purple-400",
+      to: "to-indigo-600",
+      light: "text-purple-100",
     },
   ];
 
@@ -133,14 +133,14 @@ const MentorDashboard = () => {
       label: "View Schedule",
       desc: "Check upcoming deadlines",
       icon: Calendar,
-      color: "blue",
+      color: "indigo",
       path: "/mentor/schedule",
     },
     {
       label: "Track Progress",
       desc: "Monitor group performance",
       icon: TrendingUp,
-      color: "green",
+      color: "violet",
       path: "/mentor/groups",
     },
   ];
@@ -152,17 +152,17 @@ const MentorDashboard = () => {
       icon: "text-purple-600",
       title: "text-purple-800",
     },
-    blue: {
-      bg: "bg-blue-50 hover:bg-blue-100",
-      border: "border-blue-200 hover:border-blue-400",
-      icon: "text-blue-600",
-      title: "text-blue-800",
+    indigo: {
+      bg: "bg-indigo-50 hover:bg-indigo-100",
+      border: "border-indigo-200 hover:border-indigo-400",
+      icon: "text-indigo-600",
+      title: "text-indigo-800",
     },
-    green: {
-      bg: "bg-green-50 hover:bg-green-100",
-      border: "border-green-200 hover:border-green-400",
-      icon: "text-green-600",
-      title: "text-green-800",
+    violet: {
+      bg: "bg-violet-50 hover:bg-violet-100",
+      border: "border-violet-200 hover:border-violet-400",
+      icon: "text-violet-600",
+      title: "text-violet-800",
     },
   };
 
@@ -170,14 +170,14 @@ const MentorDashboard = () => {
     <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <MentorHeader name={mentor.name} id={mentor.id} />
 
-      <div className="flex flex-1 flex-col lg:flex-row mt-[80px]">
+      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <MentorSidebar />
 
         <main className="flex-1 px-3 py-5 sm:px-5 md:px-8 bg-gray-50 lg:ml-72 mb-16 lg:mb-0">
           <div className="max-w-7xl mx-auto space-y-6">
 
             {/* ── Welcome Banner ── */}
-            <div className="bg-gradient-to-r from-purple-700 to-indigo-600 rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" style={{ background: 'linear-gradient(120deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)' }}>
               <div>
                 <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">
                   Faculty Dashboard
