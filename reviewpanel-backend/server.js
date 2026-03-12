@@ -60,6 +60,13 @@ app.use(cors({
   credentials: false,
 }));
 
+// Explicit OPTIONS handler for Lambda preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
 
 // Basic middleware
 app.use(express.json());

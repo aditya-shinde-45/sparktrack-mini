@@ -16,8 +16,31 @@ export const handler = async (event, context) => {
 		method: event?.httpMethod || event?.requestContext?.http?.method || 'unknown'
 	});
 
+	// Handle preflight OPTIONS requests directly at Lambda level
+	if (event?.requestContext?.http?.method === 'OPTIONS' || event?.httpMethod === 'OPTIONS') {
+		console.log('◀ Lambda handler: Returning CORS preflight response');
+		return {
+			statusCode: 200,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+				'Access-Control-Max-Age': '86400',
+			},
+			body: '',
+		};
+	}
+
 	try {
 		const result = await server(event, context);
+		
+		// Ensure CORS headers are present in the response
+		if (result && result.headers) {
+			result.headers['Access-Control-Allow-Origin'] = '*';
+			result.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH';
+			result.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+		}
+		
 		console.log('◀ Lambda handler completed');
 		return result;
 	} catch (err) {
