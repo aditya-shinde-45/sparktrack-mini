@@ -20,7 +20,7 @@ class DashboardController {
     
     // Count total students
     const { count: studentCount, error: studentError } = await supabase
-      .from('students')
+      .from('students1')
       .select('*', { count: 'exact', head: true })
       .match(filters);
       
@@ -181,7 +181,7 @@ class DashboardController {
     
     // Get student distribution by class
     const { data: studentsData, error: studentsError } = await supabase
-      .from('students')
+      .from('students1')
       .select('class');
       
     if (studentsError) throw new ApiError(500, `Error fetching student distribution: ${studentsError.message}`);
@@ -286,7 +286,7 @@ class DashboardController {
     
     // Count total students
     const { count: studentCount, error: studentError } = await supabase
-      .from('students')
+      .from('students1')
       .select('*', { count: 'exact', head: true })
       .match(filters);
       
@@ -458,7 +458,7 @@ class DashboardController {
     
     // Get student distribution by class
     const { data: studentsData, error: studentsError } = await supabase
-      .from('students')
+      .from('students1')
       .select('class')
       .match(filters);
       
@@ -565,7 +565,7 @@ class DashboardController {
     
     // Count students
     const { count: studentCount, error: studentError } = await supabase
-      .from('students')
+      .from('students1')
       .select('*', { count: 'exact', head: true })
       .match(filters);
       

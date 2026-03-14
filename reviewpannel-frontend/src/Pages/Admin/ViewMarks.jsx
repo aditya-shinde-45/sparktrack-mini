@@ -22,8 +22,31 @@ const ViewMarks = () => {
   const [allStudentsForCSV, setAllStudentsForCSV] = useState([]);
   const [sortBy, setSortBy] = useState("group_id");
   const [sortOrder, setSortOrder] = useState("asc");
+  const [savingRowKey, setSavingRowKey] = useState(null);
+  const [saveMessage, setSaveMessage] = useState("");
   const rowsPerPage = 50;
   const csvLinkRef = React.useRef(null);
+
+  const normalizeFieldType = React.useCallback((field) => {
+    return field?.type || (Number(field?.max_marks) === 0 ? "boolean" : "number");
+  }, []);
+
+  const clampNumberByField = React.useCallback((field, value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return "";
+    const min = 0;
+    const max = Number(field?.max_marks) || 0;
+    if (parsed < min) return min;
+    if (parsed > max) return max;
+    return parsed;
+  }, []);
+
+  const calculateTotalFromMarks = React.useCallback((marks) => {
+    return formFields.reduce((sum, field) => {
+      if (normalizeFieldType(field) !== "number") return sum;
+      return sum + (Number(marks?.[field.key]) || 0);
+    }, 0);
+  }, [formFields, normalizeFieldType]);
 
   const computedTotal = React.useMemo(() => {
     return formFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
@@ -118,6 +141,110 @@ const ViewMarks = () => {
       setFormTotalMarks(0);
     }
   };
+
+  const handleFormMarkChange = React.useCallback((student, field, value) => {
+    const enrollmentNo = student.enrollment_no || student.enrollement_no;
+    if (!enrollmentNo) return;
+
+    const fieldType = normalizeFieldType(field);
+    const nextValue = fieldType === "number"
+      ? (value === "" ? "" : clampNumberByField(field, value))
+      : (fieldType === "boolean" ? Boolean(value) : value);
+
+    setStudents((prev) => prev.map((row) => {
+      const rowEnrollment = row.enrollment_no || row.enrollement_no;
+      if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+        return row;
+      }
+
+      const updatedMarks = {
+        ...(row.marks || {}),
+        [field.key]: nextValue
+      };
+
+      return {
+        ...row,
+        marks: updatedMarks,
+        total: calculateTotalFromMarks(updatedMarks)
+      };
+    }));
+
+    setAllStudentsForCSV((prev) => prev.map((row) => {
+      const rowEnrollment = row.enrollment_no || row.enrollement_no;
+      if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+        return row;
+      }
+
+      const updatedMarks = {
+        ...(row.marks || {}),
+        [field.key]: nextValue
+      };
+
+      return {
+        ...row,
+        marks: updatedMarks,
+        total: calculateTotalFromMarks(updatedMarks)
+      };
+    }));
+  }, [calculateTotalFromMarks, clampNumberByField, normalizeFieldType]);
+
+  const handleSaveFormRow = React.useCallback(async (student) => {
+    if (!selectedFormId) return;
+
+    const enrollmentNo = student.enrollment_no || student.enrollement_no;
+    if (!student.submission_id || !enrollmentNo) {
+      alert("Missing submission/student identifier, cannot save marks.");
+      return;
+    }
+
+    setSaveMessage("");
+    const rowKey = `${student.submission_id}:${enrollmentNo}`;
+    setSavingRowKey(rowKey);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await apiRequest(
+        `/api/admin/evaluation-forms/${selectedFormId}/submissions/${student.submission_id}/students/${encodeURIComponent(enrollmentNo)}`,
+        "PUT",
+        { marks: student.marks || {} },
+        token
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || "Failed to update marks");
+      }
+
+      const updatedRow = response.data || {};
+
+      setStudents((prev) => prev.map((row) => {
+        const rowEnrollment = row.enrollment_no || row.enrollement_no;
+        if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+          return row;
+        }
+        return {
+          ...row,
+          ...updatedRow
+        };
+      }));
+
+      setAllStudentsForCSV((prev) => prev.map((row) => {
+        const rowEnrollment = row.enrollment_no || row.enrollement_no;
+        if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+          return row;
+        }
+        return {
+          ...row,
+          ...updatedRow
+        };
+      }));
+
+      setSaveMessage(`Saved marks for ${updatedRow.student_name || student.student_name || enrollmentNo}`);
+    } catch (err) {
+      alert(err.message || "Failed to save marks");
+    } finally {
+      setSavingRowKey(null);
+    }
+  }, [selectedFormId]);
 
   // Fetch all students for CSV export (no pagination)
   const fetchAllStudentsForCSV = async (formId, search = "") => {
@@ -228,6 +355,11 @@ const ViewMarks = () => {
 
             {/* Search */}
             <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
+              {saveMessage && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded-md">
+                  <p className="text-green-700 text-sm font-semibold">{saveMessage}</p>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -337,6 +469,10 @@ const ViewMarks = () => {
                     reviewType="form"
                     formFields={formFields}
                     totalMarks={formTotalMarks || computedTotal}
+                    editableFormMarks={true}
+                    onFormMarkChange={handleFormMarkChange}
+                    onSaveFormRow={handleSaveFormRow}
+                    savingRowKey={savingRowKey}
                   />
                 </div>
               </div>

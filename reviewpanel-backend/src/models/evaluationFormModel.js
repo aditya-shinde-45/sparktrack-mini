@@ -112,6 +112,31 @@ class EvaluationFormModel {
     return data || null;
   }
 
+  async getSubmissionById(submissionId, formId) {
+    const { data, error } = await supabase
+      .from(this.submissionsTable)
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .eq('id', submissionId)
+      .eq('form_id', formId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data || null;
+  }
+
+  async updateSubmission(submissionId, formId, payload) {
+    const { data, error } = await supabase
+      .from(this.submissionsTable)
+      .update(payload)
+      .eq('id', submissionId)
+      .eq('form_id', formId)
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
   async deleteSubmission(submissionId, formId) {
     const { data, error } = await supabase
       .from(this.submissionsTable)

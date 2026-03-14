@@ -21,7 +21,11 @@ class RoleAccessController {
       throw ApiError.forbidden('No table permissions found');
     }
     
-    if (!tablePermissions.includes(tableName)) {
+    const hasTableAccess = tablePermissions.includes(tableName)
+      || (tableName === 'students1' && tablePermissions.includes('students'))
+      || (tableName === 'students' && tablePermissions.includes('students1'));
+
+    if (!hasTableAccess) {
       throw ApiError.forbidden(`You don't have permission to access ${tableName} table`);
     }
   };
@@ -31,6 +35,7 @@ class RoleAccessController {
    */
   getModel = (tableName) => {
     const models = {
+      students1: studentModel,
       students: studentModel,
       mentors: mentorModel,
       pbl: pblModel,
@@ -54,6 +59,7 @@ class RoleAccessController {
     let records;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         records = await studentModel.getAllWithProfiles();
         break;
@@ -212,6 +218,7 @@ class RoleAccessController {
     let record;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         record = await studentModel.getByEnrollmentNo(id);
         break;
@@ -267,6 +274,7 @@ class RoleAccessController {
     let newRecord;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Validate required student fields
         const { enrollment_no, name_of_students, email_id, class: studentClass } = recordData;
@@ -282,7 +290,7 @@ class RoleAccessController {
         }
 
         const { data: student, error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .insert([{
             enrollment_no,
             name_of_student: name_of_students,
@@ -528,6 +536,7 @@ class RoleAccessController {
     let updatedRecord;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Use the existing model method if available
         updatedRecord = await studentModel.updateStudent(id, updateData);
@@ -637,6 +646,7 @@ class RoleAccessController {
     }
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Check if student exists
         const student = await studentModel.getByEnrollmentNo(id);
@@ -645,7 +655,7 @@ class RoleAccessController {
         }
 
         const { error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .delete()
           .eq('enrollment_no', id);
         
