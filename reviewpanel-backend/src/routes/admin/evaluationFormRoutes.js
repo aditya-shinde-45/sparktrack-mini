@@ -1,5 +1,5 @@
 import express from 'express';
-import evaluationFormController from '../../controllers/admin/evaluationFormController.js';
+import evaluationFormController, { uploadEvaluationFileMiddleware } from '../../controllers/admin/evaluationFormController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -77,6 +77,19 @@ router.post(
 );
 
 /**
+ * @route   POST /api/admin/evaluation-forms/:formId/upload
+ * @desc    Upload a file for evaluation fields
+ * @access  Private (Admin)
+ */
+router.post(
+  '/evaluation-forms/:formId/upload',
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
+  uploadEvaluationFileMiddleware,
+  evaluationFormController.uploadEvaluationFile
+);
+
+/**
  * @route   GET /api/admin/evaluation-forms/:formId/submissions
  * @desc    List submissions for an evaluation form
  * @access  Private (Admin)
@@ -98,6 +111,18 @@ router.delete(
   authMiddleware.verifyToken,
   authMiddleware.authenticateAdmin,
   evaluationFormController.deleteSubmission
+);
+
+/**
+ * @route   PUT /api/admin/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo
+ * @desc    Update marks for a specific student inside a submission
+ * @access  Private (Admin)
+ */
+router.put(
+  '/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo',
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
+  evaluationFormController.updateSubmissionStudentMarks
 );
 
 export default router;

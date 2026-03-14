@@ -1,7 +1,19 @@
 import React from "react";
 import { Eye, Trash2 } from "lucide-react";
 
-const MarksTable = ({ students, loading, error, reviewType = "review1", formFields = [], totalMarks = 0, onDeleteGroup }) => {
+const MarksTable = ({
+  students,
+  loading,
+  error,
+  reviewType = "review1",
+  formFields = [],
+  totalMarks = 0,
+  onDeleteGroup,
+  editableFormMarks = false,
+  onFormMarkChange,
+  onSaveFormRow,
+  savingRowKey = null,
+}) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
   const isForm = reviewType === "form";
@@ -72,6 +84,11 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 {showDelete && (
                   <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
                     Actions
+                  </th>
+                )}
+                {editableFormMarks && (
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
+                    Save
                   </th>
                 )}
               </>
@@ -160,7 +177,31 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                   <>
                     {normalizedFormFields.map((field) => (
                       <td key={field.key} className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                        {field.type === "boolean" ? (
+                        {editableFormMarks && field.type === "number" ? (
+                          <input
+                            type="number"
+                            value={student.marks?.[field.key] ?? ""}
+                            min={0}
+                            max={Number(field.max_marks) || undefined}
+                            step="0.01"
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.value)}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                        ) : editableFormMarks && field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(student.marks?.[field.key])}
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.checked)}
+                            className="w-4 h-4 accent-purple-600"
+                          />
+                        ) : editableFormMarks ? (
+                          <input
+                            type="text"
+                            value={student.marks?.[field.key] ?? ""}
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.value)}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                        ) : field.type === "boolean" ? (
                           <input
                             type="checkbox"
                             checked={Boolean(student.marks?.[field.key])}
@@ -190,6 +231,18 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                         >
                           <Trash2 className="w-3 h-3" />
                           Delete
+                        </button>
+                      </td>
+                    )}
+                    {editableFormMarks && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => onSaveFormRow?.(student)}
+                          disabled={savingRowKey === `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {savingRowKey === `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}` ? "Saving..." : "Save"}
                         </button>
                       </td>
                     )}

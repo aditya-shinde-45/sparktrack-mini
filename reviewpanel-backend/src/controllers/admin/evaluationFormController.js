@@ -26,6 +26,22 @@ const normalizeAllowedYears = (years) => {
   return Array.from(new Set(normalized));
 };
 
+const normalizeFieldType = (field = {}) => {
+  if (field.type) return field.type;
+  return Number(field.max_marks) > 0 ? 'number' : 'boolean';
+};
+
+const coerceBooleanValue = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n', ''].includes(normalized)) return false;
+  }
+  return Boolean(value);
+};
+
 class EvaluationFormController {
   listForms = asyncHandler(async (req, res) => {
     const forms = await evaluationFormModel.listForms();
@@ -388,6 +404,114 @@ class EvaluationFormController {
     }
 
     return ApiResponse.success(res, 'Evaluation submission deleted successfully', null);
+  });
+
+  updateSubmissionStudentMarks = asyncHandler(async (req, res) => {
+    const { formId, submissionId, enrollmentNo } = req.params;
+    const { marks } = req.body || {};
+
+    if (!formId || !submissionId || !enrollmentNo) {
+      throw ApiError.badRequest('Form ID, submission ID and enrollment number are required');
+    }
+
+    if (!marks || typeof marks !== 'object' || Array.isArray(marks)) {
+      throw ApiError.badRequest('Marks object is required');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    const fields = Array.isArray(form.fields) ? form.fields : [];
+    const fieldMap = new Map(fields.map((field) => [field.key, field]));
+
+    const submission = await evaluationFormModel.getSubmissionById(submissionId, formId);
+    if (!submission) {
+      throw ApiError.notFound('Submission not found');
+    }
+
+    const normalizedEnrollment = String(enrollmentNo).trim();
+    const evaluations = Array.isArray(submission.evaluations) ? [...submission.evaluations] : [];
+
+    const studentIndex = evaluations.findIndex((item) => {
+      const itemEnrollment = String(item?.enrollment_no || item?.enrollement_no || '').trim();
+      return itemEnrollment === normalizedEnrollment;
+    });
+
+    if (studentIndex === -1) {
+      throw ApiError.notFound('Student evaluation not found in this submission');
+    }
+
+    const currentEvaluation = evaluations[studentIndex] || {};
+    const mergedMarks = { ...(currentEvaluation.marks || {}) };
+
+    for (const [key, rawValue] of Object.entries(marks)) {
+      const field = fieldMap.get(key);
+      if (!field) {
+        throw ApiError.badRequest(`Invalid mark field: ${key}`);
+      }
+
+      const fieldType = normalizeFieldType(field);
+
+      if (fieldType === 'number') {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          mergedMarks[key] = 0;
+          continue;
+        }
+
+        const numericValue = Number(rawValue);
+        if (Number.isNaN(numericValue)) {
+          throw ApiError.badRequest(`Invalid numeric value for field: ${key}`);
+        }
+
+        const minMarks = 0;
+        const maxMarks = Number(field.max_marks) || 0;
+        if (numericValue < minMarks || numericValue > maxMarks) {
+          throw ApiError.badRequest(`Field ${key} must be between ${minMarks} and ${maxMarks}`);
+        }
+
+        mergedMarks[key] = numericValue;
+        continue;
+      }
+
+      if (fieldType === 'boolean') {
+        mergedMarks[key] = coerceBooleanValue(rawValue);
+        continue;
+      }
+
+      mergedMarks[key] = rawValue ?? '';
+    }
+
+    const total = fields.reduce((sum, field) => {
+      if (normalizeFieldType(field) !== 'number') return sum;
+      return sum + (Number(mergedMarks[field.key]) || 0);
+    }, 0);
+
+    const updatedEvaluation = {
+      ...currentEvaluation,
+      marks: mergedMarks,
+      total
+    };
+
+    evaluations[studentIndex] = updatedEvaluation;
+
+    const updatedSubmission = await evaluationFormModel.updateSubmission(submissionId, formId, {
+      evaluations
+    });
+
+    return ApiResponse.success(res, 'Student marks updated successfully', {
+      submission_id: updatedSubmission.id,
+      group_id: updatedSubmission.group_id,
+      external_name: updatedSubmission.external_name,
+      feedback: updatedSubmission.feedback,
+      created_at: updatedSubmission.created_at,
+      enrollment_no: updatedEvaluation.enrollment_no || updatedEvaluation.enrollement_no,
+      student_name: updatedEvaluation.student_name || updatedEvaluation.name_of_student,
+      marks: updatedEvaluation.marks || {},
+      total: updatedEvaluation.total ?? 0,
+      absent: updatedEvaluation.absent || false
+    });
   });
 }
 
