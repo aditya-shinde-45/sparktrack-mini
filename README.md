@@ -233,6 +233,6 @@ This project is licensed under the MIT License.
 **Developed by StrawHats Team**  
 Full Stack Developer | Cloud & DevOps Enthusiast  
 
-© 2025 - 2026 SparkTrack 
+© 2025 SparkTrack 
 
 </div>
