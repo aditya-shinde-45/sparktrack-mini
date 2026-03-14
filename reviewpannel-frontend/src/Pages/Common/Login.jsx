@@ -43,6 +43,15 @@ const Login = () => {
 
   // External login removed
 
+  const validatePasswordStrength = (pw) => {
+    if (!pw || pw.length < 8) return { valid: false, message: 'Password must be at least 8 characters long.' };
+    if (!/[A-Z]/.test(pw)) return { valid: false, message: 'Password must contain at least one uppercase letter.' };
+    if (!/[a-z]/.test(pw)) return { valid: false, message: 'Password must contain at least one lowercase letter.' };
+    if (!/[0-9]/.test(pw)) return { valid: false, message: 'Password must contain at least one number.' };
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(pw)) return { valid: false, message: 'Password must contain at least one special character.' };
+    return { valid: true };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -355,8 +364,9 @@ const Login = () => {
       setOtpError('Passwords do not match.');
       return;
     }
-    if (mentorPassword.length < 6) {
-      setOtpError('Password must be at least 6 characters long.');
+    const pwCheck = validatePasswordStrength(mentorPassword);
+    if (!pwCheck.valid) {
+      setOtpError(pwCheck.message);
       return;
     }
 
@@ -482,8 +492,9 @@ const Login = () => {
       setFpError('Passwords do not match.');
       return;
     }
-    if (fpPassword.length < 6) {
-      setFpError('Password must be at least 6 characters long.');
+    const pwCheck = validatePasswordStrength(fpPassword);
+    if (!pwCheck.valid) {
+      setFpError(pwCheck.message);
       return;
     }
     try {
@@ -787,11 +798,11 @@ const Login = () => {
                     className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
                              text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
                              focus:border-white/60 transition-all duration-300 shadow-lg"
-                    placeholder="New Password (min 6 characters)"
+                    placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                     value={mentorPassword}
                     onChange={(e) => setMentorPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={otpModalLoading}
                   />
                   <input
@@ -987,11 +998,11 @@ const Login = () => {
                     className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
                              text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
                              focus:border-white/60 transition-all duration-300 shadow-lg"
-                    placeholder="New Password (min 6 characters)"
+                    placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                     value={fpPassword}
                     onChange={(e) => setFpPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={fpLoading}
                   />
                   <input

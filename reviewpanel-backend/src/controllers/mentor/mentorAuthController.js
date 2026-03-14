@@ -7,6 +7,7 @@ import supabase from '../../config/database.js';
 import config from '../../config/index.js';
 import mentorOTPService from '../../services/mentorOTPService.js';
 import emailService from '../../services/emailService.js';
+import { validatePassword } from '../../utils/passwordValidator.js';
 
 class MentorAuthController {
   checkMentorStatus = asyncHandler(async (req, res) => {
@@ -52,7 +53,7 @@ class MentorAuthController {
     }
 
     // Generate OTP and session token
-    const { sessionToken, otp, expiresInMinutes } = mentorOTPService.createOTP(
+    const { sessionToken, otp, expiresInMinutes } = await mentorOTPService.createOTP(
       contact_number,
       mentor.email,
       mentor.mentor_name
@@ -84,7 +85,7 @@ class MentorAuthController {
       throw ApiError.badRequest('Session token and OTP are required');
     }
 
-    const result = mentorOTPService.verifyOTP(session_token, otp);
+    const result = await mentorOTPService.verifyOTP(session_token, otp);
 
     if (!result.success) {
       // 429 if max attempts exceeded, 400 otherwise
@@ -111,15 +112,22 @@ class MentorAuthController {
       throw ApiError.badRequest('Passwords do not match');
     }
 
+    // Validate password strength before checking OTP session
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+      throw ApiError.badRequest(pwCheck.message);
+    }
+
     // Ensure the OTP session is verified for this contact number
-    if (!mentorOTPService.isVerified(session_token, contact_number)) {
-      throw ApiError.unauthorized('OTP not verified or session expired. Please verify your OTP first.');
+    const verified = await mentorOTPService.isVerified(session_token, contact_number);
+    if (!verified) {
+      throw ApiError.unauthorized('OTP session expired. Please restart the password setup process.');
     }
 
     await mentorModel.setPassword(contact_number, password);
 
     // Invalidate the OTP session so it cannot be reused
-    mentorOTPService.invalidateSession(session_token);
+    await mentorOTPService.invalidateSession(session_token);
 
     return ApiResponse.success(res, 'Password set successfully', { contact_number });
   });

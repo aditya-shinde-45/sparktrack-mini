@@ -273,16 +273,16 @@ const IndustryMentorGroups = () => {
         <IndustryMentorSidebar />
 
         <main className="flex-1 lg:ml-72 pb-8">
-          <div className="bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] px-4 py-8">
-            <div className="w-full">
+          <div className="bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] px-6 py-8">
+            <div className="max-w-7xl mx-auto">
               <h1 className="text-2xl font-bold text-white">Evaluation Dashboard</h1>
               <p className="text-purple-100 text-sm mt-1">Review marks and student performance</p>
             </div>
           </div>
 
-          <div className="w-full px-4 -mt-4">
+          <div className="max-w-7xl mx-auto px-6 -mt-4">
             {/* Group Selector */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
               <div className="flex gap-4 items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Group</label>
@@ -327,7 +327,7 @@ const IndustryMentorGroups = () => {
             )}
 
             {/* Evaluation Table */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="px-4 py-3 bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">Evaluation Marks</h2>
                 <span className="text-xs text-purple-100">

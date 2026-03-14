@@ -5,6 +5,8 @@ import emailService from '../../services/emailService.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
+const SPARKTRACK_URL = 'https://sparktrack-mini-8pjs.vercel.app/';
+
 const buildCredentialsEmail = (name, loginId, password) => {
   const subject = 'Your SparkTrack Industrial Mentor Login Credentials';
   const text = `Dear ${name},
@@ -13,6 +15,8 @@ Your industrial mentor account has been created on SparkTrack (MIT ADT Universit
 
 Login ID: ${loginId}
 Temporary Password: ${password}
+
+Login here: ${SPARKTRACK_URL}
 
 Please login and change your password after your first sign-in.
 
@@ -51,9 +55,95 @@ MIT ADT University`;
                   <p style="margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:#6b5bdf;">Temporary Password</p>
                   <p style="margin:0; font-size:16px; font-weight:700; color:#1f2937;">${password}</p>
                 </div>
-                <p style="margin:20px 0 0; font-size:13px; color:#6b7280;">
+                <div style="margin:24px 0; text-align:center;">
+                  <a href="${SPARKTRACK_URL}" target="_blank"
+                     style="display:inline-block; background:linear-gradient(135deg,#6b5bdf,#4c1d95); color:#ffffff;
+                            text-decoration:none; padding:14px 32px; border-radius:10px; font-size:15px;
+                            font-weight:700; letter-spacing:0.04em;">
+                    Login to SparkTrack
+                  </a>
+                  <p style="margin:8px 0 0; font-size:12px; color:#9ca3af;">
+                    or copy this link: <a href="${SPARKTRACK_URL}" style="color:#6b5bdf;">${SPARKTRACK_URL}</a>
+                  </p>
+                </div>
+                <p style="margin:4px 0 0; font-size:13px; color:#6b7280;">
                   Please login and change your password after your first sign-in.
                 </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 28px; background:#f9f7ff; color:#6b7280; font-size:12px;">
+                <p style="margin:0;">SparkTrack | MIT ADT University</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+};
+
+const buildLinkNotificationEmail = (name, loginId) => {
+  const subject = 'SparkTrack – You have been added to a new class';
+  const text = `Dear ${name},
+
+You have been linked to an additional faculty class on SparkTrack (MIT ADT University).
+
+You can continue to use your existing login credentials to access the portal:
+
+Login ID: ${loginId}
+Portal: ${SPARKTRACK_URL}
+
+If you have any questions, please contact your faculty mentor.
+
+Regards,
+SparkTrack Team
+MIT ADT University`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SparkTrack – New Class Access</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f5f4fb; font-family: Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4fb; padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 10px 30px rgba(88, 74, 170, 0.18);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#6b5bdf,#4c1d95); padding:28px; color:#ffffff;">
+                <p style="margin:0; font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#d9d4ff;">MIT ADT University</p>
+                <h1 style="margin:10px 0 0; font-size:24px; font-weight:700;">SparkTrack Industrial Mentor</h1>
+                <p style="margin:8px 0 0; font-size:14px; color:#efeaff;">You have been added to a new class.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px; color:#1f2937;">
+                <p style="margin:0 0 12px; font-size:16px;">Dear <strong>${name}</strong>,</p>
+                <p style="margin:0 0 20px; font-size:14px; color:#4b5563;">
+                  A faculty mentor has linked your account to their class on SparkTrack.
+                  You can use your existing credentials to log in.
+                </p>
+                <div style="background:#f3f0ff; border-radius:12px; padding:16px; border:1px solid #e5defa;">
+                  <p style="margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:#6b5bdf;">Login ID</p>
+                  <p style="margin:0; font-size:16px; font-weight:700; color:#1f2937;">${loginId}</p>
+                </div>
+                <div style="margin:24px 0; text-align:center;">
+                  <a href="${SPARKTRACK_URL}" target="_blank"
+                     style="display:inline-block; background:linear-gradient(135deg,#6b5bdf,#4c1d95); color:#ffffff;
+                            text-decoration:none; padding:14px 32px; border-radius:10px; font-size:15px;
+                            font-weight:700; letter-spacing:0.04em;">
+                    Login to SparkTrack
+                  </a>
+                  <p style="margin:8px 0 0; font-size:12px; color:#9ca3af;">
+                    or copy this link: <a href="${SPARKTRACK_URL}" style="color:#6b5bdf;">${SPARKTRACK_URL}</a>
+                  </p>
+                </div>
               </td>
             </tr>
             <tr>
@@ -80,7 +170,22 @@ class IndustrialMentorController {
     }
 
     const records = await industrialMentorModel.getByMentorCode(mentorCode);
-    const safeRecords = records.map(({ password, ...rest }) => rest);
+
+    // Linked rows store email: null to avoid the UNIQUE DB constraint.
+    // Resolve the real email by looking up any other row with the same contact.
+    const resolvedRecords = await Promise.all(
+      records.map(async (record) => {
+        if (!record.email && record.contact) {
+          const source = await industrialMentorModel.getOneByContact(record.contact);
+          if (source && source.email) {
+            return { ...record, email: source.email };
+          }
+        }
+        return record;
+      })
+    );
+
+    const safeRecords = resolvedRecords.map(({ password, ...rest }) => rest);
 
     return ApiResponse.success(res, 'Industrial mentors retrieved successfully.', {
       industrialMentors: safeRecords
@@ -263,26 +368,44 @@ class IndustrialMentorController {
     return ApiResponse.success(res, 'Industrial mentor deleted successfully.');
   });
 
-  // Search an existing industry mentor by their code or contact number
+  // Search an existing industry mentor by their code, contact number, or name
   // so the faculty can preview before linking
   searchIndustrialMentor = asyncHandler(async (req, res) => {
-    const { query } = req.query; // industrial_mentor_code or contact
+    const { query } = req.query; // industrial_mentor_code, contact, or name
 
     if (!query) {
-      throw ApiError.badRequest('Search query (code or contact) is required.');
+      throw ApiError.badRequest('Search query (code, contact, or name) is required.');
     }
 
+    // 1. Try exact code match
     let record = await industrialMentorModel.getByIndustrialMentorCode(query.trim().toUpperCase());
+
+    // 2. Try contact match
     if (!record) {
       record = await industrialMentorModel.getOneByContact(query.trim());
     }
 
-    if (!record) {
-      throw ApiError.notFound('No industry mentor found with that code or contact.');
+    // 3. If exact match found, return single result
+    if (record) {
+      // Resolve email if this is a linked row (email: null)
+      if (!record.email && record.contact) {
+        const source = await industrialMentorModel.getOneByContact(record.contact);
+        if (source && source.email) {
+          record = { ...record, email: source.email };
+        }
+      }
+      const { password, ...safe } = record;
+      return ApiResponse.success(res, 'Industry mentor found.', { industrialMentor: safe, results: [] });
     }
 
-    const { password, ...safe } = record;
-    return ApiResponse.success(res, 'Industry mentor found.', { industrialMentor: safe });
+    // 4. Fall back to name search — return list for dropdown
+    const nameResults = await industrialMentorModel.searchByName(query.trim());
+    if (!nameResults || nameResults.length === 0) {
+      throw ApiError.notFound('No industry mentor found with that code, contact, or name.');
+    }
+
+    const safeResults = nameResults.map(({ password, ...rest }) => rest);
+    return ApiResponse.success(res, 'Industry mentors found.', { industrialMentor: null, results: safeResults });
   });
 
   // Link an existing industry mentor to the current faculty's class.
@@ -344,6 +467,17 @@ class IndustrialMentorController {
       throw err;
     }
     const { password, ...safe } = record;
+
+    // Send notification email to the mentor's original email (stored on source row)
+    if (source.email) {
+      try {
+        const loginId = String(source.contact || '').trim();
+        const { subject, text, html } = buildLinkNotificationEmail(source.name, loginId);
+        await emailService.sendMail(source.email, subject, text, html);
+      } catch (emailErr) {
+        console.error('Link notification email failed (non-fatal):', emailErr.message);
+      }
+    }
 
     return ApiResponse.success(
       res,

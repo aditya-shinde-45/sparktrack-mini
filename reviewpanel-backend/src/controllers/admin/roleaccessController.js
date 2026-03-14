@@ -132,7 +132,7 @@ class RoleAccessController {
         }));
         break;
 
-      case 'evaluation_form_submission':
+      case 'evaluation_form_submission': {
         if (forms === '1') {
           const evalForms = await evaluationFormModel.listForms();
           return ApiResponse.success(res, 'Evaluation forms retrieved successfully', { forms: evalForms || [] });
@@ -142,9 +142,19 @@ class RoleAccessController {
           throw ApiError.badRequest('Form ID is required');
         }
 
+        const { groupPrefix } = req.query;
         const evalForm = await evaluationFormModel.getFormById(formId);
-        const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
-        const normalizedSearch = (search || '').toLowerCase();
+        let submissions = await evaluationFormModel.listSubmissionsByForm(formId);
+
+        // Filter by group_id prefix if provided (case-insensitive, leading/trailing whitespace tolerant)
+        if (groupPrefix && groupPrefix.trim() !== '') {
+          const prefix = groupPrefix.trim().toLowerCase();
+          submissions = submissions.filter(sub =>
+            String(sub.group_id || '').toLowerCase().startsWith(prefix)
+          );
+        }
+
+        const normalizedSearch = (search || '').toLowerCase().trim();
         const safeLimit = Number(limit) || 50;
         const safePage = Number(page) || 1;
 
@@ -191,6 +201,7 @@ class RoleAccessController {
           },
           form: evalForm || null
         });
+      }
 
       default:
         throw ApiError.badRequest('Invalid table name');

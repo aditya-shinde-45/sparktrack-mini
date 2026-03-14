@@ -48,11 +48,14 @@ class IndustrialMentorModel {
     const { data, error } = await supabase
       .from(this.table)
       .select('*')
-      .eq('contact', contact)
-      .limit(1);
+      .eq('contact', contact);
 
     if (error) throw error;
-    return (data && data[0]) || null;
+    if (!data || data.length === 0) return null;
+
+    // Prefer the row that has an email (the original row, not a linked null-email copy)
+    const withEmail = data.find((r) => r.email);
+    return withEmail || data[0];
   }
 
   async getByContact(contact) {
@@ -73,6 +76,18 @@ class IndustrialMentorModel {
       .from(this.table)
       .select('*')
       .eq('email', email.trim().toLowerCase());
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async searchByName(name) {
+    const { data, error } = await supabase
+      .from(this.table)
+      .select('*')
+      .ilike('name', `%${name.trim()}%`)
+      .order('name', { ascending: true })
+      .limit(10);
 
     if (error) throw error;
     return data || [];

@@ -11,30 +11,66 @@ import emailService from '../services/emailService.js';
 class StudentAuthModel {
   constructor() {
     this.studentsTable = 'students1';
-    this.otpStore = new Map(); // Temporary OTP storage
+    this.OTP_EXPIRY = 10 * 60 * 1000; // 10 minutes
+    this.MAX_ATTEMPTS = 5;
   }
 
-  getValidOtpEntry(email, otp) {
-    const otpData = this.otpStore.get(email);
+  async getValidOtpEntry(email, otp) {
+    // Clean up expired OTPs (>1 minute past expiry)
+    const oneMinuteAgo = Date.now() - 60000;
+    await supabase
+      .from('student_otp_sessions')
+      .delete()
+      .lt('expires_at', oneMinuteAgo);
 
-    if (!otpData) {
+    // Get OTP session from database
+    const { data, error } = await supabase
+      .from('student_otp_sessions')
+      .select('*')
+      .eq('email', email)
+      .eq('otp', otp.toString().trim())
+      .single();
+
+    if (error || !data) {
       return null;
     }
 
-    if (otpData.otp !== otp) {
+    // Check if expired
+    if (Date.now() > data.expires_at) {
+      await supabase
+        .from('student_otp_sessions')
+        .delete()
+        .eq('session_token', data.session_token);
       return null;
     }
 
-    if (Date.now() > otpData.expiresAt) {
-      this.otpStore.delete(email);
+    // Check if already verified
+    if (data.verified) {
       return null;
     }
 
-    return otpData;
+    // Check max attempts
+    if (data.attempts >= this.MAX_ATTEMPTS) {
+      await supabase
+        .from('student_otp_sessions')
+        .delete()
+        .eq('session_token', data.session_token);
+      return null;
+    }
+
+    return {
+      otp: data.otp,
+      enrollment_no: data.enrollment_no,
+      expiresAt: data.expires_at,
+      session_token: data.session_token
+    };
   }
 
-  clearOtp(email) {
-    this.otpStore.delete(email);
+  async clearOtp(email) {
+    await supabase
+      .from('student_otp_sessions')
+      .delete()
+      .eq('email', email);
   }
 
   /**
@@ -212,15 +248,41 @@ class StudentAuthModel {
 
       const student = data[0];
 
+      // Delete any existing OTP sessions for this email (resend scenario)
+      await supabase
+        .from('student_otp_sessions')
+        .delete()
+        .eq('email', email);
+
       // Generate cryptographically secure 6-digit OTP
       const otp = randomInt(100000, 1000000).toString();
+      const sessionToken = randomUUID();
+      const now = Date.now();
+      const expiresAt = now + this.OTP_EXPIRY;
       
-      // Store OTP with 10 minute expiry
-      this.otpStore.set(email, {
-        otp,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-        enrollment_no: student.enrollment_no
-      });
+      // Store OTP in database
+      const { error: insertError } = await supabase
+        .from('student_otp_sessions')
+        .insert({
+          session_token: sessionToken,
+          otp,
+          email,
+          enrollment_no: student.enrollment_no,
+          student_name: student.name_of_student,
+          expires_at: expiresAt,
+          attempts: 0,
+          verified: false,
+          verified_at: null,
+          created_at: now,
+          purpose: 'password_reset'
+        });
+
+      if (insertError) {
+        console.error('[StudentOTP] Error creating OTP session:', insertError);
+        throw new Error('Failed to create OTP session. Please try again.');
+      }
+
+      console.info(`[StudentOTP] OTP created for ${email}, expires in ${this.OTP_EXPIRY / 1000 / 60} minutes`);
 
       // Send OTP via shared email service
       await emailService.sendOtpEmail(email, otp);
@@ -238,7 +300,7 @@ class StudentAuthModel {
    * @param {string} newPassword - New password
    */
   async resetPasswordWithOTP(email, otp, newPassword) {
-    const otpData = this.getValidOtpEntry(email, otp);
+    const otpData = await this.getValidOtpEntry(email, otp);
 
     if (!otpData) {
       return null;
@@ -256,7 +318,9 @@ class StudentAuthModel {
     if (error) throw error;
 
     // Clear OTP
-    this.clearOtp(email);
+    await this.clearOtp(email);
+
+    console.info(`[StudentOTP] Password reset successful for ${email}`);
 
     return true;
   }
