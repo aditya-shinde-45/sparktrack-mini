@@ -256,7 +256,19 @@ class EvaluationFormController {
       throw ApiError.badRequest('File is required');
     }
 
+    if (!group_id) {
+      throw ApiError.badRequest('Group ID is required');
+    }
+
+    if (!field_key) {
+      throw ApiError.badRequest('Field key is required');
+    }
+
     const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
     const fields = Array.isArray(form?.fields) ? form.fields : [];
     const targetField = fields.find((field) => field.key === field_key);
 
@@ -281,43 +293,54 @@ class EvaluationFormController {
     if (allowedType !== 'all') {
       const allowed = allowedMap[allowedType] || [];
       if (!allowed.includes(req.file.mimetype)) {
-        throw ApiError.badRequest('Unsupported file type for this field');
+        throw ApiError.badRequest(`Unsupported file type for this field. Allowed types: ${allowedType}`);
       }
     }
 
     const maxSizeMb = Number(targetField.max_size_mb) || null;
     if (maxSizeMb && req.file.size > maxSizeMb * 1024 * 1024) {
-      throw ApiError.badRequest('File exceeds the configured size limit');
+      throw ApiError.badRequest(`File exceeds the configured size limit of ${maxSizeMb}MB`);
     }
 
-    const safeGroupId = String(group_id || 'group').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeFieldKey = String(field_key || 'field').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeEnrollment = enrollment_no ? String(enrollment_no).replace(/[^a-zA-Z0-9_-]/g, '_') : 'common';
-    const extension = req.file.originalname.split('.').pop();
-    const uniqueName = `${safeFieldKey}_${safeEnrollment}_${uuidv4()}.${extension}`;
-    const filePath = `files/${formId}/${safeGroupId}/${uniqueName}`;
+    try {
+      const safeGroupId = String(group_id || 'group').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeFieldKey = String(field_key || 'field').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeEnrollment = enrollment_no ? String(enrollment_no).replace(/[^a-zA-Z0-9_-]/g, '_') : 'common';
+      const extension = req.file.originalname.split('.').pop();
+      const uniqueName = `${safeFieldKey}_${safeEnrollment}_${uuidv4()}.${extension}`;
+      const filePath = `files/${formId}/${safeGroupId}/${uniqueName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from(EVALUATION_UPLOAD_BUCKET)
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false
+      const { error: uploadError } = await supabase.storage
+        .from(EVALUATION_UPLOAD_BUCKET)
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        throw ApiError.internalError(`Failed to upload evaluation file: ${uploadError.message}`);
+      }
+
+      const { data: urlData } = supabase.storage
+        .from(EVALUATION_UPLOAD_BUCKET)
+        .getPublicUrl(filePath);
+
+      if (!urlData || !urlData.publicUrl) {
+        throw ApiError.internalError('Failed to generate public URL for uploaded file');
+      }
+
+      return ApiResponse.success(res, 'Evaluation file uploaded successfully', {
+        file_url: urlData.publicUrl,
+        file_name: req.file.originalname,
+        file_type: req.file.mimetype,
+        scope: scope === 'individual' ? 'individual' : 'common'
       });
-
-    if (uploadError) {
-      throw ApiError.internalError(`Failed to upload evaluation file: ${uploadError.message}`);
+    } catch (error) {
+      console.error('Upload evaluation file error:', error);
+      if (error instanceof ApiError) throw error;
+      throw ApiError.internalError(`Failed to process file upload: ${error.message}`);
     }
-
-    const { data: urlData } = supabase.storage
-      .from(EVALUATION_UPLOAD_BUCKET)
-      .getPublicUrl(filePath);
-
-    return ApiResponse.success(res, 'Evaluation file uploaded successfully', {
-      file_url: urlData.publicUrl,
-      file_name: req.file.originalname,
-      file_type: req.file.mimetype,
-      scope: scope === 'individual' ? 'individual' : 'common'
-    });
   });
 
   getFormSubmissions = asyncHandler(async (req, res) => {
