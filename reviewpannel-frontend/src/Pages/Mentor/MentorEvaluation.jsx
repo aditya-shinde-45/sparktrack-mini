@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
+import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
 const YEAR_OPTIONS = ["SY", "TY", "LY"];
+const ROLE_OPTIONS = ["mentor", "industry_mentor"];
 
 const normalizeAllowedYears = (years = []) => {
   if (!Array.isArray(years)) return [];
@@ -27,12 +29,37 @@ const normalizeFieldType = (field) => {
   return "boolean";
 };
 
+const normalizeRoleList = (roles = [], fallback = []) => {
+  if (!Array.isArray(roles)) return [...fallback];
+  const normalized = roles
+    .map((role) => String(role || "").trim().toLowerCase())
+    .filter((role) => ROLE_OPTIONS.includes(role));
+  return Array.from(new Set(normalized));
+};
+
 const FILE_ACCEPT_MAP = {
   image: "image/*",
   pdf: "application/pdf",
   docx: ".doc,.docx",
   ppt: ".ppt,.pptx",
   all: ""
+};
+
+const OPTIONAL_FIELD_KEYWORDS = [
+  "copyright",
+  "publication",
+  "patent",
+  "pre-incubation",
+  "pre incubation"
+];
+
+const isFieldForcedOptional = (field = {}) => {
+  const haystack = `${field?.label || ""} ${field?.key || ""}`.toLowerCase();
+  return OPTIONAL_FIELD_KEYWORDS.some((keyword) => haystack.includes(keyword));
+};
+
+const isFieldRequired = (field = {}) => {
+  return !field?.optional && !isFieldForcedOptional(field);
 };
 
 const MentorEvaluation = () => {
@@ -43,6 +70,7 @@ const MentorEvaluation = () => {
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
   const [allowedYears, setAllowedYears] = useState([]);
+  const [canEditAfterSubmit, setCanEditAfterSubmit] = useState(false);
 
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -59,10 +87,19 @@ const MentorEvaluation = () => {
   const [statusMessage, setStatusMessage] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
 
-  const token = localStorage.getItem("mentor_token");
-  const mentorName = localStorage.getItem("mentor_name") || localStorage.getItem("name") || "";
-  const mentorId = localStorage.getItem("mentor_id") || localStorage.getItem("id") || "";
+  const currentRole = String(localStorage.getItem("role") || "mentor").toLowerCase();
+  const isIndustryMentor = currentRole === "industry_mentor";
+  const token = isIndustryMentor
+    ? localStorage.getItem("industry_mentor_token")
+    : localStorage.getItem("mentor_token");
+  const mentorName = isIndustryMentor
+    ? (localStorage.getItem("industry_mentor_name") || localStorage.getItem("name") || "")
+    : (localStorage.getItem("mentor_name") || localStorage.getItem("name") || "");
+  const mentorId = isIndustryMentor
+    ? (localStorage.getItem("industry_mentor_code") || localStorage.getItem("id") || "")
+    : (localStorage.getItem("mentor_id") || localStorage.getItem("id") || "");
   const isFormSelected = Boolean(selectedFormId);
+  const SidebarComponent = isIndustryMentor ? IndustryMentorSidebar : MentorSidebar;
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -109,7 +146,10 @@ const MentorEvaluation = () => {
   };
 
   const loadGroups = async () => {
-    const response = await apiRequest("/api/mentors/groups-by-mentor-code", "GET", null, token);
+    const endpoint = isIndustryMentor
+      ? "/api/industrial-mentors/groups"
+      : "/api/mentors/groups-by-mentor-code";
+    const response = await apiRequest(endpoint, "GET", null, token);
     const groupIds = response?.data?.groups || response?.groups || [];
     setGroups(groupIds);
   };
@@ -144,6 +184,7 @@ const MentorEvaluation = () => {
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
+      setCanEditAfterSubmit(false);
       return;
     }
 
@@ -165,6 +206,8 @@ const MentorEvaluation = () => {
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
       setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
+      const editableRoles = normalizeRoleList(form?.edit_after_submit_roles || [], []);
+      setCanEditAfterSubmit(editableRoles.includes(currentRole));
     }
   };
 
@@ -257,8 +300,13 @@ const MentorEvaluation = () => {
       setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
-      setIsReadOnly(true);
-      setStatusMessage("Evaluation already submitted. Editing is disabled.");
+      const shouldAllowEdit = Boolean(canEditAfterSubmit);
+      setIsReadOnly(!shouldAllowEdit);
+      setStatusMessage(
+        shouldAllowEdit
+          ? "Evaluation already submitted. You can edit and resubmit this form."
+          : "Evaluation already submitted. Editing is disabled."
+      );
     }
 
     setIsLoading(false);
@@ -402,9 +450,9 @@ const MentorEvaluation = () => {
     }
 
     // Check required common fields
-    if (orderedFields.commonSelectFields.some(field => !field.optional)) {
+    if (orderedFields.commonSelectFields.some((field) => isFieldRequired(field))) {
       orderedFields.commonSelectFields.forEach(field => {
-        if (!field.optional) {
+        if (isFieldRequired(field)) {
           let hasValue = false;
           for (let i = 0; i < students.length; i++) {
             if (students[i].marks[field.key]) {
@@ -419,9 +467,9 @@ const MentorEvaluation = () => {
       });
     }
 
-    if (orderedFields.commonFileFields.some(field => !field.optional)) {
+    if (orderedFields.commonFileFields.some((field) => isFieldRequired(field))) {
       orderedFields.commonFileFields.forEach(field => {
-        if (!field.optional) {
+        if (isFieldRequired(field)) {
           let hasFile = false;
           for (let i = 0; i < students.length; i++) {
             if (students[i].marks[field.key]) {
@@ -460,14 +508,14 @@ const MentorEvaluation = () => {
 
       // Check individual select fields
       orderedFields.individualSelectFields.forEach(field => {
-        if (!student.absent && !field.optional && (!student.marks[field.key] || student.marks[field.key] === "")) {
+        if (!student.absent && isFieldRequired(field) && (!student.marks[field.key] || student.marks[field.key] === "")) {
           studentFieldErrors.push(`${field.label} for ${student.student_name}`);
         }
       });
 
       // Check individual file fields
       orderedFields.individualFileFields.forEach(field => {
-        if (!student.absent && !field.optional && !student.marks[field.key]) {
+        if (!student.absent && isFieldRequired(field) && !student.marks[field.key]) {
           studentFieldErrors.push(`${field.label} for ${student.student_name}`);
         }
       });
@@ -483,7 +531,7 @@ const MentorEvaluation = () => {
 
     // Check boolean fields
     orderedFields.booleanFields.forEach(field => {
-      if (!field.optional && !groupBooleans[field.key]) {
+      if (isFieldRequired(field) && !groupBooleans[field.key]) {
         errors[`boolean_${field.key}`] = `${field.label} must be checked`;
       }
     });
@@ -566,9 +614,9 @@ const MentorEvaluation = () => {
 
   return (
     <div className="font-[Poppins] min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff] flex flex-col">
-      <MentorHeader name={mentorName} id={mentorId} />
+      <MentorHeader name={mentorName} id={mentorId} role={currentRole} />
       <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
-        <MentorSidebar />
+        <SidebarComponent />
         <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mb-16 lg:mb-4 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -673,6 +721,7 @@ const MentorEvaluation = () => {
                   problemStatement={problemStatement}
                   onSuccess={handleProblemStatementSuccess}
                   isReadOnly={isReadOnly}
+                  authToken={token}
                 />
               </div>
             </div>
@@ -699,7 +748,7 @@ const MentorEvaluation = () => {
                   {[...orderedFields.textFields, ...orderedFields.commonSelectFields, ...orderedFields.commonFileFields].map((field) => (
                     <div key={field.key}>
                       <label className="block font-semibold">
-                        {field.label} {!field.optional && <span className="text-red-600">*</span>}
+                        {field.label} {isFieldRequired(field) && <span className="text-red-600">*</span>}
                       </label>
                       {field.type === "select" ? (
                         <div>
@@ -1065,7 +1114,7 @@ const MentorEvaluation = () => {
                         className="w-4 h-4 accent-purple-600"
                       />
                       <span className="text-xs font-semibold uppercase tracking-wide">
-                        {field.label} {!field.optional && <span className="text-red-600">*</span>}
+                        {field.label} {isFieldRequired(field) && <span className="text-red-600">*</span>}
                       </span>
                     </label>
                   ))}

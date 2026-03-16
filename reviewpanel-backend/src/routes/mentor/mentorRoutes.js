@@ -244,6 +244,7 @@ router.get(
 router.get(
   '/evaluations/:group_id',
   authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   mentorController.getEvaluationMarksByGroup
 );
 

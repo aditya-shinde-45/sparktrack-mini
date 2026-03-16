@@ -7,7 +7,8 @@ const ProblemStatementModal = ({
   selectedGroupId, 
   problemStatement, 
   onSuccess, 
-  isReadOnly 
+  isReadOnly,
+  authToken
 }) => {
   const [showAddEdit, setShowAddEdit] = useState(false);
   const [showView, setShowView] = useState(false);
@@ -132,7 +133,7 @@ const ProblemStatementModal = ({
       feedback: reviewAction === 'REJECTED' ? feedback : null
     };
 
-    const token = localStorage.getItem("mentor_token");
+    const token = authToken || localStorage.getItem("mentor_token");
     const response = await apiRequest(
       `/api/mentors/problem-statement/${selectedGroupId}/review`,
       "PUT",
@@ -181,7 +182,7 @@ const ProblemStatementModal = ({
       description: form.description
     };
     
-    const token = localStorage.getItem("mentor_token");
+    const token = authToken || localStorage.getItem("mentor_token");
     const response = await apiRequest(
       `/api/students/student/problem-statement`,
       "POST",
