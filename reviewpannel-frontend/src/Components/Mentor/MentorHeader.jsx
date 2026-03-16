@@ -4,7 +4,7 @@ import { KeyRound, LogOut, ChevronDown, Eye, EyeOff, CheckCircle2, XCircle, Grad
 import mitlogo from '../../assets/mitlogo.png';
 import { apiRequest } from '../../api.js';
 
-const MentorHeader = ({ name, id, role: roleProp }) => {
+const MentorHeader = ({ name, id }) => {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -15,9 +15,6 @@ const MentorHeader = ({ name, id, role: roleProp }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', ok: null });
   const menuRef = useRef(null);
-  const currentRole = String(roleProp || localStorage.getItem('role') || 'mentor').toLowerCase();
-  const isIndustryMentor = currentRole === 'industry_mentor';
-  const panelLabel = isIndustryMentor ? 'Industry Mentor Panel' : 'Mentor Panel';
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -31,18 +28,11 @@ const MentorHeader = ({ name, id, role: roleProp }) => {
 
   const handleLogout = async () => {
     try {
-      const token = isIndustryMentor
-        ? localStorage.getItem('industry_mentor_token')
-        : localStorage.getItem('mentor_token');
-      if (!isIndustryMentor && token) {
-        await apiRequest('/api/mentors/logout', 'POST', null, token);
-      }
+      const token = localStorage.getItem('mentor_token');
+      if (token) await apiRequest('/api/mentors/logout', 'POST', null, token);
     } catch {}
     finally {
-      const keysToRemove = isIndustryMentor
-        ? ['industry_mentor_token', 'industry_mentor', 'industry_mentor_name', 'industry_mentor_code', 'role', 'token']
-        : ['mentor_token', 'mentor_refresh_token', 'mentor_name', 'mentor_id', 'role', 'token'];
-      keysToRemove
+      ['mentor_token','mentor_refresh_token','mentor_name','mentor_id','role','token']
         .forEach(k => localStorage.removeItem(k));
       navigate('/pblmanagementfacultydashboardlogin');
     }
@@ -60,12 +50,6 @@ const MentorHeader = ({ name, id, role: roleProp }) => {
     setLoading(true);
     setMessage({ text: '', ok: null });
     try {
-      if (isIndustryMentor) {
-        setMessage({ text: 'Password change is not available for industry mentor here.', ok: false });
-        setLoading(false);
-        return;
-      }
-
       const token = localStorage.getItem('mentor_token');
       const response = await apiRequest('/api/mentors/update-password', 'PUT',
         { oldPassword: prevPassword, newPassword }, token);
@@ -136,7 +120,7 @@ const MentorHeader = ({ name, id, role: roleProp }) => {
         <div className="relative hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full"
           style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
           <GraduationCap size={14} className="text-purple-200" />
-          <span className="text-white text-xs font-semibold">{panelLabel}</span>
+          <span className="text-white text-xs font-semibold">Mentor Panel</span>
         </div>
 
         {/* ── Right: profile ── */}
@@ -178,21 +162,17 @@ const MentorHeader = ({ name, id, role: roleProp }) => {
               </div>
 
               <div className="py-1.5">
-                {!isIndustryMentor && (
-                  <>
-                    <button
-                      onClick={() => { setShowModal(true); setShowMenu(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <KeyRound size={14} className="text-purple-600" />
-                      </div>
-                      Change Password
-                    </button>
+                <button
+                  onClick={() => { setShowModal(true); setShowMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors duration-150"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <KeyRound size={14} className="text-purple-600" />
+                  </div>
+                  Change Password
+                </button>
 
-                    <div className="my-1.5 mx-3 border-t border-gray-100" />
-                  </>
-                )}
+                <div className="my-1.5 mx-3 border-t border-gray-100" />
 
                 <button
                   onClick={handleLogout}

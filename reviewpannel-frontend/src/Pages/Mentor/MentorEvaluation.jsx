@@ -2,12 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
-import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
 const YEAR_OPTIONS = ["SY", "TY", "LY"];
-const ROLE_OPTIONS = ["mentor", "industry_mentor"];
 
 const normalizeAllowedYears = (years = []) => {
   if (!Array.isArray(years)) return [];
@@ -29,37 +27,12 @@ const normalizeFieldType = (field) => {
   return "boolean";
 };
 
-const normalizeRoleList = (roles = [], fallback = []) => {
-  if (!Array.isArray(roles)) return [...fallback];
-  const normalized = roles
-    .map((role) => String(role || "").trim().toLowerCase())
-    .filter((role) => ROLE_OPTIONS.includes(role));
-  return Array.from(new Set(normalized));
-};
-
 const FILE_ACCEPT_MAP = {
   image: "image/*",
   pdf: "application/pdf",
   docx: ".doc,.docx",
   ppt: ".ppt,.pptx",
   all: ""
-};
-
-const OPTIONAL_FIELD_KEYWORDS = [
-  "copyright",
-  "publication",
-  "patent",
-  "pre-incubation",
-  "pre incubation"
-];
-
-const isFieldForcedOptional = (field = {}) => {
-  const haystack = `${field?.label || ""} ${field?.key || ""}`.toLowerCase();
-  return OPTIONAL_FIELD_KEYWORDS.some((keyword) => haystack.includes(keyword));
-};
-
-const isFieldRequired = (field = {}) => {
-  return !field?.optional && !isFieldForcedOptional(field);
 };
 
 const MentorEvaluation = () => {
@@ -70,7 +43,6 @@ const MentorEvaluation = () => {
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
   const [allowedYears, setAllowedYears] = useState([]);
-  const [canEditAfterSubmit, setCanEditAfterSubmit] = useState(false);
 
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -85,21 +57,11 @@ const MentorEvaluation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const [validationErrors, setValidationErrors] = useState({});
 
-  const currentRole = String(localStorage.getItem("role") || "mentor").toLowerCase();
-  const isIndustryMentor = currentRole === "industry_mentor";
-  const token = isIndustryMentor
-    ? localStorage.getItem("industry_mentor_token")
-    : localStorage.getItem("mentor_token");
-  const mentorName = isIndustryMentor
-    ? (localStorage.getItem("industry_mentor_name") || localStorage.getItem("name") || "")
-    : (localStorage.getItem("mentor_name") || localStorage.getItem("name") || "");
-  const mentorId = isIndustryMentor
-    ? (localStorage.getItem("industry_mentor_code") || localStorage.getItem("id") || "")
-    : (localStorage.getItem("mentor_id") || localStorage.getItem("id") || "");
+  const token = localStorage.getItem("mentor_token");
+  const mentorName = localStorage.getItem("mentor_name") || localStorage.getItem("name") || "";
+  const mentorId = localStorage.getItem("mentor_id") || localStorage.getItem("id") || "";
   const isFormSelected = Boolean(selectedFormId);
-  const SidebarComponent = isIndustryMentor ? IndustryMentorSidebar : MentorSidebar;
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -146,10 +108,7 @@ const MentorEvaluation = () => {
   };
 
   const loadGroups = async () => {
-    const endpoint = isIndustryMentor
-      ? "/api/industrial-mentors/groups"
-      : "/api/mentors/groups-by-mentor-code";
-    const response = await apiRequest(endpoint, "GET", null, token);
+    const response = await apiRequest("/api/mentors/groups-by-mentor-code", "GET", null, token);
     const groupIds = response?.data?.groups || response?.groups || [];
     setGroups(groupIds);
   };
@@ -184,7 +143,6 @@ const MentorEvaluation = () => {
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
-      setCanEditAfterSubmit(false);
       return;
     }
 
@@ -206,8 +164,6 @@ const MentorEvaluation = () => {
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
       setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
-      const editableRoles = normalizeRoleList(form?.edit_after_submit_roles || [], []);
-      setCanEditAfterSubmit(editableRoles.includes(currentRole));
     }
   };
 
@@ -300,13 +256,8 @@ const MentorEvaluation = () => {
       setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
-      const shouldAllowEdit = Boolean(canEditAfterSubmit);
-      setIsReadOnly(!shouldAllowEdit);
-      setStatusMessage(
-        shouldAllowEdit
-          ? "Evaluation already submitted. You can edit and resubmit this form."
-          : "Evaluation already submitted. Editing is disabled."
-      );
+      setIsReadOnly(true);
+      setStatusMessage("Evaluation already submitted. Editing is disabled.");
     }
 
     setIsLoading(false);
@@ -379,16 +330,7 @@ const MentorEvaluation = () => {
   };
 
   const uploadEvaluationFile = async (file, field, studentIndex = null) => {
-    if (!file || !selectedFormId || !selectedGroupId) {
-      setStatusMessage("Please select a form and group before uploading.");
-      return;
-    }
-
-    if (!field || !field.key) {
-      setStatusMessage("Invalid field configuration. Please reload the page.");
-      console.error("Invalid field:", field);
-      return;
-    }
+    if (!file || !selectedFormId || !selectedGroupId) return;
 
     const maxSizeMb = Number(field.max_size_mb) || 0;
     if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
@@ -413,9 +355,7 @@ const MentorEvaluation = () => {
     );
 
     if (!response?.success) {
-      const errorMsg = response?.message || "Failed to upload file.";
-      setStatusMessage(errorMsg);
-      console.error("Upload error details:", response);
+      setStatusMessage(response?.message || "Failed to upload file.");
       return;
     }
 
@@ -438,148 +378,10 @@ const MentorEvaluation = () => {
     setStatusMessage("File uploaded successfully.");
   };
 
-  const validateForm = () => {
-    const errors = {};
-    
-    // Check if form and group are selected
-    if (!selectedFormId) {
-      errors.form = "Please select an evaluation form";
-    }
-    if (!selectedGroupId) {
-      errors.group = "Please select a group";
-    }
-
-    // Check required common fields
-    if (orderedFields.commonSelectFields.some((field) => isFieldRequired(field))) {
-      orderedFields.commonSelectFields.forEach(field => {
-        if (isFieldRequired(field)) {
-          let hasValue = false;
-          for (let i = 0; i < students.length; i++) {
-            if (students[i].marks[field.key]) {
-              hasValue = true;
-              break;
-            }
-          }
-          if (!hasValue) {
-            errors[`common_select_${field.key}`] = `${field.label} is required`;
-          }
-        }
-      });
-    }
-
-    if (orderedFields.commonFileFields.some((field) => isFieldRequired(field))) {
-      orderedFields.commonFileFields.forEach(field => {
-        if (isFieldRequired(field)) {
-          let hasFile = false;
-          for (let i = 0; i < students.length; i++) {
-            if (students[i].marks[field.key]) {
-              hasFile = true;
-              break;
-            }
-          }
-          if (!hasFile) {
-            errors[`common_file_${field.key}`] = `${field.label} is required`;
-          }
-        }
-      });
-    }
-
-    // Check external examiner name
-    if (!externalName || externalName.trim() === "") {
-      errors.externalName = "External Examiner Name is required";
-    }
-
-    // Check feedback
-    if (!feedback || feedback.trim() === "") {
-      errors.feedback = "Feedback is required";
-    }
-
-    // Check numeric fields and select fields for each student
-    const studentErrors = {};
-    students.forEach((student, index) => {
-      const studentFieldErrors = [];
-      
-      // Check numeric fields
-      orderedFields.numericFields.forEach(field => {
-        if (!student.absent && (student.marks[field.key] === "" || student.marks[field.key] === null || student.marks[field.key] === undefined)) {
-          studentFieldErrors.push(`${field.label} (${student.student_name})`);
-        }
-      });
-
-      // Check individual select fields
-      orderedFields.individualSelectFields.forEach(field => {
-        if (!student.absent && isFieldRequired(field) && (!student.marks[field.key] || student.marks[field.key] === "")) {
-          studentFieldErrors.push(`${field.label} for ${student.student_name}`);
-        }
-      });
-
-      // Check individual file fields
-      orderedFields.individualFileFields.forEach(field => {
-        if (!student.absent && isFieldRequired(field) && !student.marks[field.key]) {
-          studentFieldErrors.push(`${field.label} for ${student.student_name}`);
-        }
-      });
-
-      if (studentFieldErrors.length > 0) {
-        studentErrors[index] = studentFieldErrors;
-      }
-    });
-
-    if (Object.keys(studentErrors).length > 0) {
-      errors.students = studentErrors;
-    }
-
-    // Check boolean fields
-    orderedFields.booleanFields.forEach(field => {
-      if (isFieldRequired(field) && !groupBooleans[field.key]) {
-        errors[`boolean_${field.key}`] = `${field.label} must be checked`;
-      }
-    });
-
-    return errors;
-  };
-
   const handleSubmit = async () => {
-    // Validate form
-    const errors = validateForm();
-    
-    if (Object.keys(errors).length > 0) {
-      setValidationErrors(errors);
-      
-      // Create error message
-      let errorMsg = "Please fill in all required fields:\n";
-      
-      if (errors.form) errorMsg += `• ${errors.form}\n`;
-      if (errors.group) errorMsg += `• ${errors.group}\n`;
-      if (errors.externalName) errorMsg += `• ${errors.externalName}\n`;
-      if (errors.feedback) errorMsg += `• ${errors.feedback}\n`;
-      
-      Object.keys(errors).forEach(key => {
-        if (key.startsWith("common_select_") || key.startsWith("common_file_") || key.startsWith("boolean_")) {
-          errorMsg += `• ${errors[key]}\n`;
-        }
-      });
-      
-      if (errors.students) {
-        errorMsg += `\n⚠ Missing fields for students:\n`;
-        Object.keys(errors.students).forEach(studentIndex => {
-          errorMsg += `  - ${students[studentIndex]?.student_name || `Student ${studentIndex + 1}`}: ${errors.students[studentIndex].join(", ")}\n`;
-        });
-      }
-      
-      setStatusMessage("Validation failed. Please fill all required fields marked in red.");
-      alert(errorMsg);
-      return;
-    }
-
-    setValidationErrors({});
     if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly) return;
 
     setIsSubmitting(true);
-    
-    // Log the students data to verify file URLs are included
-    console.log('📤 Submitting evaluation with students data:', JSON.stringify(students, null, 2));
-
     const payload = {
       group_id: selectedGroupId,
       external_name: externalName,
@@ -592,8 +394,6 @@ const MentorEvaluation = () => {
         absent: student.absent
       }))
     };
-
-    console.log('📤 Payload being sent:', JSON.stringify(payload, null, 2));
 
     const response = await apiRequest(
       `/api/mentors/evaluation-forms/${selectedFormId}/submit`,
@@ -614,9 +414,9 @@ const MentorEvaluation = () => {
 
   return (
     <div className="font-[Poppins] min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff] flex flex-col">
-      <MentorHeader name={mentorName} id={mentorId} role={currentRole} />
+      <MentorHeader name={mentorName} id={mentorId} />
       <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
-        <SidebarComponent />
+        <MentorSidebar />
         <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mb-16 lg:mb-4 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -721,7 +521,6 @@ const MentorEvaluation = () => {
                   problemStatement={problemStatement}
                   onSuccess={handleProblemStatementSuccess}
                   isReadOnly={isReadOnly}
-                  authToken={token}
                 />
               </div>
             </div>
@@ -747,37 +546,28 @@ const MentorEvaluation = () => {
                 <div className="space-y-4">
                   {[...orderedFields.textFields, ...orderedFields.commonSelectFields, ...orderedFields.commonFileFields].map((field) => (
                     <div key={field.key}>
-                      <label className="block font-semibold">
-                        {field.label} {isFieldRequired(field) && <span className="text-red-600">*</span>}
-                      </label>
+                      <label className="block font-semibold">{field.label}</label>
                       {field.type === "select" ? (
-                        <div>
-                          <select
-                            value={students[0]?.marks?.[field.key] || ""}
-                            onChange={(e) => {
-                              if (isReadOnly) return;
-                              const updated = [...students];
-                              updated.forEach((student) => {
-                                student.marks[field.key] = e.target.value;
-                              });
-                              setStudents(updated);
-                            }}
-                            disabled={!isFormSelected || isReadOnly}
-                            className={`w-full border p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                              validationErrors[`common_select_${field.key}`] ? "border-red-500 bg-red-50" : "border-gray-300"
-                            }`}
-                          >
-                            <option value="">Select</option>
-                            {(field.options || []).map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                          {validationErrors[`common_select_${field.key}`] && (
-                            <p className="text-red-600 text-xs mt-1">{validationErrors[`common_select_${field.key}`]}</p>
-                          )}
-                        </div>
+                        <select
+                          value={students[0]?.marks?.[field.key] || ""}
+                          onChange={(e) => {
+                            if (isReadOnly) return;
+                            const updated = [...students];
+                            updated.forEach((student) => {
+                              student.marks[field.key] = e.target.value;
+                            });
+                            setStudents(updated);
+                          }}
+                          disabled={!isFormSelected || isReadOnly}
+                          className="w-full border border-gray-300 p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">Select</option>
+                          {(field.options || []).map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
                       ) : field.type === "file" ? (
                         <div className="mt-1 flex flex-col gap-2">
                           {getFileMeta(students[0]?.marks?.[field.key])?.url ? (
@@ -797,13 +587,8 @@ const MentorEvaluation = () => {
                             onChange={(e) => uploadEvaluationFile(e.target.files?.[0], field)}
                             disabled={!isFormSelected || isReadOnly}
                             accept={FILE_ACCEPT_MAP[field.allowed_types] || ""}
-                            className={`w-full border p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                              validationErrors[`common_file_${field.key}`] ? "border-red-500 bg-red-50" : "border-gray-300"
-                            }`}
+                            className="w-full border border-gray-300 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
-                          {validationErrors[`common_file_${field.key}`] && (
-                            <p className="text-red-600 text-xs mt-1">{validationErrors[`common_file_${field.key}`]}</p>
-                          )}
                         </div>
                       ) : (
                         <input
@@ -891,11 +676,7 @@ const MentorEvaluation = () => {
                               value={student.marks[field.key]}
                               onChange={(e) => updateMark(index, field.key, field.max_marks, e.target.value)}
                               disabled={student.absent || isReadOnly}
-                              className={`w-12 border rounded-md p-1 text-center text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed ${
-                                !student.absent && validationErrors.students?.[index]?.some(err => err.includes(field.label)) 
-                                  ? "border-red-500 bg-red-50" 
-                                  : "border-gray-300"
-                              }`}
+                              className="w-12 border border-gray-300 rounded-md p-1 text-center text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
                             />
                             <input
                               type="range"
@@ -921,11 +702,7 @@ const MentorEvaluation = () => {
                               setStudents(updated);
                             }}
                             disabled={student.absent || isReadOnly}
-                            className={`w-28 border rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed ${
-                              !student.absent && validationErrors.students?.[index]?.some(err => err.includes(field.label)) 
-                                ? "border-red-500 bg-red-50" 
-                                : "border-gray-300"
-                            }`}
+                            className="w-28 border border-gray-300 rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
                           >
                             <option value="">Select</option>
                             {(field.options || []).map((option) => (
@@ -938,11 +715,7 @@ const MentorEvaluation = () => {
                       ))}
                       {orderedFields.individualFileFields.map((field) => (
                         <td key={field.key} className="border border-gray-300 px-2 py-2">
-                          <div className={`flex flex-col gap-1 p-1 rounded ${
-                            !student.absent && validationErrors.students?.[index]?.some(err => err.includes(field.label)) 
-                              ? "bg-red-50 border border-red-300" 
-                              : ""
-                          }`}>
+                          <div className="flex flex-col gap-1">
                             {getFileMeta(student.marks[field.key])?.url ? (
                               <a
                                 href={getFileMeta(student.marks[field.key])?.url}
@@ -960,11 +733,7 @@ const MentorEvaluation = () => {
                               onChange={(e) => uploadEvaluationFile(e.target.files?.[0], field, index)}
                               disabled={student.absent || isReadOnly}
                               accept={FILE_ACCEPT_MAP[field.allowed_types] || ""}
-                              className={`w-28 border rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed ${
-                                !student.absent && validationErrors.students?.[index]?.some(err => err.includes(field.label)) 
-                                  ? "border-red-500" 
-                                  : "border-gray-300"
-                              }`}
+                              className="w-28 border border-gray-300 rounded-md p-1 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-200 disabled:cursor-not-allowed"
                             />
                           </div>
                         </td>
@@ -984,128 +753,36 @@ const MentorEvaluation = () => {
               </table>
             </div>
 
-            {/* Uploaded Screenshots/Files Section */}
-            {orderedFields.commonFileFields.length > 0 && (
-              <div className="border-t border-gray-300 p-4">
-                <h3 className="font-semibold text-lg mb-3">Uploaded Files & Screenshots</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {orderedFields.commonFileFields.map((field) => {
-                    const fileData = getFileMeta(students[0]?.marks?.[field.key]);
-                    return (
-                      <div key={field.key} className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                        <p className="font-semibold text-sm mb-2">{field.label}</p>
-                        {fileData?.url ? (
-                          <div className="flex flex-col gap-2">
-                            {field.allowed_types === 'image' || fileData.type?.startsWith('image/') ? (
-                              <div className="border border-gray-300 rounded-md overflow-hidden bg-white">
-                                <img 
-                                  src={fileData.url} 
-                                  alt={fileData.name || field.label}
-                                  className="w-full h-40 object-cover"
-                                />
-                              </div>
-                            ) : null}
-                            <a
-                              href={fileData.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-purple-600 hover:underline text-sm truncate"
-                            >
-                              📎 {fileData.name || 'View file'}
-                            </a>
-                            <p className="text-xs text-gray-500">✅ Uploaded</p>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-gray-500 py-2">
-                            <p>⚠ No file uploaded</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {orderedFields.individualFileFields.length > 0 && (
-                    <div className="col-span-full">
-                      <h4 className="font-semibold text-sm mt-4 mb-2">Individual Student Files</h4>
-                      <div className="space-y-3">
-                        {students.map((student, studentIndex) => (
-                          <div key={student.enrollment_no} className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                            <p className="font-semibold text-sm mb-2">{student.student_name} ({student.enrollment_no})</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {orderedFields.individualFileFields.map((field) => {
-                                const fileData = getFileMeta(student.marks?.[field.key]);
-                                return (
-                                  <div key={`${student.enrollment_no}_${field.key}`} className="text-xs">
-                                    <p className="font-medium text-gray-700 mb-1">{field.label}</p>
-                                    {fileData?.url ? (
-                                      <a
-                                        href={fileData.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-purple-600 hover:underline block truncate"
-                                      >
-                                        📎 {fileData.name || 'View file'}
-                                      </a>
-                                    ) : (
-                                      <span className="text-gray-500">Not uploaded</span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="p-4 border-t border-gray-300 text-sm">
               <div>
-                <label className="block font-semibold">External Examiner Name: <span className="text-red-600">*</span></label>
+                <label className="block font-semibold">External Examiner Name:</label>
                 <input
                   type="text"
                   value={externalName}
                   onChange={(e) => setExternalName(e.target.value)}
                   disabled={isReadOnly || !isFormSelected}
-                  className={`w-full border p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                    validationErrors.externalName ? "border-red-500 bg-red-50" : "border-gray-300"
-                  }`}
+                  className="w-full border border-gray-300 p-2 mt-1 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
-                {validationErrors.externalName && (
-                  <p className="text-red-600 text-xs mt-1">{validationErrors.externalName}</p>
-                )}
               </div>
             </div>
 
             <div className="border-t border-gray-300 p-4 text-sm">
               <label className="block font-semibold">
-                Feedback by Evaluator <span className="text-red-600">*</span> <span className="text-gray-500 font-normal">(Feedback based Learning)</span>
+                Feedback by Evaluator <span className="text-gray-500">(Feedback based Learning)</span>
               </label>
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 disabled={isReadOnly || !isFormSelected}
-                className={`w-full border p-2 mt-1 rounded-md h-24 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                  validationErrors.feedback ? "border-red-500 bg-red-50" : "border-gray-300"
-                }`}
+                className="w-full border border-gray-300 p-2 mt-1 rounded-md h-24 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
-              {validationErrors.feedback && (
-                <p className="text-red-600 text-xs mt-1">{validationErrors.feedback}</p>
-              )}
             </div>
 
             {orderedFields.booleanFields.length > 0 && (
               <div className="border-t border-gray-300 p-4 text-sm">
                 <div className="flex flex-wrap gap-3">
                   {orderedFields.booleanFields.map((field) => (
-                    <label 
-                      key={field.key} 
-                      className={`flex items-center gap-2 border px-3 py-2 ${
-                        validationErrors[`boolean_${field.key}`] ? "border-red-500 bg-red-50" : "border-gray-300"
-                      }`}
-                    >
+                    <label key={field.key} className="flex items-center gap-2 border border-gray-300 px-3 py-2">
                       <input
                         type="checkbox"
                         checked={Boolean(groupBooleans[field.key])}
@@ -1113,9 +790,7 @@ const MentorEvaluation = () => {
                         disabled={isReadOnly}
                         className="w-4 h-4 accent-purple-600"
                       />
-                      <span className="text-xs font-semibold uppercase tracking-wide">
-                        {field.label} {isFieldRequired(field) && <span className="text-red-600">*</span>}
-                      </span>
+                      <span className="text-xs font-semibold uppercase tracking-wide">{field.label}</span>
                     </label>
                   ))}
                 </div>
