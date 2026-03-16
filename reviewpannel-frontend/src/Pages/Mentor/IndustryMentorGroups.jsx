@@ -31,6 +31,9 @@ const IndustryMentorGroups = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [evaluations, setEvaluations] = useState([]);
+  const [evaluationForms, setEvaluationForms] = useState([]);
+  const [selectedEvaluationFormId, setSelectedEvaluationFormId] = useState("");
+  const [selectedEvaluationFormFields, setSelectedEvaluationFormFields] = useState([]);
   const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [expandedEvaluations, setExpandedEvaluations] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,9 +50,13 @@ const IndustryMentorGroups = () => {
     const fetchGroups = async () => {
       try {
         setLoadingGroups(true);
-        const groupsRes = await apiRequest("/api/industrial-mentors/groups", "GET", null, token);
+        const [groupsRes, formsRes] = await Promise.all([
+          apiRequest("/api/industrial-mentors/groups", "GET", null, token),
+          apiRequest("/api/industrial-mentors/evaluation-forms", "GET", null, token)
+        ]);
         const mentorGroups = groupsRes?.data?.groups || groupsRes?.groups || [];
         const facultyGroups = groupsRes?.data?.groupsByFaculty || groupsRes?.groupsByFaculty || [];
+        const availableForms = formsRes?.data || formsRes || [];
 
         const tokenData = JSON.parse(atob(token.split(".")[1]));
         setMentor({
@@ -59,6 +66,10 @@ const IndustryMentorGroups = () => {
 
         setGroups(mentorGroups);
         setGroupsByFaculty(facultyGroups);
+        setEvaluationForms(Array.isArray(availableForms) ? availableForms : []);
+        if (Array.isArray(availableForms) && availableForms.length > 0) {
+          setSelectedEvaluationFormId(availableForms[0].id);
+        }
         const initialGroup = groupIdParam || mentorGroups[0] || "";
         setSelectedGroupId(initialGroup);
       } catch (err) {
@@ -114,6 +125,32 @@ const IndustryMentorGroups = () => {
   }, [selectedGroupId, token]);
 
   useEffect(() => {
+    if (!selectedEvaluationFormId || !token) {
+      setSelectedEvaluationFormFields([]);
+      return;
+    }
+
+    const fetchSelectedFormDetails = async () => {
+      try {
+        const response = await apiRequest(
+          `/api/industrial-mentors/evaluation-forms/${selectedEvaluationFormId}`,
+          "GET",
+          null,
+          token
+        );
+
+        const fields = Array.isArray(response?.data?.fields) ? response.data.fields : [];
+        const sortedFields = [...fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setSelectedEvaluationFormFields(sortedFields);
+      } catch {
+        setSelectedEvaluationFormFields([]);
+      }
+    };
+
+    fetchSelectedFormDetails();
+  }, [selectedEvaluationFormId, token]);
+
+  useEffect(() => {
     if (!selectedGroupId || !token) {
       setEvaluations([]);
       return;
@@ -123,7 +160,7 @@ const IndustryMentorGroups = () => {
       try {
         setLoadingEvaluations(true);
         const response = await apiRequest(
-          `/api/mentors/evaluations/${selectedGroupId}`,
+          `/api/mentors/evaluations/${selectedGroupId}${selectedEvaluationFormId ? `?formId=${encodeURIComponent(selectedEvaluationFormId)}` : ""}`,
           "GET",
           null,
           token
@@ -138,7 +175,7 @@ const IndustryMentorGroups = () => {
     };
 
     fetchEvaluations();
-  }, [selectedGroupId, token]);
+  }, [selectedGroupId, selectedEvaluationFormId, token]);
 
   useEffect(() => {
     if (!selectedGroupId || !token) {
@@ -232,10 +269,23 @@ const IndustryMentorGroups = () => {
   const handleGroupChange = (event) => {
     const nextGroupId = event.target.value;
     setSelectedGroupId(nextGroupId);
+    setCurrentPage(1);
     if (nextGroupId) {
       navigate(`/industry-mentor/groups/${nextGroupId}`);
     }
   };
+
+  const evaluationColumns = useMemo(() => {
+    if (selectedEvaluationFormFields.length > 0) {
+      return selectedEvaluationFormFields.map((field) => ({
+        key: field.key,
+        label: field.label || field.key
+      }));
+    }
+
+    const firstMarks = evaluations?.[0]?.student_marks?.[0]?.marks || {};
+    return Object.keys(firstMarks).map((key) => ({ key, label: key }));
+  }, [selectedEvaluationFormFields, evaluations]);
 
   // Pagination
   const totalPages = Math.ceil(evaluations.length / itemsPerPage);
@@ -308,6 +358,25 @@ const IndustryMentorGroups = () => {
                     }
                   </select>
                 </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Review Form</label>
+                  <select
+                    value={selectedEvaluationFormId}
+                    onChange={(e) => {
+                      setSelectedEvaluationFormId(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                    disabled={evaluationForms.length === 0}
+                  >
+                    {evaluationForms.length === 0 && <option value="">No forms available</option>}
+                    {evaluationForms.map((form) => (
+                      <option key={form.id} value={form.id}>
+                        {form.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   onClick={exportCSV}
                   disabled={evaluations.length === 0}
@@ -359,11 +428,15 @@ const IndustryMentorGroups = () => {
                           <th className="sticky left-0 bg-[#7C3AED] w-24 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Group</th>
                           <th className="sticky left-24 bg-[#7C3AED] w-36 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Enrollment</th>
                           <th className="sticky left-60 bg-[#7C3AED] w-44 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Student</th>
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap" title="Problem Identification">PROB</th>
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap" title="Empathy Map">EMP</th>
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap" title="Solution Creativity">CREA</th>
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap" title="Feasibility">FEAS</th>
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap" title="Communication">COMM</th>
+                          {evaluationColumns.map((column) => (
+                            <th
+                              key={column.key}
+                              className="w-20 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap"
+                              title={column.label}
+                            >
+                              {String(column.label).slice(0, 10)}
+                            </th>
+                          ))}
                           <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap">Total</th>
                           <th className="w-20 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap">Status</th>
                         </tr>
@@ -373,17 +446,20 @@ const IndustryMentorGroups = () => {
                           evaluation.student_marks?.map((studentMark, sIdx) => (
                             <tr key={`${idx}-${sIdx}`} className="hover:bg-[#F3E8FF] transition-colors">
                               <td className="sticky left-0 bg-white px-3 py-2 text-xs font-semibold text-gray-900 whitespace-nowrap">{selectedGroupId}</td>
-                              <td className="sticky left-24 bg-white px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{studentMark.enrollment_no}</td>
+                              <td className="sticky left-24 bg-white px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{studentMark.enrollment_no || studentMark.enrollement_no}</td>
                               <td className="sticky left-60 bg-white px-3 py-2 text-xs font-medium text-gray-900 whitespace-nowrap truncate">{studentMark.student_name}</td>
-                              {studentMark.marks && Object.values(studentMark.marks).map((mark, mIdx) => (
-                                <td key={mIdx} className="px-3 py-2 text-center text-xs font-bold text-gray-800">
-                                  {typeof mark === 'boolean' ? (
+                              {evaluationColumns.map((column) => {
+                                const mark = studentMark?.marks?.[column.key];
+                                return (
+                                  <td key={`${studentMark.enrollment_no || studentMark.enrollement_no}_${column.key}`} className="px-3 py-2 text-center text-xs font-bold text-gray-800">
+                                    {typeof mark === 'boolean' ? (
                                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                                       {mark ? 'Yes' : 'No'}
                                     </span>
-                                  ) : mark}
-                                </td>
-                              ))}
+                                  ) : (mark ?? "-")}
+                                  </td>
+                                );
+                              })}
                               <td className="px-3 py-2 text-center">
                                 <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-[#F3E8FF] text-[#7C3AED]">
                                   {studentMark.total}

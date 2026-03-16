@@ -7,6 +7,7 @@ import problemStatementModel from '../../models/problemStatementModel.js';
 import supabase from '../../config/database.js';
 
 const YEAR_OPTIONS = ['SY', 'TY', 'LY'];
+const ROLE_OPTIONS = ['mentor', 'industry_mentor'];
 const EVALUATION_UPLOAD_BUCKET = 'evaluation-forms';
 
 const evaluationUpload = multer({
@@ -42,10 +43,96 @@ const coerceBooleanValue = (value) => {
   return Boolean(value);
 };
 
+const normalizeRoleList = (roles, fallback = []) => {
+  if (!Array.isArray(roles)) return [...fallback];
+  const normalized = roles
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter((role) => ROLE_OPTIONS.includes(role));
+  return Array.from(new Set(normalized));
+};
+
 class EvaluationFormController {
+  getFormRolePermissions = (form = {}) => {
+    const viewRoles = normalizeRoleList(form?.view_roles, ROLE_OPTIONS);
+    const editAfterSubmitRoles = normalizeRoleList(form?.edit_after_submit_roles, []);
+    return { viewRoles, editAfterSubmitRoles };
+  };
+
+  assertFormAccess = (user = {}, form = {}, action = 'view') => {
+    const role = String(user?.role || '').toLowerCase();
+    if (!['mentor', 'industry_mentor'].includes(role)) return;
+
+    const { viewRoles, editAfterSubmitRoles } = this.getFormRolePermissions(form);
+
+    if (action === 'view' && !viewRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to view this evaluation form');
+    }
+
+    if (action === 'edit_after_submit' && !editAfterSubmitRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to edit marks after submission');
+    }
+  };
+
+  getScopedGroupIds = async (user = {}) => {
+    const role = String(user?.role || '').toLowerCase();
+
+    if (role === 'mentor') {
+      const mentorCode = user?.mentor_code || user?.mentor_id || null;
+      if (!mentorCode) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .eq('mentor_code', mentorCode);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    if (role === 'industry_mentor') {
+      const mentorCodes = Array.isArray(user?.mentor_codes) && user.mentor_codes.length > 0
+        ? user.mentor_codes
+        : (user?.mentor_code ? [user.mentor_code] : []);
+
+      if (mentorCodes.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .in('mentor_code', mentorCodes);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    return null;
+  };
+
+  assertGroupAccess = async (user = {}, groupId) => {
+    const role = String(user?.role || '').toLowerCase();
+    if (!['mentor', 'industry_mentor'].includes(role)) return;
+
+    const scopedGroupIds = await this.getScopedGroupIds(user);
+    const allowedSet = new Set(scopedGroupIds || []);
+    if (!allowedSet.has(groupId)) {
+      throw ApiError.forbidden('You can access marks only for your assigned groups');
+    }
+  };
+
   listForms = asyncHandler(async (req, res) => {
     const forms = await evaluationFormModel.listForms();
-    return ApiResponse.success(res, 'Evaluation forms retrieved successfully', forms);
+    const role = String(req.user?.role || '').toLowerCase();
+
+    if (!['mentor', 'industry_mentor'].includes(role)) {
+      return ApiResponse.success(res, 'Evaluation forms retrieved successfully', forms);
+    }
+
+    const filteredForms = (forms || []).filter((form) => {
+      const { viewRoles } = this.getFormRolePermissions(form);
+      return viewRoles.includes(role);
+    });
+
+    return ApiResponse.success(res, 'Evaluation forms retrieved successfully', filteredForms);
   });
 
   getForm = asyncHandler(async (req, res) => {
@@ -53,17 +140,20 @@ class EvaluationFormController {
     if (!formId) throw ApiError.badRequest('Form ID is required');
 
     const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
     return ApiResponse.success(res, 'Evaluation form retrieved successfully', form);
   });
 
   createForm = asyncHandler(async (req, res) => {
-    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles } = req.body;
     if (!name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Name, total marks, and at least one field are required');
     }
 
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
     const normalizedYears = normalizeAllowedYears(allowed_years);
+    const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
+    const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
 
     const sanitizedFields = fields.map((field, index) => {
       const normalizedType = ['number', 'boolean', 'text', 'select', 'file'].includes(field.type)
@@ -101,7 +191,9 @@ class EvaluationFormController {
       total_marks: Number(total_marks),
       fields: sanitizedFields,
       created_by,
-      allowed_years: normalizedYears
+      allowed_years: normalizedYears,
+      view_roles: normalizedViewRoles,
+      edit_after_submit_roles: normalizedEditRoles
     });
 
     const deadlineKey = `evaluation_form_${form.id}`;
@@ -125,7 +217,7 @@ class EvaluationFormController {
 
   updateForm = asyncHandler(async (req, res) => {
     const { formId } = req.params;
-    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles } = req.body;
 
     if (!formId || !name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Form ID, name, total marks, and fields are required');
@@ -162,13 +254,17 @@ class EvaluationFormController {
     });
 
     const normalizedYears = normalizeAllowedYears(allowed_years);
+    const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
+    const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
 
     const updated = await evaluationFormModel.updateForm(formId, {
       name: name.trim(),
       sheet_title: sheet_title ? String(sheet_title).trim() : null,
       total_marks: Number(total_marks),
       fields: sanitizedFields,
-      allowed_years: normalizedYears
+      allowed_years: normalizedYears,
+      view_roles: normalizedViewRoles,
+      edit_after_submit_roles: normalizedEditRoles
     });
 
     const deadlineKey = `evaluation_form_${formId}`;
@@ -193,8 +289,15 @@ class EvaluationFormController {
   });
 
   getGroupDetails = asyncHandler(async (req, res) => {
-    const { groupId } = req.params;
+    const { formId, groupId } = req.params;
     if (!groupId) throw ApiError.badRequest('Group ID is required');
+
+    if (!formId) throw ApiError.badRequest('Form ID is required');
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
 
     const { data, error } = await supabase
       .from('pbl')
@@ -225,12 +328,31 @@ class EvaluationFormController {
       throw ApiError.badRequest('Form ID, group ID and evaluations are required');
     }
 
+    await this.assertGroupAccess(req.user, group_id);
+
+  const form = await evaluationFormModel.getFormById(formId);
+  this.assertFormAccess(req.user, form, 'view');
+
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
 
     const normalizedEvaluations = evaluations.map((student) => ({
       ...student,
       enrollement_no: student.enrollement_no || student.enrollment_no
     }));
+
+    const existingSubmission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, group_id);
+
+    if (existingSubmission) {
+      this.assertFormAccess(req.user, form, 'edit_after_submit');
+
+      const updatedSubmission = await evaluationFormModel.updateSubmission(existingSubmission.id, formId, {
+        external_name: external_name || null,
+        feedback: feedback || null,
+        evaluations: normalizedEvaluations
+      });
+
+      return ApiResponse.success(res, 'Evaluation updated successfully', updatedSubmission);
+    }
 
     const submission = await evaluationFormModel.createSubmission({
       form_id: formId,
@@ -265,6 +387,10 @@ class EvaluationFormController {
     }
 
     const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, group_id);
+
     if (!form) {
       throw ApiError.notFound('Evaluation form not found');
     }
@@ -348,14 +474,28 @@ class EvaluationFormController {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 50;
     const search = (req.query.search || '').toLowerCase();
+    const groupIdFilter = String(req.query.groupId || '').trim();
 
     if (!formId) {
       throw ApiError.badRequest('Form ID is required');
     }
 
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    const scopedGroupIds = await this.getScopedGroupIds(req.user || {});
+    const scopedGroupSet = Array.isArray(scopedGroupIds) ? new Set(scopedGroupIds) : null;
+
     const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
 
-    const flattened = submissions.flatMap((submission) => {
+    const scopedSubmissions = submissions.filter((submission) => {
+      const currentGroupId = String(submission?.group_id || '');
+      if (groupIdFilter && currentGroupId !== groupIdFilter) return false;
+      if (scopedGroupSet && !scopedGroupSet.has(currentGroupId)) return false;
+      return true;
+    });
+
+    const flattened = scopedSubmissions.flatMap((submission) => {
       const evaluations = Array.isArray(submission.evaluations) ? submission.evaluations : [];
       return evaluations.map((evaluation) => ({
         submission_id: submission.id, // Include submission ID for delete/reset operations
@@ -403,6 +543,11 @@ class EvaluationFormController {
     if (!formId || !groupId) {
       throw ApiError.badRequest('Form ID and Group ID are required');
     }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
 
     const submission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, groupId);
 

@@ -7,6 +7,41 @@ import supabase from '../../config/database.js';
  * Controller for mentor operations
  */
 class MentorController {
+  getScopedGroupIds = async (user = {}) => {
+    const role = String(user?.role || '').toLowerCase();
+
+    if (role === 'mentor') {
+      const mentorCode = user?.mentor_code || user?.mentor_id || null;
+      if (!mentorCode) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .eq('mentor_code', mentorCode);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    if (role === 'industry_mentor') {
+      const mentorCodes = Array.isArray(user?.mentor_codes) && user.mentor_codes.length > 0
+        ? user.mentor_codes
+        : (user?.mentor_code ? [user.mentor_code] : []);
+
+      if (mentorCodes.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .in('mentor_code', mentorCodes);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    return null;
+  };
+
   /**
    * Get all mentors with their assigned groups
    */
@@ -89,12 +124,18 @@ class MentorController {
    */
   getEvaluationMarksByGroup = asyncHandler(async (req, res) => {
     const { group_id } = req.params;
+    const formId = String(req.query?.formId || '').trim();
     
     if (!group_id) {
       return ApiResponse.error(res, 'Group ID is required', 400);
     }
 
-    const { data: submissions, error: submissionsError } = await supabase
+    const scopedGroupIds = await this.getScopedGroupIds(req.user || {});
+    if (Array.isArray(scopedGroupIds) && !scopedGroupIds.includes(group_id)) {
+      return ApiResponse.error(res, 'You can access marks only for your assigned groups', 403);
+    }
+
+    let submissionsQuery = supabase
       .from('evaluation_form_submissions')
       .select(`
         id,
@@ -106,7 +147,13 @@ class MentorController {
         created_at,
         evaluation_forms (name, total_marks)
       `)
-      .eq('group_id', group_id)
+      .eq('group_id', group_id);
+
+    if (formId) {
+      submissionsQuery = submissionsQuery.eq('form_id', formId);
+    }
+
+    const { data: submissions, error: submissionsError } = await submissionsQuery
       .order('created_at', { ascending: true });
 
     if (submissionsError) {

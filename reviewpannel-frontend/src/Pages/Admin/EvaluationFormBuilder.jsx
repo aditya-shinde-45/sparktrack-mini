@@ -16,6 +16,10 @@ const emptyField = () => ({
   max_size_mb: 10
 });
 const YEAR_OPTIONS = ["SY", "TY", "LY"];
+const ACCESS_ROLE_OPTIONS = [
+  { value: "mentor", label: "Mentor" },
+  { value: "industry_mentor", label: "Industry Mentor" }
+];
 const FILE_TYPE_OPTIONS = [
   { value: "all", label: "All file types" },
   { value: "image", label: "Images only" },
@@ -50,6 +54,15 @@ const normalizeFieldType = (field) => {
   return "boolean";
 };
 
+const normalizeRoleList = (roles = [], fallback = []) => {
+  if (!Array.isArray(roles)) return [...fallback];
+  const allowed = ACCESS_ROLE_OPTIONS.map((option) => option.value);
+  const normalized = roles
+    .map((role) => String(role || "").trim().toLowerCase())
+    .filter((role) => allowed.includes(role));
+  return Array.from(new Set(normalized));
+};
+
 const EvaluationFormBuilder = () => {
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
@@ -58,6 +71,8 @@ const EvaluationFormBuilder = () => {
   const [totalMarks, setTotalMarks] = useState(50);
   const [fields, setFields] = useState([emptyField()]);
   const [allowedYears, setAllowedYears] = useState([]);
+  const [viewRoles, setViewRoles] = useState(["mentor", "industry_mentor"]);
+  const [editAfterSubmitRoles, setEditAfterSubmitRoles] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [showPreview, setShowPreview] = useState(false);
@@ -104,6 +119,8 @@ const EvaluationFormBuilder = () => {
       setTotalMarks(50);
       setFields([emptyField()]);
       setAllowedYears([]);
+      setViewRoles(["mentor", "industry_mentor"]);
+      setEditAfterSubmitRoles([]);
       return;
     }
 
@@ -128,7 +145,18 @@ const EvaluationFormBuilder = () => {
       setFields(sortedFields);
       const normalizedYears = normalizeAllowedYears(form?.allowed_years || []);
       setAllowedYears(normalizedYears);
+      setViewRoles(normalizeRoleList(form?.view_roles, ["mentor", "industry_mentor"]));
+      setEditAfterSubmitRoles(normalizeRoleList(form?.edit_after_submit_roles, []));
     }
+  };
+
+  const toggleRole = (roleValue, targetSetter) => {
+    targetSetter((prev) => {
+      if (prev.includes(roleValue)) {
+        return prev.filter((value) => value !== roleValue);
+      }
+      return [...prev, roleValue];
+    });
   };
 
   const updateField = (index, updates) => {
@@ -221,6 +249,13 @@ const EvaluationFormBuilder = () => {
     });
 
     const sanitizedYears = normalizeAllowedYears(allowedYears);
+    const sanitizedViewRoles = normalizeRoleList(viewRoles, ["mentor", "industry_mentor"]);
+    const sanitizedEditAfterSubmitRoles = normalizeRoleList(editAfterSubmitRoles, []);
+
+    if (sanitizedViewRoles.length === 0) {
+      setStatusMessage("Please select at least one role under who can view this form.");
+      return;
+    }
 
     setIsCreating(true);
     setStatusMessage("");
@@ -239,7 +274,9 @@ const EvaluationFormBuilder = () => {
         sheet_title: sheetTitle.trim() || null,
         total_marks: Number(totalMarks) || computedTotal,
         fields: sanitizedFields,
-        allowed_years: sanitizedYears
+        allowed_years: sanitizedYears,
+        view_roles: sanitizedViewRoles,
+        edit_after_submit_roles: sanitizedEditAfterSubmitRoles
       },
       token
     );
@@ -359,6 +396,55 @@ const EvaluationFormBuilder = () => {
                       ))}
                     </div>
                     <p className="text-xs text-slate-500 mt-2">Leave empty to allow all years.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700">Who Can View This Form</label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ACCESS_ROLE_OPTIONS.map((roleOption) => (
+                        <label
+                          key={`view-${roleOption.value}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${
+                            viewRoles.includes(roleOption.value)
+                              ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={viewRoles.includes(roleOption.value)}
+                            onChange={() => toggleRole(roleOption.value, setViewRoles)}
+                            className="accent-indigo-600"
+                          />
+                          {roleOption.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700">Who Can Edit After Submit</label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ACCESS_ROLE_OPTIONS.map((roleOption) => (
+                        <label
+                          key={`edit-after-submit-${roleOption.value}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${
+                            editAfterSubmitRoles.includes(roleOption.value)
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editAfterSubmitRoles.includes(roleOption.value)}
+                            onChange={() => toggleRole(roleOption.value, setEditAfterSubmitRoles)}
+                            className="accent-emerald-600"
+                          />
+                          {roleOption.label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Unchecked means submission becomes read-only for that role.</p>
                   </div>
 
                   <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm">

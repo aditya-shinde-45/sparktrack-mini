@@ -12,7 +12,7 @@ const router = express.Router();
 router.get(
   '/evaluation-forms',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.listForms
 );
 
@@ -24,7 +24,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getForm
 );
 
@@ -36,7 +36,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId/group/:groupId',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getGroupDetails
 );
 
@@ -48,7 +48,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId/group/:groupId/submission',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getSubmissionByGroup
 );
 
@@ -60,7 +60,7 @@ router.get(
 router.post(
   '/evaluation-forms/:formId/submit',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.submitEvaluation
 );
 
@@ -72,7 +72,7 @@ router.post(
 router.post(
   '/evaluation-forms/:formId/upload',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   uploadEvaluationFileMiddleware,
   evaluationFormController.uploadEvaluationFile
 );
