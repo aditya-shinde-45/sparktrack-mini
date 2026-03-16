@@ -1,78 +1,67 @@
 import React from "react";
+import { BellRing, ChevronRight, FileUp, MessageCircleMore, Sparkles } from "lucide-react";
 
-const CARD_COLORS = {
-  blue: {
-    bg: "bg-blue-100",
-    border: "border-blue-300",
-    text: "text-blue-800",
-    icon: "text-blue-500",
-    hover: "hover:bg-blue-200",
-    shadow: "shadow-blue-200",
+const CARD_THEMES = {
+  indigo: {
+    bg: "bg-indigo-50 hover:bg-indigo-100",
+    border: "border-indigo-200 hover:border-indigo-400",
+    icon: "text-indigo-600",
+    title: "text-indigo-800",
+    badge: "bg-indigo-100 text-indigo-700",
   },
   purple: {
-    bg: "bg-purple-100",
-    border: "border-purple-300",
-    text: "text-purple-800",
-    icon: "text-purple-500",
-    hover: "hover:bg-purple-200",
-    shadow: "shadow-purple-200",
+    bg: "bg-purple-50 hover:bg-purple-100",
+    border: "border-purple-200 hover:border-purple-400",
+    icon: "text-purple-600",
+    title: "text-purple-800",
+    badge: "bg-purple-100 text-purple-700",
   },
-  green: {
-    bg: "bg-green-100",
-    border: "border-green-300",
-    text: "text-green-800",
-    icon: "text-green-500",
-    hover: "hover:bg-green-200",
-    shadow: "shadow-green-200",
-  },
-  yellow: {
-    bg: "bg-yellow-100",
-    border: "border-yellow-300",
-    text: "text-yellow-800",
-    icon: "text-yellow-500",
-    hover: "hover:bg-yellow-200",
-    shadow: "shadow-yellow-200",
+  emerald: {
+    bg: "bg-emerald-50 hover:bg-emerald-100",
+    border: "border-emerald-200 hover:border-emerald-400",
+    icon: "text-emerald-600",
+    title: "text-emerald-800",
+    badge: "bg-emerald-100 text-emerald-700",
   },
   orange: {
-    bg: "bg-orange-100",
-    border: "border-orange-300",
-    text: "text-orange-800",
-    icon: "text-orange-500",
-    hover: "hover:bg-orange-200",
-    shadow: "shadow-orange-200",
+    bg: "bg-orange-50 hover:bg-orange-100",
+    border: "border-orange-200 hover:border-orange-400",
+    icon: "text-orange-600",
+    title: "text-orange-800",
+    badge: "bg-orange-100 text-orange-700",
   },
 };
 
 export const DashboardCards = ({ onCardClick }) => {
   const cards = [
     {
-      color: "blue",
+      color: "indigo",
       title: "Announcements",
       subtitle: "Important updates & notices",
-      icon: "campaign",
+      icon: BellRing,
     },
     {
       color: "purple",
       title: "Events & Posts",
       subtitle: "College events & updates",
-      icon: "event",
+      icon: Sparkles,
     },
     {
-      color: "green",
+      color: "emerald",
       title: "Upload Document",
       subtitle: "Submit project files",
-      icon: "upload_file",
+      icon: FileUp,
     },
     {
       color: "orange",
       title: "Team Chat",
       subtitle: "Communicate with team",
-      icon: "chat",
+      icon: MessageCircleMore,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 mt-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
       {cards.map((card) => (
         <Card
           key={card.title}
@@ -88,27 +77,27 @@ export const DashboardCards = ({ onCardClick }) => {
 };
 
 const Card = ({ color, title, subtitle, icon, onClick }) => {
-  const styles = CARD_COLORS[color] || CARD_COLORS.blue;
+  const styles = CARD_THEMES[color] || CARD_THEMES.indigo;
+  const Icon = icon;
 
   return (
-    <div
+    <button
       onClick={() => onClick(title)}
-      className={`group ${styles.bg} ${styles.border} border p-6 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-300 ${styles.shadow} ${styles.hover} hover:scale-[1.05] hover:shadow-lg`}
-      style={{ minHeight: "120px" }}
+      className={`group text-left flex items-start sm:items-center gap-3 sm:gap-4 p-3.5 sm:p-5 ${styles.bg} rounded-xl border ${styles.border} transition-all shadow-sm hover:shadow-md`}
     >
-      <div className="flex-1">
-        <h3 className={`font-bold text-lg ${styles.text} mb-1`}>{title}</h3>
-        <p className={`text-sm ${styles.text} opacity-75 leading-tight`}>
-          {subtitle}
-        </p>
+      <div className={`p-2.5 bg-white rounded-xl shadow-sm flex-shrink-0`}>
+        <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${styles.icon}`} />
       </div>
-      <div className="ml-4">
-        <span
-          className={`material-icons ${styles.icon} text-4xl group-hover:scale-110 transition-transform duration-300`}
-        >
-          {icon}
-        </span>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className={`font-bold text-sm sm:text-base leading-tight ${styles.title}`}>{title}</h3>
+          <span className={`hidden sm:inline-flex text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${styles.badge}`}>Quick</span>
+        </div>
+        <p className="text-xs sm:text-sm text-gray-600 leading-tight">{subtitle}</p>
       </div>
-    </div>
+
+      <ChevronRight className={`w-4 h-4 ${styles.icon} ml-auto flex-shrink-0`} />
+    </button>
   );
 };

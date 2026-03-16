@@ -296,12 +296,15 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   // ✅ 1. If group already exists (finalized), show it first - highest priority
   if (groupDetails) {
     return (
-      <div className="card col-span-1 p-6 bg-white rounded-xl shadow">
+      <div className="card col-span-1 p-4 sm:p-6 bg-gradient-to-b from-white to-purple-50/30 rounded-2xl shadow-sm border border-purple-100">
         <MessageAlert />
         {groupDetails.team_name ? (
-          <h1 className="text-base md:text-2xl font-bold mb-2 text-gray-900">{groupDetails.team_name}</h1>
+          <div className="mb-4 pb-3 border-b border-purple-100">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-purple-500">Team</p>
+            <h1 className="text-lg md:text-2xl font-bold text-purple-900 break-words">{groupDetails.team_name}</h1>
+          </div>
         ) : (
-          <div className="mb-3">
+          <div className="mb-4 bg-purple-50 border border-purple-100 rounded-xl p-3 sm:p-4">
             <label className="block text-xs font-semibold text-gray-600 mb-2">Team Name</label>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -325,89 +328,79 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
             )}
           </div>
         )}
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Group: {groupDetails.group_id}</h2>
-        <p className="text-base text-gray-800 mb-6">
-          <strong>Guide:</strong>
-          <span className="text-purple-700 ml-2">
+        <h2 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">Group: {groupDetails.group_id}</h2>
+        <p className="text-sm sm:text-base text-gray-700 mb-5">
+          <strong className="text-gray-800">Guide:</strong>
+          <span className="text-purple-700 ml-2 font-medium">
             {groupDetails.mentor_name || groupDetails.mentor_code || "Not Assigned"}
           </span>
         </p>
         
         <div className="mb-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Group Members ({groupDetails.members?.length || 0})</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-purple-800 mb-4">Group Members ({groupDetails.members?.length || 0})</h3>
           
           {groupDetails.members && groupDetails.members.length > 0 ? (
             <div className="space-y-3">
               {groupDetails.members.map((member, idx) => (
                 <div 
                   key={idx}
-                  className={`w-full bg-gray-50 rounded-lg p-4 border-2 transition-all duration-200 hover:shadow-md cursor-pointer ${
+                  className={`w-full rounded-xl p-3 sm:p-4 border transition-all duration-200 hover:shadow-md cursor-pointer ${
                     member.enrollement_no === enrollmentNo 
-                      ? 'border-purple-300 bg-purple-50' 
-                      : 'border-gray-200 hover:border-purple-200'
+                      ? 'border-purple-300 bg-purple-50/90 shadow-sm' 
+                      : 'border-gray-200 bg-white hover:border-purple-200'
                   }`}
                   onClick={() => handleMemberClick(member)}
                 >
-                  <div className="flex items-center justify-between">
-                    {/* Left side - Profile info */}
-                    <div className="flex items-center space-x-4">
+                  <div className="grid grid-cols-[auto,1fr,auto] items-center gap-3 sm:gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300 flex-shrink-0">
                       {/* Profile Picture */}
-                      <div className="w-14 h-14 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300 flex-shrink-0">
-                        {member.profile_picture_url ? (
-                          <img
-                            src={member.profile_picture_url}
-                            alt={member.name_of_student}
-                            className="w-full h-full object-cover rounded-full"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div className={`w-full h-full flex items-center justify-center ${member.profile_picture_url ? 'hidden' : 'flex'}`}>
-                          <User className="w-7 h-7 text-gray-400" />
-                        </div>
-                      </div>
-                      
-                      {/* Member Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className={`text-lg font-semibold truncate ${
-                            member.enrollement_no === enrollmentNo ? 'text-purple-700' : 'text-gray-900'
-                          }`}>
-                            {member.name_of_student}
-                          </h4>
-                          
-                          {/* Badges */}
-                          <div className="flex items-center gap-2">
-                            {member.is_leader && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                Group Leader
-                              </span>
-                            )}
-                            {member.enrollement_no === enrollmentNo && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                                You
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <p className="text-sm text-gray-600 font-mono">
-                          <span className="font-medium">Enrollment:</span> {member.enrollement_no}
-                        </p>
+                      {member.profile_picture_url ? (
+                        <img
+                          src={member.profile_picture_url}
+                          alt={member.name_of_student}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextElementSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-full h-full flex items-center justify-center ${member.profile_picture_url ? 'hidden' : 'flex'}`}>
+                        <User className="w-6 h-6 sm:w-7 sm:h-7 text-gray-400" />
                       </div>
                     </div>
 
-                    {/* Right side - View button */}
-                    <div className="flex items-center gap-3">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-gray-500">Click to view</p>
-                        <p className="text-xs text-gray-500">full profile</p>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h4 className={`text-sm sm:text-lg font-semibold leading-tight break-words ${
+                          member.enrollement_no === enrollmentNo ? 'text-purple-700' : 'text-gray-900'
+                        }`}>
+                          {member.name_of_student}
+                        </h4>
+                        {member.is_leader && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-blue-100 text-blue-800">
+                            Leader
+                          </span>
+                        )}
+                        {member.enrollement_no === enrollmentNo && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-purple-100 text-purple-700">
+                            You
+                          </span>
+                        )}
                       </div>
-                      <div className="flex-shrink-0 bg-white p-2 rounded-full shadow-sm border">
-                        <Eye className="w-5 h-5 text-gray-500" />
-                      </div>
+
+                      <p className="text-xs sm:text-sm text-gray-600 font-mono break-all">
+                        <span className="font-medium">Enrollment:</span> {member.enrollement_no}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 bg-white/90 hover:bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center"
+                      >
+                        <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -424,15 +417,15 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
         {/* Member Profile Modal */}
         {selectedMember && (
-<div className="fixed inset-0 bg-white/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+<div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
 
-            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-2xl border border-purple-100 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Member Profile</h3>
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-purple-100 bg-gradient-to-r from-purple-600 to-purple-700">
+                <h3 className="text-lg font-semibold text-white">Member Profile</h3>
                 <button
                   onClick={closeMemberProfile}
-                  className="text-gray-400 hover:text-gray-600 transition duration-200"
+                  className="text-white/80 hover:text-white transition duration-200"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -620,15 +613,15 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   // ✅ 2. Show draft groups (for leaders/members) - only if no finalized group
   if (draftGroups.length > 0) {
     return (
-      <div className="card col-span-1 p-6 bg-white rounded-xl shadow space-y-6">
+      <div className="card col-span-1 p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-orange-100 space-y-6">
         <MessageAlert />
-        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+        <h2 className="text-lg sm:text-xl font-semibold text-orange-900 flex items-center gap-2">
           <Clock className="w-5 h-5 text-orange-500" />
           Pending Group Invitations
         </h2>
         
         {draftGroups.map((draft) => (
-          <div key={draft.group_id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+          <div key={draft.group_id} className="border border-orange-200 rounded-xl p-4 bg-gradient-to-br from-orange-50 to-white shadow-sm">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{draft.group_name}</h3>
@@ -711,10 +704,10 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
   // ✅ 3. Show pending invitations if no group exists
   return (
-    <div className="card col-span-1 p-6 flex flex-col justify-between bg-white rounded-xl shadow relative">
+      <div className="card col-span-1 p-4 sm:p-6 flex flex-col justify-between bg-white rounded-2xl shadow-sm border border-purple-100 relative">
       <div>
         <MessageAlert />
-        <h2 className="text-xl font-semibold mb-4 text-gray-900">Group Details</h2>
+        <h2 className="text-lg sm:text-xl font-semibold mb-4 text-purple-900">Group Details</h2>
 
         {requests.length > 0 ? (
           <div className="space-y-3">
@@ -789,14 +782,14 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
       {/* Request Modal */}
       {selectedRequest && (
         <div
-          className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50"
+          className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-3"
           onClick={() => setSelectedRequest(null)}
         >
           <div
-            className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md relative"
+            className="bg-white p-4 sm:p-6 rounded-2xl shadow-2xl border border-purple-100 w-full max-w-md relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-3 text-gray-900">Group Invitation</h3>
+            <h3 className="text-lg font-semibold mb-3 text-purple-900">Group Invitation</h3>
             <div className="space-y-2 mb-4">
               <p className="text-gray-800"><strong>Group ID:</strong> {selectedRequest.group_id}</p>
               <p className="text-gray-800"><strong>Team Name:</strong> {selectedRequest.team_name}</p>

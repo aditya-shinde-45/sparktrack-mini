@@ -7,24 +7,27 @@ const InfoDrawer = ({ isOpen, onClose, title, message, customContent }) => {
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-opacity-30 backdrop-blur-sm z-30"
+          className="fixed inset-0 bg-gray-900/35 backdrop-blur-sm z-40"
           onClick={onClose}
         />
       )}
 
       {/* Drawer panel */}
       <div
-        className={`fixed right-0 top-0 h-full w-full max-w-sm bg-white shadow-lg z-40 transition-transform duration-300 transform ${
+        className={`fixed right-0 top-0 h-full w-full sm:max-w-md lg:max-w-lg bg-white shadow-2xl z-50 transition-transform duration-300 ease-out transform border-l border-purple-100 ${
           isOpen ? "translate-x-0" : "translate-x-full"
         } flex flex-col`}
       >
         {/* Header */}
-        <div className="p-6 border-b">
+        <div className="p-4 sm:p-6 border-b border-purple-100 bg-gradient-to-r from-purple-600 to-purple-700">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+            <div>
+              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-purple-200">Student Insights</p>
+              <h2 className="text-lg sm:text-xl font-bold text-white mt-0.5">{title}</h2>
+            </div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition rounded-full p-1 hover:bg-gray-100"
+              className="text-white/80 hover:text-white transition rounded-full p-2 hover:bg-white/15"
             >
               <X className="h-5 w-5" />
             </button>
@@ -32,7 +35,7 @@ const InfoDrawer = ({ isOpen, onClose, title, message, customContent }) => {
         </div>
 
         {/* Content area with scrolling */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-gradient-to-b from-white to-purple-50/30">
           {customContent ? (
             // Render custom React component if provided
             customContent
