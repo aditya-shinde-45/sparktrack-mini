@@ -703,6 +703,22 @@ const SubAdminDashboard = ({ embedded = false }) => {
     return names[tableName] || tableName;
   };
 
+  const formatCellValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return '—';
+    }
+
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return '[Object]';
+      }
+    }
+
+    return String(value);
+  };
+
   if (loading) {
     return (
       <div className={embedded ? "w-full flex items-center justify-center" : "min-h-screen bg-gray-50 flex items-center justify-center"}>
@@ -1124,8 +1140,8 @@ const SubAdminDashboard = ({ embedded = false }) => {
                         >
                           {getTableColumns().map(col => (
                             <td key={col} className="px-4 py-3 text-center">
-                              <span className={`text-sm ${ !row[col] ? "text-gray-400" : "text-gray-700" }`}>
-                                {row[col] ?? "—"}
+                              <span className={`text-sm ${ (row[col] === null || row[col] === undefined || row[col] === '') ? "text-gray-400" : "text-gray-700" }`}>
+                                {formatCellValue(row[col])}
                               </span>
                             </td>
                           ))}

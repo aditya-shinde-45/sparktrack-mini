@@ -16,6 +16,20 @@ const MentorHeader = ({ name, id }) => {
   const [message, setMessage] = useState({ text: '', ok: null });
   const menuRef = useRef(null);
 
+  const toText = (value, fallback = 'Something went wrong.') => {
+    if (!value) return fallback;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+      if (typeof value.message === 'string') return value.message;
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return fallback;
+      }
+    }
+    return String(value);
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -61,10 +75,10 @@ const MentorHeader = ({ name, id }) => {
           setMessage({ text: '', ok: null });
         }, 1600);
       } else {
-        setMessage({ text: response.message || 'Failed to update password.', ok: false });
+        setMessage({ text: toText(response.message, 'Failed to update password.'), ok: false });
       }
     } catch (err) {
-      setMessage({ text: err.message || 'Something went wrong.', ok: false });
+      setMessage({ text: toText(err?.message || err, 'Something went wrong.'), ok: false });
     } finally {
       setLoading(false);
     }

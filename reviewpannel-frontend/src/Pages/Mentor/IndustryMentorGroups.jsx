@@ -39,6 +39,20 @@ const IndustryMentorGroups = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
+  const errorText = useMemo(() => {
+    if (!error) return "";
+    if (typeof error === "string") return error;
+    if (typeof error === "object") {
+      if (typeof error.message === "string") return error.message;
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return "Something went wrong.";
+      }
+    }
+    return String(error);
+  }, [error]);
+
   const token = useMemo(() => localStorage.getItem("industry_mentor_token"), []);
 
   useEffect(() => {
@@ -391,7 +405,7 @@ const IndustryMentorGroups = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-6 flex items-center gap-2 text-sm">
                 <AlertTriangle className="w-4 h-4" />
-                <span>{error}</span>
+                <span>{errorText}</span>
               </div>
             )}
 

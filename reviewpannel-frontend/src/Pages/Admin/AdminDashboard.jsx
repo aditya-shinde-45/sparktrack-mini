@@ -19,6 +19,20 @@ const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState([]);
   const [evaluationLoading, setEvaluationLoading] = useState(false);
 
+  const errorText = React.useMemo(() => {
+    if (!error) return "";
+    if (typeof error === "string") return error;
+    if (typeof error === "object") {
+      if (typeof error.message === "string") return error.message;
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return "Failed to load dashboard data.";
+      }
+    }
+    return String(error);
+  }, [error]);
+
   const name = localStorage.getItem("name");
   const id = localStorage.getItem("id");
 
@@ -189,7 +203,7 @@ const AdminDashboard = () => {
           <Sidebar />
           <main className="flex-1 lg:ml-72 mb-16 lg:mb-0 px-4 sm:px-8 py-6">
             <div className="bg-white rounded-xl border border-red-200 p-6 text-center">
-              <p className="text-red-700 font-semibold">{error}</p>
+              <p className="text-red-700 font-semibold">{errorText}</p>
               <button
                 onClick={loadOverview}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
