@@ -186,6 +186,27 @@ class IndustrialMentorModel {
 
     return null;
   }
+
+  async setPasswordByContact(contact, password) {
+    const records = await this.getByContact(contact);
+    if (!records || records.length === 0) {
+      return null;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const { data, error } = await supabase
+      .from(this.table)
+      .update({ password: hashedPassword })
+      .eq('contact', contact)
+      .select('*');
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  }
 }
 
 export default new IndustrialMentorModel();
