@@ -6,6 +6,7 @@ import './App.css'
 
 import AppRoutes from './AppRoutes/approutes'; 
 import { authDebug } from './utils/authDebug.js';
+import PremiumAlertHost from './Components/Common/PremiumAlertHost.jsx';
 
 // Error fallback component
 const ErrorFallback = ({ error, resetErrorBoundary }) => {
@@ -47,6 +48,7 @@ function App() {
       FallbackComponent={ErrorFallback}
       onReset={() => window.location.reload()}
     >
+      <PremiumAlertHost />
       {/* 🔑 THIS IS THE FIX */}
       <Router>
         <AppRoutes />
