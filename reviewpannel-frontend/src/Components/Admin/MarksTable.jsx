@@ -31,6 +31,33 @@ const MarksTable = ({
     }
   };
 
+  const renderCellValue = (value) => {
+    if (value === null || value === undefined || value === '') return '-';
+
+    if (typeof value === 'object') {
+      if (value.url && typeof value.url === 'string') {
+        return (
+          <a
+            href={value.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            {value.name || 'View file'}
+          </a>
+        );
+      }
+
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return '[Object]';
+      }
+    }
+
+    return String(value);
+  };
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse">
@@ -209,18 +236,18 @@ const MarksTable = ({
                             className="w-4 h-4 accent-purple-600"
                           />
                         ) : (
-                          student.marks?.[field.key] ?? "-"
+                          renderCellValue(student.marks?.[field.key])
                         )}
                       </td>
                     ))}
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
-                      {student.total ?? totalMarks ?? "-"}
+                      {renderCellValue(student.total ?? totalMarks)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.external_name || "-"}
+                      {renderCellValue(student.external_name)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {student.feedback || "-"}
+                      {renderCellValue(student.feedback)}
                     </td>
                     {showDelete && (
                       <td className="px-4 py-3 text-center">
