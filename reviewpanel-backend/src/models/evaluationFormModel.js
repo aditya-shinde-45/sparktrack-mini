@@ -78,7 +78,10 @@ class EvaluationFormModel {
       external_name,
       feedback,
       evaluations,
-      created_by
+      created_by,
+      is_approved: false,
+      approved_at: null,
+      approved_by: null
     };
 
     const { data, error } = await supabase
@@ -94,7 +97,7 @@ class EvaluationFormModel {
   async listSubmissionsByForm(formId) {
     const { data, error } = await supabase
       .from(this.submissionsTable)
-      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at, is_approved, approved_at, approved_by')
       .eq('form_id', formId)
       .order('created_at', { ascending: false });
 
@@ -105,7 +108,7 @@ class EvaluationFormModel {
   async getSubmissionByFormAndGroup(formId, groupId) {
     const { data, error } = await supabase
       .from(this.submissionsTable)
-      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at, is_approved, approved_at, approved_by')
       .eq('form_id', formId)
       .eq('group_id', groupId)
       .order('created_at', { ascending: false })
@@ -119,7 +122,7 @@ class EvaluationFormModel {
   async getSubmissionById(submissionId, formId) {
     const { data, error } = await supabase
       .from(this.submissionsTable)
-      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at, is_approved, approved_at, approved_by')
       .eq('id', submissionId)
       .eq('form_id', formId)
       .maybeSingle();
@@ -134,7 +137,7 @@ class EvaluationFormModel {
       .update(payload)
       .eq('id', submissionId)
       .eq('form_id', formId)
-      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at')
+      .select('id, form_id, group_id, external_name, feedback, evaluations, created_at, is_approved, approved_at, approved_by')
       .single();
 
     if (error) throw error;

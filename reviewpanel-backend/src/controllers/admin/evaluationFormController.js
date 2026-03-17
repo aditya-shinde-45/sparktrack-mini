@@ -52,6 +52,10 @@ const normalizeRoleList = (roles, fallback = []) => {
 };
 
 class EvaluationFormController {
+  isAdmin = (user = {}) => String(user?.role || '').toLowerCase() === 'admin';
+
+  isIndustryMentor = (user = {}) => String(user?.role || '').toLowerCase() === 'industry_mentor';
+
   getFormRolePermissions = (form = {}) => {
     const viewRoles = normalizeRoleList(form?.view_roles, ROLE_OPTIONS);
     const editAfterSubmitRoles = normalizeRoleList(form?.edit_after_submit_roles, []);
@@ -343,6 +347,10 @@ class EvaluationFormController {
     const existingSubmission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, group_id);
 
     if (existingSubmission) {
+      if (existingSubmission.is_approved && !this.isAdmin(req.user)) {
+        throw ApiError.forbidden('Evaluation has been approved and can no longer be edited');
+      }
+
       this.assertFormAccess(req.user, form, 'edit_after_submit');
 
       const updatedSubmission = await evaluationFormModel.updateSubmission(existingSubmission.id, formId, {
@@ -556,6 +564,42 @@ class EvaluationFormController {
     }
 
     return ApiResponse.success(res, 'Evaluation submission retrieved successfully', submission);
+  });
+
+  approveSubmissionByGroup = asyncHandler(async (req, res) => {
+    const { formId, groupId } = req.params;
+
+    if (!formId || !groupId) {
+      throw ApiError.badRequest('Form ID and Group ID are required');
+    }
+
+    if (!this.isIndustryMentor(req.user)) {
+      throw ApiError.forbidden('Only industry mentors can approve evaluation submissions');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
+
+    const submission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, groupId);
+
+    if (!submission) {
+      throw ApiError.notFound('No submission found for this group');
+    }
+
+    if (submission.is_approved) {
+      return ApiResponse.success(res, 'Evaluation already approved', submission);
+    }
+
+    const approverIdentity = req.user?.id || req.user?.industrial_mentor_code || req.user?.email || null;
+    const approvedSubmission = await evaluationFormModel.updateSubmission(submission.id, formId, {
+      is_approved: true,
+      approved_at: new Date().toISOString(),
+      approved_by: approverIdentity
+    });
+
+    return ApiResponse.success(res, 'Evaluation approved successfully', approvedSubmission);
   });
 
   deleteSubmission = asyncHandler(async (req, res) => {

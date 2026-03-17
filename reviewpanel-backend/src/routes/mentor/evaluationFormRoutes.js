@@ -65,6 +65,18 @@ router.post(
 );
 
 /**
+ * @route   POST /api/mentors/evaluation-forms/:formId/group/:groupId/approve
+ * @desc    Approve a submitted evaluation for a group
+ * @access  Private (Industry Mentor)
+ */
+router.post(
+  '/evaluation-forms/:formId/group/:groupId/approve',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['industry_mentor']),
+  evaluationFormController.approveSubmissionByGroup
+);
+
+/**
  * @route   POST /api/mentors/evaluation-forms/:formId/upload
  * @desc    Upload a file for evaluation fields
  * @access  Private (Mentor)
