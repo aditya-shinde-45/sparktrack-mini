@@ -419,7 +419,10 @@ const Login = () => {
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      const requestOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/request-otp'
+        : '/api/mentors/request-otp';
+      const res = await apiRequest(requestOtpEndpoint, 'POST', { contact_number: fpContact });
       if (res && res.success) {
         setFpSessionToken(res.data.session_token);
         setFpMaskedEmail(res.data.email);
@@ -440,7 +443,10 @@ const Login = () => {
     setFpOtp('');
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      const requestOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/request-otp'
+        : '/api/mentors/request-otp';
+      const res = await apiRequest(requestOtpEndpoint, 'POST', { contact_number: fpContact });
       if (res && res.success) {
         setFpSessionToken(res.data.session_token);
         setFpMaskedEmail(res.data.email);
@@ -464,7 +470,10 @@ const Login = () => {
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/verify-otp', 'POST', {
+      const verifyOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/verify-otp'
+        : '/api/mentors/verify-otp';
+      const res = await apiRequest(verifyOtpEndpoint, 'POST', {
         session_token: fpSessionToken,
         otp: fpOtp,
       });
@@ -499,7 +508,10 @@ const Login = () => {
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/set-password', 'POST', {
+      const setPasswordEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/set-password'
+        : '/api/mentors/set-password';
+      const res = await apiRequest(setPasswordEndpoint, 'POST', {
         contact_number: fpContact,
         session_token: fpSessionToken,
         password: fpPassword,
@@ -666,8 +678,8 @@ const Login = () => {
                 )}
               </button>
 
-              {/* Forgot Password – only for mentors */}
-              {role === 'Mentor' && (
+              {/* Forgot Password – for Mentor and Industry Mentor */}
+              {(role === 'Mentor' || role === 'Industry Mentor') && (
                 <p className="text-center text-white/70 text-sm">
                   Forgot your password?{' '}
                   <button
