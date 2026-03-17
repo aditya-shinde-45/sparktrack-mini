@@ -53,12 +53,41 @@ class IndustrialMentorAuthController {
   getIndustrialMentorGroups = asyncHandler(async (req, res) => {
     // Support both single mentor_code (legacy) and array mentor_codes
     const primaryMentorCode = req.user?.mentor_code;
-    const mentorCodes = Array.isArray(req.user?.mentor_codes) && req.user.mentor_codes.length > 0
+    const tokenMentorCodes = Array.isArray(req.user?.mentor_codes) && req.user.mentor_codes.length > 0
       ? req.user.mentor_codes
       : (primaryMentorCode ? [primaryMentorCode] : []);
 
+    let mentorCodes = tokenMentorCodes
+      .map((code) => String(code || '').trim())
+      .filter(Boolean);
+
+    // Backward compatibility: old tokens or partial records may not include mentor_code(s).
+    // Resolve linked mentor codes from DB using industrial mentor identity.
     if (mentorCodes.length === 0) {
-      throw ApiError.badRequest('Mentor code is required');
+      const industrialMentorCode = String(req.user?.industrial_mentor_code || '').trim();
+      const contact = String(req.user?.contact || '').trim();
+      const email = String(req.user?.email || '').trim().toLowerCase();
+
+      let query = supabase.from('industrial_mentors').select('mentor_code');
+
+      if (industrialMentorCode) {
+        query = query.eq('industrial_mentor_code', industrialMentorCode);
+      } else if (contact) {
+        query = query.eq('contact', contact);
+      } else if (email) {
+        query = query.eq('email', email);
+      }
+
+      const { data: linkedMentorRows, error: linkedMentorError } = await query;
+      if (linkedMentorError) throw linkedMentorError;
+
+      mentorCodes = [...new Set((linkedMentorRows || [])
+        .map((row) => String(row?.mentor_code || '').trim())
+        .filter(Boolean))];
+    }
+
+    if (mentorCodes.length === 0) {
+      throw ApiError.badRequest('No faculty mentor code is linked to this industry mentor');
     }
 
     // Fetch PBL rows for all linked faculties
