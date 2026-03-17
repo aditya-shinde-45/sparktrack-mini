@@ -52,6 +52,20 @@ const Login = () => {
     return { valid: true };
   };
 
+  const toErrorText = (value, fallback = "An unexpected error occurred") => {
+    if (!value) return fallback;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      if (typeof value.message === "string") return value.message;
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return fallback;
+      }
+    }
+    return String(value);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -120,7 +134,7 @@ const Login = () => {
             } else {
               // 401/403 → user exists but wrong password or disabled — stop here
               console.log("Role login failed:", roleLoginResponse.message);
-              setErrorMsg(roleLoginResponse.message || "Invalid credentials");
+              setErrorMsg(toErrorText(roleLoginResponse.message, "Invalid credentials"));
               return;
             }
           }
@@ -161,7 +175,7 @@ const Login = () => {
       
       // Check for success flag to determine if request was successful
       if (!data || data.success === false) {
-        setErrorMsg(data?.message || "Login failed. Invalid credentials.");
+        setErrorMsg(toErrorText(data?.message, "Login failed. Invalid credentials."));
         return;
       }
 
@@ -267,7 +281,7 @@ const Login = () => {
         console.log("Regular admin login response:", data);
         
         if (!data || data.success === false) {
-          setErrorMsg(data?.message || "Login failed. Invalid credentials.");
+          setErrorMsg(toErrorText(data?.message, "Login failed. Invalid credentials."));
           return;
         }
 
@@ -297,7 +311,7 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMsg(error.message || "An unexpected error occurred");
+      setErrorMsg(toErrorText(error?.message || error, "An unexpected error occurred"));
     } finally {
       setLoading(false);
     }
