@@ -23,7 +23,6 @@ const Navbar = () => {
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/">Home</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
-          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/students">Students</Link>
 
         </nav>
 
@@ -47,7 +46,6 @@ const Navbar = () => {
             <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/">Home</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/aboutpbl">About PBL</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/download">Downloads</Link>
-          <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/students">Students</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/pblmanagementfacultydashboardlogin">Login</Link>
           <Link className="text-gray-700 hover:text-blue-600 font-medium" to="/studentlogin">Student Login</Link>
 
