@@ -73,6 +73,7 @@ const EvaluationFormBuilder = () => {
   const [allowedYears, setAllowedYears] = useState([]);
   const [viewRoles, setViewRoles] = useState(["mentor", "industry_mentor"]);
   const [editAfterSubmitRoles, setEditAfterSubmitRoles] = useState([]);
+  const [submitRoles, setSubmitRoles] = useState(["mentor", "industry_mentor"]);
   const [isCreating, setIsCreating] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [showPreview, setShowPreview] = useState(false);
@@ -121,6 +122,7 @@ const EvaluationFormBuilder = () => {
       setAllowedYears([]);
       setViewRoles(["mentor", "industry_mentor"]);
       setEditAfterSubmitRoles([]);
+      setSubmitRoles(["mentor", "industry_mentor"]);
       return;
     }
 
@@ -147,6 +149,7 @@ const EvaluationFormBuilder = () => {
       setAllowedYears(normalizedYears);
       setViewRoles(normalizeRoleList(form?.view_roles, ["mentor", "industry_mentor"]));
       setEditAfterSubmitRoles(normalizeRoleList(form?.edit_after_submit_roles, []));
+      setSubmitRoles(normalizeRoleList(form?.submit_roles, ["mentor", "industry_mentor"]));
     }
   };
 
@@ -251,9 +254,15 @@ const EvaluationFormBuilder = () => {
     const sanitizedYears = normalizeAllowedYears(allowedYears);
     const sanitizedViewRoles = normalizeRoleList(viewRoles, ["mentor", "industry_mentor"]);
     const sanitizedEditAfterSubmitRoles = normalizeRoleList(editAfterSubmitRoles, []);
+    const sanitizedSubmitRoles = normalizeRoleList(submitRoles, ["mentor", "industry_mentor"]);
 
     if (sanitizedViewRoles.length === 0) {
       setStatusMessage("Please select at least one role under who can view this form.");
+      return;
+    }
+
+    if (sanitizedSubmitRoles.length === 0) {
+      setStatusMessage("Please select at least one role under who can submit this form.");
       return;
     }
 
@@ -276,7 +285,8 @@ const EvaluationFormBuilder = () => {
         fields: sanitizedFields,
         allowed_years: sanitizedYears,
         view_roles: sanitizedViewRoles,
-        edit_after_submit_roles: sanitizedEditAfterSubmitRoles
+        edit_after_submit_roles: sanitizedEditAfterSubmitRoles,
+        submit_roles: sanitizedSubmitRoles
       },
       token
     );
@@ -420,6 +430,31 @@ const EvaluationFormBuilder = () => {
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700">Who Can Submit This Form</label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ACCESS_ROLE_OPTIONS.map((roleOption) => (
+                        <label
+                          key={`submit-${roleOption.value}`}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${
+                            submitRoles.includes(roleOption.value)
+                              ? "border-cyan-300 bg-cyan-50 text-cyan-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={submitRoles.includes(roleOption.value)}
+                            onChange={() => toggleRole(roleOption.value, setSubmitRoles)}
+                            className="accent-cyan-600"
+                          />
+                          {roleOption.label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">Only selected roles can submit this evaluation form.</p>
                   </div>
 
                   <div>

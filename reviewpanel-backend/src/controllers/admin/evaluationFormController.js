@@ -59,17 +59,22 @@ class EvaluationFormController {
   getFormRolePermissions = (form = {}) => {
     const viewRoles = normalizeRoleList(form?.view_roles, ROLE_OPTIONS);
     const editAfterSubmitRoles = normalizeRoleList(form?.edit_after_submit_roles, []);
-    return { viewRoles, editAfterSubmitRoles };
+    const submitRoles = normalizeRoleList(form?.submit_roles, ROLE_OPTIONS);
+    return { viewRoles, editAfterSubmitRoles, submitRoles };
   };
 
   assertFormAccess = (user = {}, form = {}, action = 'view') => {
     const role = String(user?.role || '').toLowerCase();
     if (!['mentor', 'industry_mentor'].includes(role)) return;
 
-    const { viewRoles, editAfterSubmitRoles } = this.getFormRolePermissions(form);
+    const { viewRoles, editAfterSubmitRoles, submitRoles } = this.getFormRolePermissions(form);
 
     if (action === 'view' && !viewRoles.includes(role)) {
       throw ApiError.forbidden('This role is not allowed to view this evaluation form');
+    }
+
+    if (action === 'submit' && !submitRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to submit this evaluation form');
     }
 
     if (action === 'edit_after_submit' && !editAfterSubmitRoles.includes(role)) {
@@ -149,7 +154,7 @@ class EvaluationFormController {
   });
 
   createForm = asyncHandler(async (req, res) => {
-    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles, submit_roles } = req.body;
     if (!name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Name, total marks, and at least one field are required');
     }
@@ -158,6 +163,7 @@ class EvaluationFormController {
     const normalizedYears = normalizeAllowedYears(allowed_years);
     const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
     const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
+    const normalizedSubmitRoles = normalizeRoleList(submit_roles, ROLE_OPTIONS);
 
     const sanitizedFields = fields.map((field, index) => {
       const normalizedType = ['number', 'boolean', 'text', 'select', 'file'].includes(field.type)
@@ -197,7 +203,8 @@ class EvaluationFormController {
       created_by,
       allowed_years: normalizedYears,
       view_roles: normalizedViewRoles,
-      edit_after_submit_roles: normalizedEditRoles
+      edit_after_submit_roles: normalizedEditRoles,
+      submit_roles: normalizedSubmitRoles
     });
 
     const deadlineKey = `evaluation_form_${form.id}`;
@@ -221,7 +228,7 @@ class EvaluationFormController {
 
   updateForm = asyncHandler(async (req, res) => {
     const { formId } = req.params;
-    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles, submit_roles } = req.body;
 
     if (!formId || !name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Form ID, name, total marks, and fields are required');
@@ -260,6 +267,7 @@ class EvaluationFormController {
     const normalizedYears = normalizeAllowedYears(allowed_years);
     const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
     const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
+    const normalizedSubmitRoles = normalizeRoleList(submit_roles, ROLE_OPTIONS);
 
     const updated = await evaluationFormModel.updateForm(formId, {
       name: name.trim(),
@@ -268,7 +276,8 @@ class EvaluationFormController {
       fields: sanitizedFields,
       allowed_years: normalizedYears,
       view_roles: normalizedViewRoles,
-      edit_after_submit_roles: normalizedEditRoles
+      edit_after_submit_roles: normalizedEditRoles,
+      submit_roles: normalizedSubmitRoles
     });
 
     const deadlineKey = `evaluation_form_${formId}`;
@@ -334,8 +343,9 @@ class EvaluationFormController {
 
     await this.assertGroupAccess(req.user, group_id);
 
-  const form = await evaluationFormModel.getFormById(formId);
-  this.assertFormAccess(req.user, form, 'view');
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+    this.assertFormAccess(req.user, form, 'submit');
 
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
 
