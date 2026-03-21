@@ -280,6 +280,19 @@ const IndustryMentorGroups = () => {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "rejected":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
   const handleGroupChange = (event) => {
     const nextGroupId = event.target.value;
     setSelectedGroupId(nextGroupId);
@@ -330,30 +343,37 @@ const IndustryMentorGroups = () => {
   };
 
   return (
-    <div className="font-[Poppins] bg-white flex flex-col min-h-screen">
+    <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
       <MentorHeader name={mentor?.name || "Industry Mentor"} id={mentor?.id || "----"} />
 
       <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <IndustryMentorSidebar />
 
-        <main className="flex-1 lg:ml-72 pb-8">
-          <div className="bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] px-4 py-8">
-            <div className="w-full">
-              <h1 className="text-2xl font-bold text-white">Evaluation Dashboard</h1>
-              <p className="text-purple-100 text-sm mt-1">Review marks and student performance</p>
+        <main className="flex-1 lg:ml-72 px-3 py-5 sm:px-5 md:px-8 bg-gray-50 mb-16 lg:mb-0">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" style={{ background: 'linear-gradient(120deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)' }}>
+              <div>
+                <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">Industry Mentor</p>
+                <h1 className="text-2xl sm:text-3xl font-bold leading-tight">Evaluation Dashboard</h1>
+                <p className="text-purple-200 text-sm mt-1">Review marks, attendance, and uploaded documentation for each group.</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/10 border border-white/20 rounded-xl px-4 py-3 self-start sm:self-auto">
+                <div>
+                  <p className="text-xs text-purple-200 font-medium">Selected Group</p>
+                  <p className="text-white font-bold text-base">{selectedGroupId || "—"}</p>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="w-full px-4 -mt-4">
             {/* Group Selector */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-              <div className="flex gap-4 items-end">
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5">
+              <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Group</label>
                   <select
                     value={selectedGroupId}
                     onChange={handleGroupChange}
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                    className="w-full rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
                     disabled={loadingGroups || groups.length === 0}
                   >
                     {loadingGroups && <option>Loading...</option>}
@@ -380,7 +400,7 @@ const IndustryMentorGroups = () => {
                       setSelectedEvaluationFormId(e.target.value);
                       setCurrentPage(1);
                     }}
-                    className="w-full rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                    className="w-full rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
                     disabled={evaluationForms.length === 0}
                   >
                     {evaluationForms.length === 0 && <option value="">No forms available</option>}
@@ -394,7 +414,7 @@ const IndustryMentorGroups = () => {
                 <button
                   onClick={exportCSV}
                   disabled={evaluations.length === 0}
-                  className="px-4 py-2 bg-[#7C3AED] text-white rounded-lg text-sm font-semibold hover:bg-[#6D28D9] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2.5 bg-[#7C3AED] text-white rounded-xl text-sm font-semibold hover:bg-[#6D28D9] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px]"
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
@@ -410,10 +430,10 @@ const IndustryMentorGroups = () => {
             )}
 
             {/* Evaluation Table */}
-            <div className="w-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">Evaluation Marks</h2>
-                <span className="text-xs text-purple-100">
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-4 sm:px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold text-purple-800">Evaluation Marks</h2>
+                <span className="text-xs text-gray-600">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, evaluations.length)} of {evaluations.length} results
                 </span>
               </div>
@@ -438,34 +458,34 @@ const IndustryMentorGroups = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full table-fixed">
                       <thead>
-                        <tr className="bg-gradient-to-r from-[#7C3AED] to-[#8B5CF6] text-white">
-                          <th className="sticky left-0 bg-[#7C3AED] w-24 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Group</th>
-                          <th className="sticky left-24 bg-[#7C3AED] w-36 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Enrollment</th>
-                          <th className="sticky left-60 bg-[#7C3AED] w-44 px-3 py-2 text-left text-xs uppercase tracking-wide whitespace-nowrap">Student</th>
+                        <tr className="bg-gray-50 text-gray-700 border-b border-gray-100">
+                          <th className="sticky left-0 bg-gray-50 w-24 px-3 py-3 text-left text-xs uppercase tracking-wide whitespace-nowrap">Group</th>
+                          <th className="sticky left-24 bg-gray-50 w-36 px-3 py-3 text-left text-xs uppercase tracking-wide whitespace-nowrap">Enrollment</th>
+                          <th className="sticky left-60 bg-gray-50 w-44 px-3 py-3 text-left text-xs uppercase tracking-wide whitespace-nowrap">Student</th>
                           {evaluationColumns.map((column) => (
                             <th
                               key={column.key}
-                              className="w-20 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap"
+                              className="w-20 px-3 py-3 text-center text-xs uppercase tracking-wide whitespace-nowrap"
                               title={column.label}
                             >
                               {String(column.label).slice(0, 10)}
                             </th>
                           ))}
-                          <th className="w-16 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap">Total</th>
-                          <th className="w-20 px-3 py-2 text-center text-xs uppercase tracking-wide whitespace-nowrap">Status</th>
+                          <th className="w-16 px-3 py-3 text-center text-xs uppercase tracking-wide whitespace-nowrap">Total</th>
+                          <th className="w-20 px-3 py-3 text-center text-xs uppercase tracking-wide whitespace-nowrap">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {paginatedEvaluations.map((evaluation, idx) => (
                           evaluation.student_marks?.map((studentMark, sIdx) => (
-                            <tr key={`${idx}-${sIdx}`} className="hover:bg-[#F3E8FF] transition-colors">
-                              <td className="sticky left-0 bg-white px-3 py-2 text-xs font-semibold text-gray-900 whitespace-nowrap">{selectedGroupId}</td>
-                              <td className="sticky left-24 bg-white px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{studentMark.enrollment_no || studentMark.enrollement_no}</td>
-                              <td className="sticky left-60 bg-white px-3 py-2 text-xs font-medium text-gray-900 whitespace-nowrap truncate">{studentMark.student_name}</td>
+                            <tr key={`${idx}-${sIdx}`} className="hover:bg-purple-50/40 transition-colors">
+                              <td className="sticky left-0 bg-white px-3 py-2.5 text-xs font-semibold text-gray-900 whitespace-nowrap">{selectedGroupId}</td>
+                              <td className="sticky left-24 bg-white px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">{studentMark.enrollment_no || studentMark.enrollement_no}</td>
+                              <td className="sticky left-60 bg-white px-3 py-2.5 text-xs font-medium text-gray-900 whitespace-nowrap truncate">{studentMark.student_name}</td>
                               {evaluationColumns.map((column) => {
                                 const mark = studentMark?.marks?.[column.key];
                                 return (
-                                  <td key={`${studentMark.enrollment_no || studentMark.enrollement_no}_${column.key}`} className="px-3 py-2 text-center text-xs font-bold text-gray-800">
+                                  <td key={`${studentMark.enrollment_no || studentMark.enrollement_no}_${column.key}`} className="px-3 py-2.5 text-center text-xs font-bold text-gray-800">
                                     {typeof mark === 'boolean' ? (
                                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                                       {mark ? 'Yes' : 'No'}
@@ -474,12 +494,12 @@ const IndustryMentorGroups = () => {
                                   </td>
                                 );
                               })}
-                              <td className="px-3 py-2 text-center">
+                              <td className="px-3 py-2.5 text-center">
                                 <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-[#F3E8FF] text-[#7C3AED]">
                                   {studentMark.total}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-center">
+                              <td className="px-3 py-2.5 text-center">
                                 {studentMark.absent ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
                                     <XCircle className="w-3 h-3" />Absent
@@ -499,11 +519,11 @@ const IndustryMentorGroups = () => {
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                       <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Prev
                       </button>
@@ -513,13 +533,151 @@ const IndustryMentorGroups = () => {
                       <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Next
                       </button>
                     </div>
                   )}
                 </>
+              )}
+            </div>
+
+            {/* Documentation */}
+            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-4 sm:px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-purple-800">Documentation</h2>
+                <span className="text-xs text-gray-600">Uploaded documents for selected group</span>
+              </div>
+
+              {!selectedGroupId ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2">
+                  <AlertTriangle className="w-8 h-8 text-amber-400" />
+                  <p className="text-sm text-gray-600 font-medium">Select a group to view documents</p>
+                </div>
+              ) : (
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+                      <p className="text-xl font-bold text-gray-900">{documentStats.total}</p>
+                      <p className="text-xs text-gray-500 mt-1">Total</p>
+                    </div>
+                    <div className="bg-yellow-50 rounded-xl p-3 border border-yellow-200">
+                      <p className="text-xl font-bold text-yellow-700">{documentStats.pending}</p>
+                      <p className="text-xs text-yellow-700 mt-1">Pending</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                      <p className="text-xl font-bold text-green-700">{documentStats.approved}</p>
+                      <p className="text-xs text-green-700 mt-1">Approved</p>
+                    </div>
+                    <div className="bg-red-50 rounded-xl p-3 border border-red-200">
+                      <p className="text-xl font-bold text-red-700">{documentStats.rejected}</p>
+                      <p className="text-xs text-red-700 mt-1">Rejected</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="relative md:col-span-2">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by document name or description"
+                        className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="proposal">Proposal</option>
+                        <option value="ppt">PPT</option>
+                        <option value="report">Report</option>
+                        <option value="other">Other</option>
+                      </select>
+
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="rounded-xl border border-gray-200 bg-white py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {loadingDocuments ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                      <div className="w-8 h-8 border-2 border-purple-200 border-t-[#7C3AED] rounded-full animate-spin" />
+                      <p className="text-sm text-gray-500">Loading documents...</p>
+                    </div>
+                  ) : filteredDocuments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                      <FileText className="w-8 h-8 text-gray-300" />
+                      <p className="text-sm text-gray-600 font-medium">
+                        {documents.length > 0 ? "No documents match the selected filters" : "No documents uploaded yet"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredDocuments.map((doc) => (
+                        <div key={doc.id} className="rounded-xl border border-gray-200 bg-white p-4 hover:border-purple-300 hover:shadow-sm transition-all">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-gray-900 truncate">{doc.document_name}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {doc.description || "No description"}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-500">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                  {(doc.category || "other").toUpperCase()}
+                                </span>
+                                {doc.uploaded_by && <span>By: {doc.uploaded_by}</span>}
+                                {doc.created_at && (
+                                  <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-semibold ${getStatusColor(doc.status)}`}>
+                                {getStatusIcon(doc.status)}
+                                {doc.status || "unknown"}
+                              </span>
+
+                              <a
+                                href={doc.document_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50"
+                              >
+                                <Eye className="w-3 h-3" />
+                                View
+                              </a>
+
+                              <a
+                                href={doc.document_url}
+                                download
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#7C3AED] text-white hover:bg-[#6D28D9]"
+                              >
+                                <Download className="w-3 h-3" />
+                                Download
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

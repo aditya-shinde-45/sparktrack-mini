@@ -3,7 +3,7 @@ import { apiRequest } from "../../api";
 import { useNavigate } from "react-router-dom";
 import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
-import { Users, BookOpen, Calendar, Award, TrendingUp, ChevronDown } from "lucide-react";
+import { Users, BookOpen, Calendar, Award, TrendingUp, ChevronDown, FileText } from "lucide-react";
 
 const IndustryMentorDashboard = () => {
   const navigate = useNavigate();
@@ -261,7 +261,7 @@ const IndustryMentorDashboard = () => {
             {/* Quick Actions */}
             <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-lg p-6 md:p-8 border border-white/40">
               <h2 className="text-2xl md:text-3xl font-bold text-purple-800 mb-6">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                 <button
                   onClick={() => navigate('/industry-mentor/groups')}
                   className="flex items-center gap-4 p-5 bg-purple-50/60 backdrop-blur-sm rounded-xl hover:bg-purple-100/60 transition-colors text-left border-2 border-purple-200/50 hover:border-purple-300/70 shadow-sm hover:shadow-md"
@@ -270,6 +270,17 @@ const IndustryMentorDashboard = () => {
                   <div>
                     <p className="font-bold text-purple-800 text-lg">Review Groups</p>
                     <p className="text-sm text-gray-600 mt-1">See team details</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => navigate('/industry-mentor/groups')}
+                  className="flex items-center gap-4 p-5 bg-violet-50/60 backdrop-blur-sm rounded-xl hover:bg-violet-100/60 transition-colors text-left border-2 border-violet-200/50 hover:border-violet-300/70 shadow-sm hover:shadow-md"
+                >
+                  <FileText className="w-10 h-10 text-violet-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-bold text-violet-800 text-lg">Documentation</p>
+                    <p className="text-sm text-gray-600 mt-1">View uploaded files</p>
                   </div>
                 </button>
 
