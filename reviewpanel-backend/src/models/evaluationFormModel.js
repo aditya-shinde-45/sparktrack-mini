@@ -6,7 +6,7 @@ class EvaluationFormModel {
     this.submissionsTable = 'evaluation_form_submissions';
   }
 
-  async createForm({ name, sheet_title, total_marks, fields, created_by, allowed_years, view_roles, edit_after_submit_roles }) {
+  async createForm({ name, sheet_title, total_marks, fields, created_by, allowed_years, view_roles, edit_after_submit_roles, submit_roles }) {
     const payload = {
       name,
       sheet_title,
@@ -15,7 +15,8 @@ class EvaluationFormModel {
       created_by,
       allowed_years,
       view_roles,
-      edit_after_submit_roles
+      edit_after_submit_roles,
+      submit_roles
     };
 
     const { data, error } = await supabase
@@ -31,7 +32,7 @@ class EvaluationFormModel {
   async listForms() {
     const { data, error } = await supabase
       .from(this.formsTable)
-      .select('id, name, sheet_title, total_marks, created_at, allowed_years, view_roles, edit_after_submit_roles')
+      .select('id, name, sheet_title, total_marks, created_at, allowed_years, view_roles, edit_after_submit_roles, submit_roles')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -49,7 +50,7 @@ class EvaluationFormModel {
     return data;
   }
 
-  async updateForm(formId, { name, sheet_title, total_marks, fields, allowed_years, view_roles, edit_after_submit_roles }) {
+  async updateForm(formId, { name, sheet_title, total_marks, fields, allowed_years, view_roles, edit_after_submit_roles, submit_roles }) {
     const payload = {
       name,
       sheet_title,
@@ -57,7 +58,8 @@ class EvaluationFormModel {
       fields,
       allowed_years,
       view_roles,
-      edit_after_submit_roles
+      edit_after_submit_roles,
+      submit_roles
     };
 
     const { data, error } = await supabase
