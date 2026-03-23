@@ -85,7 +85,7 @@ const AppRoutes = () => {
       <Route path="/mentor/dashboard" element={<MentorDashboard />} />
       <Route path="/mentor/groups" element={<MentorGroups />} />
       <Route path="/mentor/groups/:groupId" element={<MentorGroups />} />
-      <Route path="/mentor/reviews" element={<MentorDashboard />} />
+      <Route path="/mentor/reviews" element={<MentorEvaluation />} />
       <Route path="/mentor/evaluation" element={<MentorEvaluation />} />
       <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
       <Route path="/mentor/schedule" element={<MentorDashboard />} />
@@ -96,6 +96,7 @@ const AppRoutes = () => {
       <Route path="/industry-mentor/groups" element={<IndustryMentorGroups />} />
       <Route path="/industry-mentor/groups/:groupId" element={<IndustryMentorGroups />} />
       <Route path="/industry-mentor/evaluation" element={<MentorEvaluation />} />
+      <Route path="/industry-mentor/reviews" element={<MentorEvaluation />} />
 
 
       {/* External Routes removed */}
