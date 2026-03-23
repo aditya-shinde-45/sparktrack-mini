@@ -38,6 +38,43 @@ const IndustryMentorGroups = () => {
 
   const token = useMemo(() => localStorage.getItem("industry_mentor_token"), []);
 
+  const renderMarkCellValue = (mark) => {
+    if (typeof mark === "boolean") {
+      return (
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+          {mark ? 'Yes' : 'No'}
+        </span>
+      );
+    }
+
+    if (mark && typeof mark === "object") {
+      const fileUrl = typeof mark.url === "string" ? mark.url : "";
+      const fileName = typeof mark.name === "string" && mark.name ? mark.name : "View file";
+
+      if (fileUrl) {
+        return (
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-purple-600 hover:underline"
+          >
+            {fileName}
+          </a>
+        );
+      }
+
+      try {
+        return JSON.stringify(mark);
+      } catch {
+        return "[Object]";
+      }
+    }
+
+    if (mark === null || mark === undefined || mark === "") return "-";
+    return String(mark);
+  };
+
   useEffect(() => {
     if (!token) {
       navigate("/pblmanagementfacultydashboardlogin");
@@ -375,13 +412,9 @@ const IndustryMentorGroups = () => {
                               <td className="sticky left-0 bg-white px-3 py-2 text-xs font-semibold text-gray-900 whitespace-nowrap">{selectedGroupId}</td>
                               <td className="sticky left-24 bg-white px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{studentMark.enrollment_no}</td>
                               <td className="sticky left-60 bg-white px-3 py-2 text-xs font-medium text-gray-900 whitespace-nowrap truncate">{studentMark.student_name}</td>
-                              {studentMark.marks && Object.values(studentMark.marks).map((mark, mIdx) => (
-                                <td key={mIdx} className="px-3 py-2 text-center text-xs font-bold text-gray-800">
-                                  {typeof mark === 'boolean' ? (
-                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                      {mark ? 'Yes' : 'No'}
-                                    </span>
-                                  ) : mark}
+                              {studentMark.marks && Object.entries(studentMark.marks).map(([markKey, mark], mIdx) => (
+                                <td key={`${markKey}-${mIdx}`} className="px-3 py-2 text-center text-xs font-bold text-gray-800">
+                                  {renderMarkCellValue(mark)}
                                 </td>
                               ))}
                               <td className="px-3 py-2 text-center">

@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
-import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
@@ -54,26 +53,15 @@ const MentorEvaluation = () => {
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [groupBooleans, setGroupBooleans] = useState({});
-  const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
-  const [isApproved, setIsApproved] = useState(false);
-  const [formCanEditAfterSubmit, setFormCanEditAfterSubmit] = useState(false);
-  const [submitRoles, setSubmitRoles] = useState([]);
-  const [hasPendingChanges, setHasPendingChanges] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  const currentRole = String(localStorage.getItem("role") || "mentor").toLowerCase();
-  const isIndustryMentor = currentRole === "industry_mentor";
-  const token = localStorage.getItem(isIndustryMentor ? "industry_mentor_token" : "mentor_token");
+  const token = localStorage.getItem("mentor_token");
   const mentorName = localStorage.getItem("mentor_name") || localStorage.getItem("name") || "";
-  const mentorId = isIndustryMentor
-    ? (localStorage.getItem("industry_mentor_code") || localStorage.getItem("mentor_code") || "")
-    : (localStorage.getItem("mentor_id") || localStorage.getItem("id") || "");
+  const mentorId = localStorage.getItem("mentor_id") || localStorage.getItem("id") || "";
   const isFormSelected = Boolean(selectedFormId);
-
-  const canUserSubmit = submitRoles.length === 0 || submitRoles.includes(currentRole);
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -120,11 +108,7 @@ const MentorEvaluation = () => {
   };
 
   const loadGroups = async () => {
-    const groupsEndpoint = isIndustryMentor
-      ? "/api/industrial-mentors/groups"
-      : "/api/mentors/groups-by-mentor-code";
-
-    const response = await apiRequest(groupsEndpoint, "GET", null, token);
+    const response = await apiRequest("/api/mentors/groups-by-mentor-code", "GET", null, token);
     const groupIds = response?.data?.groups || response?.groups || [];
     setGroups(groupIds);
   };
@@ -152,10 +136,6 @@ const MentorEvaluation = () => {
     setProblemStatement(null);
     setStatusMessage("");
     setGroupBooleans({});
-    setHasExistingSubmission(false);
-    setIsApproved(false);
-    setIsReadOnly(false);
-    setHasPendingChanges(false);
 
     if (!formId) {
       setFormName("");
@@ -163,8 +143,6 @@ const MentorEvaluation = () => {
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
-      setFormCanEditAfterSubmit(false);
-      setSubmitRoles([]);
       return;
     }
 
@@ -186,16 +164,6 @@ const MentorEvaluation = () => {
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
       setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
-
-      const editRoles = Array.isArray(form?.edit_after_submit_roles)
-        ? form.edit_after_submit_roles.map((value) => String(value || "").trim().toLowerCase())
-        : [];
-      setFormCanEditAfterSubmit(editRoles.includes(currentRole));
-
-      const roles = Array.isArray(form?.submit_roles)
-        ? form.submit_roles.map((value) => String(value || "").trim().toLowerCase())
-        : ["mentor", "industry_mentor"];
-      setSubmitRoles(roles);
     }
   };
 
@@ -205,9 +173,6 @@ const MentorEvaluation = () => {
     setIsLoading(true);
     setStatusMessage("");
     setIsReadOnly(false);
-    setHasExistingSubmission(false);
-    setIsApproved(false);
-    setHasPendingChanges(false);
     const response = await apiRequest(
       `/api/mentors/evaluation-forms/${selectedFormId}/group/${groupId}`,
       "GET",
@@ -291,20 +256,8 @@ const MentorEvaluation = () => {
       setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
-      const submissionApproved = Boolean(submission.is_approved);
-      const editableAfterSubmit = !submissionApproved && formCanEditAfterSubmit;
-
-      setHasExistingSubmission(true);
-      setIsApproved(submissionApproved);
-      setIsReadOnly(!editableAfterSubmit);
-
-      if (submissionApproved) {
-        setStatusMessage("Evaluation is approved. Editing is disabled.");
-      } else if (editableAfterSubmit) {
-        setStatusMessage("Existing submission loaded. You can update marks until approval.");
-      } else {
-        setStatusMessage("Evaluation already submitted. Editing is disabled.");
-      }
+      setIsReadOnly(true);
+      setStatusMessage("Evaluation already submitted. Editing is disabled.");
     }
 
     setIsLoading(false);
@@ -325,7 +278,6 @@ const MentorEvaluation = () => {
         }, 0);
 
     setStudents(updated);
-    setHasPendingChanges(true);
   };
 
   const toggleBoolean = (fieldKey, isChecked) => {
@@ -336,7 +288,6 @@ const MentorEvaluation = () => {
       student.marks[fieldKey] = isChecked;
     });
     setStudents(updated);
-    setHasPendingChanges(true);
   };
 
   const toggleAbsent = (studentIndex, isAbsent) => {
@@ -358,7 +309,6 @@ const MentorEvaluation = () => {
     }
 
     setStudents(updated);
-    setHasPendingChanges(true);
   };
 
   const handleProblemStatementSuccess = (savedData) => {
@@ -426,11 +376,10 @@ const MentorEvaluation = () => {
 
     setStudents(updated);
     setStatusMessage("File uploaded successfully.");
-    setHasPendingChanges(true);
   };
 
   const handleSubmit = async () => {
-    if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly || isApproved) return;
+    if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly) return;
 
     setIsSubmitting(true);
     const payload = {
@@ -454,15 +403,8 @@ const MentorEvaluation = () => {
     );
 
     if (response?.success) {
-      setHasExistingSubmission(true);
-      setHasPendingChanges(false);
-      if (formCanEditAfterSubmit) {
-        setIsReadOnly(false);
-        setStatusMessage("Evaluation saved successfully. You can keep editing until approval.");
-      } else {
-        setIsReadOnly(true);
-        setStatusMessage("Evaluation submitted successfully.");
-      }
+      setStatusMessage("Evaluation submitted successfully.");
+      setIsReadOnly(true);
     } else {
       setStatusMessage(response?.message || "Failed to submit evaluation.");
     }
@@ -470,68 +412,12 @@ const MentorEvaluation = () => {
     setIsSubmitting(false);
   };
 
-  const handleApprove = async () => {
-    if (!isIndustryMentor || !selectedFormId || !selectedGroupId || !hasExistingSubmission || isApproved) return;
-
-    setIsSubmitting(true);
-
-    // If there are pending changes, submit them first
-    if (hasPendingChanges) {
-      setStatusMessage("Saving changes before approval...");
-      const payload = {
-        group_id: selectedGroupId,
-        external_name: externalName,
-        feedback,
-        evaluations: students.map((student) => ({
-          enrollment_no: student.enrollment_no,
-          student_name: student.student_name,
-          marks: student.marks,
-          total: student.total,
-          absent: student.absent
-        }))
-      };
-
-      const submitResponse = await apiRequest(
-        `/api/mentors/evaluation-forms/${selectedFormId}/submit`,
-        "POST",
-        payload,
-        token
-      );
-
-      if (!submitResponse?.success) {
-        setStatusMessage("Failed to save changes before approval. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      setHasPendingChanges(false);
-    }
-
-    // Now approve the evaluation
-    const approveResponse = await apiRequest(
-      `/api/mentors/evaluation-forms/${selectedFormId}/group/${selectedGroupId}/approve`,
-      "POST",
-      {},
-      token
-    );
-
-    if (approveResponse?.success) {
-      setIsApproved(true);
-      setIsReadOnly(true);
-      setStatusMessage("Evaluation approved successfully. Marks are now locked.");
-    } else {
-      setStatusMessage(approveResponse?.message || "Failed to approve evaluation.");
-    }
-
-    setIsSubmitting(false);
-  };
-
   return (
-    <div className="font-[Poppins] min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff] flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff]">
       <MentorHeader name={mentorName} id={mentorId} />
-      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
-        {isIndustryMentor ? <IndustryMentorSidebar /> : <MentorSidebar />}
-        <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mb-16 lg:mb-4 text-gray-900">
+      <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
+        <MentorSidebar />
+        <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mt-0 sm:mt-1 lg:mt-2 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -913,32 +799,15 @@ const MentorEvaluation = () => {
           </section>
 
           <div className="pt-4 flex flex-col items-center gap-3">
-            {isIndustryMentor && hasExistingSubmission && !isApproved && (
-              <button
-                onClick={handleApprove}
-                disabled={isSubmitting || students.length === 0 || !isFormSelected}
-                className="bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-emerald-700 transition w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (hasPendingChanges ? "Saving and Approving..." : "Approving...") : "Approve Evaluation"}
-              </button>
-            )}
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected || isApproved || !canUserSubmit}
+              disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected}
               className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              title={!canUserSubmit ? "Your role doesn't have permission to submit this form" : ""}
             >
-              {isSubmitting ? "Submitting Evaluation..." : isApproved ? "Evaluation Approved" : hasExistingSubmission ? "Update Evaluation" : "Submit Evaluation"}
+              {isSubmitting ? "Submitting Evaluation..." : isReadOnly ? "Evaluation Submitted" : "Submit Evaluation"}
             </button>
-            {!canUserSubmit && (
-              <p className="text-sm text-red-500 text-center mt-2">
-                Your role does not have permission to submit this form. Contact admin if you believe this is an error.
-              </p>
-            )}
             <p className="text-sm text-gray-500 text-center mt-2">
-              {isIndustryMentor
-                ? "Submit and update marks as needed, then use Approve to lock them."
-                : "Select a form and group, fill marks, then submit the evaluation."}
+              Select a form and group, fill marks, then submit the evaluation.
             </p>
           </div>
         </main>

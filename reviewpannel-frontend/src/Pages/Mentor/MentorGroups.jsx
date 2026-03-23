@@ -61,6 +61,39 @@ const MentorGroups = () => {
     }
     return String(error);
   }, [error]);
+
+  const renderMarkCellValue = (mark) => {
+    if (typeof mark === "boolean") {
+      return mark ? "✓" : "✗";
+    }
+
+    if (mark && typeof mark === "object") {
+      const fileUrl = typeof mark.url === "string" ? mark.url : "";
+      const fileName = typeof mark.name === "string" && mark.name ? mark.name : "View file";
+
+      if (fileUrl) {
+        return (
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-purple-600 hover:underline"
+          >
+            {fileName}
+          </a>
+        );
+      }
+
+      try {
+        return JSON.stringify(mark);
+      } catch {
+        return "[Object]";
+      }
+    }
+
+    if (mark === null || mark === undefined || mark === "") return "-";
+    return String(mark);
+  };
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberProfile, setMemberProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -658,9 +691,9 @@ const MentorGroups = () => {
                                     <td className="px-6 py-4 text-sm text-gray-600">
                                       {studentMark.enrollment_no}
                                     </td>
-                                    {studentMark.marks && Object.values(studentMark.marks).map((mark, mIdx) => (
-                                      <td key={mIdx} className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
-                                        {typeof mark === 'boolean' ? (mark ? '✓' : '✗') : mark}
+                                    {studentMark.marks && Object.entries(studentMark.marks).map(([markKey, mark], mIdx) => (
+                                      <td key={`${markKey}-${mIdx}`} className="px-6 py-4 text-center text-sm font-semibold text-gray-900">
+                                        {renderMarkCellValue(mark)}
                                       </td>
                                     ))}
                                     <td className="px-6 py-4 text-center">
