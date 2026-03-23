@@ -8,6 +8,30 @@ import AppRoutes from './AppRoutes/approutes';
 import { authDebug } from './utils/authDebug.js';
 import PremiumAlertHost from './Components/Common/PremiumAlertHost.jsx';
 
+const getErrorText = (error) => {
+  if (!error) return 'Unknown error';
+  if (typeof error === 'string') return error;
+
+  const message = error?.message;
+  if (typeof message === 'string') return message;
+
+  if (message && typeof message === 'object') {
+    if (typeof message.name === 'string' && message.name) return message.name;
+    if (typeof message.url === 'string' && message.url) return message.url;
+    try {
+      return JSON.stringify(message);
+    } catch {
+      return 'Unknown error';
+    }
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown error';
+  }
+};
+
 // Error fallback component
 const ErrorFallback = ({ error, resetErrorBoundary }) => {
   return (
@@ -16,7 +40,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }) => {
         <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-800 font-mono break-all">
-            {error.message || 'Unknown error'}
+            {getErrorText(error)}
           </p>
         </div>
         <button

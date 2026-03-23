@@ -53,6 +53,43 @@ const IndustryMentorGroups = () => {
     return String(error);
   }, [error]);
 
+  const renderMarkCellValue = (mark) => {
+    if (typeof mark === "boolean") {
+      return (
+        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+          {mark ? 'Yes' : 'No'}
+        </span>
+      );
+    }
+
+    if (mark && typeof mark === "object") {
+      const fileUrl = typeof mark.url === "string" ? mark.url : "";
+      const fileName = typeof mark.name === "string" && mark.name ? mark.name : "View file";
+
+      if (fileUrl) {
+        return (
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-purple-600 hover:underline"
+          >
+            {fileName}
+          </a>
+        );
+      }
+
+      try {
+        return JSON.stringify(mark);
+      } catch {
+        return "[Object]";
+      }
+    }
+
+    if (mark === null || mark === undefined || mark === "") return "-";
+    return String(mark);
+  };
+
   const token = useMemo(() => localStorage.getItem("industry_mentor_token"), []);
 
   useEffect(() => {
@@ -486,11 +523,7 @@ const IndustryMentorGroups = () => {
                                 const mark = studentMark?.marks?.[column.key];
                                 return (
                                   <td key={`${studentMark.enrollment_no || studentMark.enrollement_no}_${column.key}`} className="px-3 py-2.5 text-center text-xs font-bold text-gray-800">
-                                    {typeof mark === 'boolean' ? (
-                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${mark ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                      {mark ? 'Yes' : 'No'}
-                                    </span>
-                                  ) : (mark ?? "-")}
+                                    {renderMarkCellValue(mark)}
                                   </td>
                                 );
                               })}
