@@ -1,11 +1,35 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
+import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
 const YEAR_OPTIONS = ["SY", "TY", "LY"];
+const ROLE_OPTIONS = ["mentor", "industry_mentor"];
+
+const normalizeRole = (role = "") => String(role).trim().toLowerCase().replace(/\s+/g, "_");
+
+const normalizeRoleList = (roles = []) => {
+  if (!Array.isArray(roles)) return [];
+  const normalized = roles
+    .map((role) => normalizeRole(role))
+    .filter((role) => ROLE_OPTIONS.includes(role));
+  return Array.from(new Set(normalized));
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "object") {
+    const url = String(value?.url || "").trim();
+    const name = String(value?.name || "").trim();
+    return url.length > 0 || name.length > 0;
+  }
+  return true;
+};
 
 const normalizeAllowedYears = (years = []) => {
   if (!Array.isArray(years)) return [];
@@ -36,6 +60,7 @@ const FILE_ACCEPT_MAP = {
 };
 
 const MentorEvaluation = () => {
+  const location = useLocation();
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formName, setFormName] = useState("");
@@ -43,6 +68,8 @@ const MentorEvaluation = () => {
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
   const [allowedYears, setAllowedYears] = useState([]);
+  const [editAfterSubmitRoles, setEditAfterSubmitRoles] = useState([]);
+  const [submitRoles, setSubmitRoles] = useState([]);
 
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -53,15 +80,30 @@ const MentorEvaluation = () => {
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [groupBooleans, setGroupBooleans] = useState({});
+  const [hasSubmission, setHasSubmission] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  const token = localStorage.getItem("mentor_token");
+  const roleFromStorage = normalizeRole(localStorage.getItem("role") || "mentor");
+  const isIndustryMentorPath = String(location?.pathname || "").startsWith("/industry-mentor");
+  const industryMentorToken = localStorage.getItem("industry_mentor_token") || "";
+  const isIndustryMentorUser = isIndustryMentorPath || roleFromStorage === "industry_mentor";
+  const isIndustryMentorLoggedIn = Boolean(industryMentorToken) && (isIndustryMentorPath || roleFromStorage === "industry_mentor");
+  const token = isIndustryMentorUser
+    ? (industryMentorToken || localStorage.getItem("token"))
+    : (localStorage.getItem("mentor_token") || localStorage.getItem("token"));
   const mentorName = localStorage.getItem("mentor_name") || localStorage.getItem("name") || "";
-  const mentorId = localStorage.getItem("mentor_id") || localStorage.getItem("id") || "";
+  const mentorId = isIndustryMentorUser
+    ? (localStorage.getItem("industry_mentor_code") || localStorage.getItem("mentor_code") || localStorage.getItem("id") || "")
+    : (localStorage.getItem("mentor_id") || localStorage.getItem("id") || "");
+  const currentUserRole = isIndustryMentorUser ? "industry_mentor" : "mentor";
   const isFormSelected = Boolean(selectedFormId);
+  const canEditAfterSubmit = editAfterSubmitRoles.includes(currentUserRole);
+  const canSubmitForm = submitRoles.includes(currentUserRole);
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -108,7 +150,10 @@ const MentorEvaluation = () => {
   };
 
   const loadGroups = async () => {
-    const response = await apiRequest("/api/mentors/groups-by-mentor-code", "GET", null, token);
+    const groupsUrl = isIndustryMentorUser
+      ? "/api/industrial-mentors/groups"
+      : "/api/mentors/groups-by-mentor-code";
+    const response = await apiRequest(groupsUrl, "GET", null, token);
     const groupIds = response?.data?.groups || response?.groups || [];
     setGroups(groupIds);
   };
@@ -143,6 +188,10 @@ const MentorEvaluation = () => {
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
+      setEditAfterSubmitRoles([]);
+      setSubmitRoles([]);
+      setHasSubmission(false);
+      setIsApproved(false);
       return;
     }
 
@@ -164,6 +213,8 @@ const MentorEvaluation = () => {
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
       setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
+      setEditAfterSubmitRoles(normalizeRoleList(form?.edit_after_submit_roles || []));
+      setSubmitRoles(normalizeRoleList(form?.submit_roles || []));
     }
   };
 
@@ -173,6 +224,8 @@ const MentorEvaluation = () => {
     setIsLoading(true);
     setStatusMessage("");
     setIsReadOnly(false);
+    setHasSubmission(false);
+    setIsApproved(false);
     const response = await apiRequest(
       `/api/mentors/evaluation-forms/${selectedFormId}/group/${groupId}`,
       "GET",
@@ -225,10 +278,12 @@ const MentorEvaluation = () => {
 
     if (submissionResponse?.success && submissionResponse.data) {
       const submission = submissionResponse.data;
+      setHasSubmission(true);
+      setIsApproved(Boolean(submission.is_approved));
       const evaluationRows = Array.isArray(submission.evaluations) ? submission.evaluations : [];
       const mapped = freshStudents.map((student) => {
         const existing = evaluationRows.find(
-          (row) => (row.enrollment_no || row.enrollement_no) === student.enrollment_no
+          (row) => String(row.enrollment_no || row.enrollement_no || "").trim() === String(student.enrollment_no || "").trim()
         );
 
         if (!existing) return student;
@@ -247,7 +302,29 @@ const MentorEvaluation = () => {
         };
       });
 
-      setStudents(mapped);
+      const commonFieldKeys = [
+        ...orderedFields.textFields,
+        ...orderedFields.commonSelectFields,
+        ...orderedFields.commonFileFields
+      ].map((field) => field.key);
+
+      const commonMarks = commonFieldKeys.reduce((acc, key) => {
+        const sourceRow = evaluationRows.find((row) => hasMeaningfulValue(row?.marks?.[key]));
+        if (sourceRow && hasMeaningfulValue(sourceRow?.marks?.[key])) {
+          acc[key] = sourceRow.marks[key];
+        }
+        return acc;
+      }, {});
+
+      const mappedWithCommon = mapped.map((student) => ({
+        ...student,
+        marks: {
+          ...student.marks,
+          ...commonMarks
+        }
+      }));
+
+      setStudents(mappedWithCommon);
       const fromSubmission = orderedFields.booleanFields.reduce((acc, field) => {
         const firstRow = evaluationRows[0];
         acc[field.key] = Boolean(firstRow?.marks?.[field.key]);
@@ -256,8 +333,19 @@ const MentorEvaluation = () => {
       setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
-      setIsReadOnly(true);
-      setStatusMessage("Evaluation already submitted. Editing is disabled.");
+      if (submission.is_approved) {
+        setIsReadOnly(true);
+        setStatusMessage("Evaluation is approved by Industry Mentor. Editing is disabled.");
+      } else if (canEditAfterSubmit) {
+        setIsReadOnly(false);
+        setStatusMessage("Existing submission loaded. You can edit until Industry Mentor approval.");
+      } else {
+        setIsReadOnly(true);
+        setStatusMessage("Evaluation already submitted. Editing is disabled for your role.");
+      }
+    } else {
+      setHasSubmission(false);
+      setIsApproved(false);
     }
 
     setIsLoading(false);
@@ -379,7 +467,12 @@ const MentorEvaluation = () => {
   };
 
   const handleSubmit = async () => {
-    if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly) return;
+    if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly || !canSubmitForm) {
+      if (!canSubmitForm) {
+        setStatusMessage("Your role is not allowed to submit this form.");
+      }
+      return;
+    }
 
     setIsSubmitting(true);
     const payload = {
@@ -403,8 +496,14 @@ const MentorEvaluation = () => {
     );
 
     if (response?.success) {
-      setStatusMessage("Evaluation submitted successfully.");
-      setIsReadOnly(true);
+      setHasSubmission(true);
+      if (canEditAfterSubmit) {
+        setStatusMessage("Evaluation submitted successfully. You can edit until Industry Mentor approval.");
+        setIsReadOnly(false);
+      } else {
+        setStatusMessage("Evaluation submitted successfully.");
+        setIsReadOnly(true);
+      }
     } else {
       setStatusMessage(response?.message || "Failed to submit evaluation.");
     }
@@ -412,11 +511,33 @@ const MentorEvaluation = () => {
     setIsSubmitting(false);
   };
 
+  const handleApprove = async () => {
+    if (!isIndustryMentorLoggedIn || !selectedFormId || !selectedGroupId || !hasSubmission || isApproved) return;
+
+    setIsApproving(true);
+    const response = await apiRequest(
+      `/api/mentors/evaluation-forms/${selectedFormId}/group/${selectedGroupId}/approve`,
+      "POST",
+      null,
+      token
+    );
+
+    if (response?.success) {
+      setIsApproved(true);
+      setIsReadOnly(true);
+      setStatusMessage("Evaluation approved successfully.");
+    } else {
+      setStatusMessage(response?.message || "Failed to approve evaluation.");
+    }
+
+    setIsApproving(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff]">
       <MentorHeader name={mentorName} id={mentorId} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
-        <MentorSidebar />
+        {isIndustryMentorUser ? <IndustryMentorSidebar /> : <MentorSidebar />}
         <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mt-0 sm:mt-1 lg:mt-2 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -464,6 +585,11 @@ const MentorEvaluation = () => {
             {isFormSelected && allowedYears.length > 0 && (
               <p className="text-xs text-purple-600">
                 Showing groups for: {allowedYears.join(", ")}
+              </p>
+            )}
+            {isFormSelected && !canSubmitForm && (
+              <p className="text-xs text-amber-600">
+                Submit is disabled for your role on this form.
               </p>
             )}
             {statusMessage && (
@@ -799,13 +925,24 @@ const MentorEvaluation = () => {
           </section>
 
           <div className="pt-4 flex flex-col items-center gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected}
-              className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isSubmitting ? "Submitting Evaluation..." : isReadOnly ? "Evaluation Submitted" : "Submit Evaluation"}
-            </button>
+            {isIndustryMentorLoggedIn && isFormSelected && Boolean(selectedGroupId) && (
+              <button
+                onClick={handleApprove}
+                disabled={isApproving || !hasSubmission || isApproved}
+                className="bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isApproving ? "Approving..." : isApproved ? "Evaluation Approved" : !hasSubmission ? "No Submission To Approve" : "Approve Evaluation"}
+              </button>
+            )}
+            {canSubmitForm && (
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected}
+                className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isSubmitting ? "Submitting Evaluation..." : isApproved ? "Evaluation Approved" : isReadOnly ? "Evaluation Submitted" : "Submit Evaluation"}
+              </button>
+            )}
             <p className="text-sm text-gray-500 text-center mt-2">
               Select a form and group, fill marks, then submit the evaluation.
             </p>
