@@ -27,13 +27,23 @@ router.post(
  * @desc    Get group details by enrollment number
  * @access  Private/Student
  */
-router.get('/:enrollmentNo', authMiddleware.authenticateUser, getGroupByEnrollment);
+router.get(
+  '/:enrollmentNo',
+  authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollmentNo'),
+  getGroupByEnrollment
+);
 
 /**
  * @route   GET /api/groups/previous/:enrollmentNo
  * @desc    Get previous group data from pbl_2025 table
  * @access  Private/Student
  */
-router.get('/previous/:enrollmentNo', authMiddleware.authenticateUser, getPreviousGroup);
+router.get(
+  '/previous/:enrollmentNo',
+  authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollmentNo'),
+  getPreviousGroup
+);
 
 export default router;

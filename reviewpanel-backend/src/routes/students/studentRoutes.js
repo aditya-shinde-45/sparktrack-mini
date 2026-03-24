@@ -6,17 +6,20 @@ const router = express.Router();
 
 router.get('/profile/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   studentController.getStudentProfileByEnrollment
 );
 
 router.get('/pbl/gp/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   studentController.getGroupDetails
 );
 
 // Check if student is in a finalized group
 router.get('/check-membership/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   studentController.checkGroupMembership
 );
 
@@ -40,11 +43,13 @@ router.get('/', studentController.getAllStudents);
 
 router.get('/:id', 
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('id'),
   studentController.getStudent
 );
 
 router.put('/:id', 
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('id'),
   studentController.updateStudent
 );
 

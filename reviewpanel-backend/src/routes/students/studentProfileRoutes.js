@@ -7,12 +7,14 @@ const router = express.Router();
 router.get(
   '/student/profile/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   studentProfileController.getStudentProfile,
 );
 
 router.put(
   '/student/profile/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   uploadFiles,
   studentProfileController.updateStudentProfile,
 );
