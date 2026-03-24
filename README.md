@@ -125,7 +125,7 @@ Email + OTP Service
 - Supabase Storage
 
 ### Deployment
-- Backend: Render
+- Backend: AWS Serverless (LAMDA) 
 - Frontend: Vercel
 - Database: Supabase Cloud
 
