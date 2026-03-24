@@ -286,6 +286,41 @@ class AuthMiddleware {
   };
 
   /**
+   * Enforce student self-access for enrollment-based routes
+   */
+  enforceSelfEnrollment = (paramName = 'enrollment_no') => {
+    return (req, res, next) => {
+      try {
+        if (!req.user) {
+          throw ApiError.unauthorized('Authentication required');
+        }
+
+        if (req.user.role !== 'student') {
+          return next();
+        }
+
+        const tokenEnrollment = req.user?.enrollment_no || req.user?.student_id;
+        if (!tokenEnrollment) {
+          throw ApiError.unauthorized('Student enrollment number missing in token');
+        }
+
+        const targetEnrollment = req.params?.[paramName] ?? req.body?.[paramName];
+        if (!targetEnrollment) {
+          throw ApiError.badRequest('Enrollment number is required');
+        }
+
+        if (String(targetEnrollment) !== String(tokenEnrollment)) {
+          throw ApiError.forbidden('You can only access your own data');
+        }
+
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  };
+
+  /**
    * Extract token from request headers
    */
   extractToken = (req) => {

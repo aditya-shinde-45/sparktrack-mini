@@ -22,6 +22,11 @@ export const createDraft = async (req, res) => {
       previous_ps_id,
     } = req.body;
 
+    const tokenEnrollment = req.user?.enrollment_no || req.user?.student_id;
+    if (req.user?.role === 'student' && tokenEnrollment && leader_enrollment && leader_enrollment !== tokenEnrollment) {
+      return ApiResponse.error(res, 'You can only create drafts for your own enrollment number', 403);
+    }
+
     // Validation
     if (!leader_enrollment || !team_name) {
       return ApiResponse.error(res, "Missing required fields", 400);
