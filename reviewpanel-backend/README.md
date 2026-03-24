@@ -19,7 +19,7 @@ reviewpanel-backend/
 │   ├── middleware/              # Middleware functions
 │   │   └── authMiddleware.js    # Authentication middleware
 │   ├── models/                  # Data models
-│   │   ├── externalModel.js     # External evaluator
+│   │   ├── externalModel.js     # External evaluator model
 │   │   ├── mentorModel.js       # Mentor model
 │   │   ├── pblModel.js          # PBL group model
 │   │   └── userModel.js         # User model
