@@ -35,7 +35,7 @@ reviewpanel-backend/
 │   └── server.js                # Express server setup
 ├── uploads/                     # Uploaded files
 ├── .env                         # Environment variables
-├── .gitignore                   # Git ignore file
+├── .gitignore                   # Git ignore 
 ├── index.js                     # Application entry point
 ├── package.json                 # Dependencies and scripts
 └── README.md                    # Project documentation
