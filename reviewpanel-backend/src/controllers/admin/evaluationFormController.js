@@ -51,6 +51,55 @@ const normalizeRoleList = (roles, fallback = []) => {
   return Array.from(new Set(normalized));
 };
 
+const getEnrollmentKey = (row = {}) => String(row?.enrollment_no || row?.enrollement_no || '').trim();
+
+const hasMeaningfulMarkValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'object') {
+    const url = String(value?.url || '').trim();
+    const name = String(value?.name || '').trim();
+    if ('url' in value || 'name' in value || 'type' in value) {
+      return url.length > 0 || name.length > 0;
+    }
+    return Object.keys(value).length > 0;
+  }
+  return true;
+};
+
+const mergeMarksPreservingExisting = (previousMarks = {}, incomingMarks = {}) => {
+  const merged = { ...(previousMarks || {}) };
+
+  for (const [key, value] of Object.entries(incomingMarks || {})) {
+    if (hasMeaningfulMarkValue(value)) {
+      merged[key] = value;
+    } else if (!(key in merged)) {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+};
+
+const mergeEvaluationsWithExisting = (existing = [], incoming = []) => {
+  const existingMap = new Map(
+    (existing || []).map((item) => [getEnrollmentKey(item), item]).filter(([key]) => key)
+  );
+
+  return (incoming || []).map((item) => {
+    const key = getEnrollmentKey(item);
+    const previous = key ? existingMap.get(key) : null;
+
+    if (!previous) return item;
+
+    return {
+      ...previous,
+      ...item,
+      marks: mergeMarksPreservingExisting(previous.marks || {}, item.marks || {})
+    };
+  });
+};
+
 class EvaluationFormController {
   isAdmin = (user = {}) => String(user?.role || '').toLowerCase() === 'admin';
 
@@ -363,10 +412,15 @@ class EvaluationFormController {
 
       this.assertFormAccess(req.user, form, 'edit_after_submit');
 
+      const mergedEvaluations = mergeEvaluationsWithExisting(
+        Array.isArray(existingSubmission.evaluations) ? existingSubmission.evaluations : [],
+        normalizedEvaluations
+      );
+
       const updatedSubmission = await evaluationFormModel.updateSubmission(existingSubmission.id, formId, {
         external_name: external_name || null,
         feedback: feedback || null,
-        evaluations: normalizedEvaluations
+        evaluations: mergedEvaluations
       });
 
       return ApiResponse.success(res, 'Evaluation updated successfully', updatedSubmission);

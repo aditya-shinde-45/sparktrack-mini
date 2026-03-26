@@ -13,6 +13,8 @@ const MarksTable = ({
   onFormMarkChange,
   onSaveFormRow,
   savingRowKey = null,
+  scrollContainerRef = null,
+  enableWheelHorizontal = false,
 }) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
@@ -22,6 +24,23 @@ const MarksTable = ({
     ...field,
     type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
   }));
+  const computedMinWidth = React.useMemo(() => {
+    if (isForm) {
+      const baseColumns = 6 + (showDelete ? 1 : 0) + (editableFormMarks ? 1 : 0);
+      const totalColumns = normalizedFormFields.length + baseColumns;
+      return `${Math.max(1600, totalColumns * 140)}px`;
+    }
+
+    if (isReview2) {
+      return '1800px';
+    }
+
+    if (isZeroReview) {
+      return '1500px';
+    }
+
+    return '1400px';
+  }, [isForm, isReview2, isZeroReview, normalizedFormFields.length, showDelete, editableFormMarks]);
 
   const handleViewDocument = (fileUrl) => {
     if (fileUrl && fileUrl !== 'pending_upload') {
@@ -59,8 +78,17 @@ const MarksTable = ({
   };
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse">
+    <div
+      ref={scrollContainerRef}
+      className="overflow-x-auto"
+      onWheel={(e) => {
+        if (!enableWheelHorizontal) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          e.currentTarget.scrollLeft += e.deltaY;
+        }
+      }}
+    >
+      <table className="min-w-full border-collapse" style={{ minWidth: computedMinWidth }}>
         <thead>
           <tr className="bg-purple-600">
             {!isZeroReview && (

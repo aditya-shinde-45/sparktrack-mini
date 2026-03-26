@@ -70,17 +70,15 @@ const AdminToolTabs = () => {
   };
 
   return (
-    <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
-      <Header />
-      <div className="flex flex-1 flex-row mt-[70px] md:mt-[60px]">
-        {/* Sidebar with fixed width */}
-        <div className="w-64 min-h-full bg-white border-r border-gray-200">
-          <AdminSidebar />
-        </div>
-        {/* Main content */}
-        <main className="flex-1 p-3 md:p-6 bg-white space-y-6">
+    <div className="font-[Poppins] flex min-h-screen bg-gray-100">
+      <AdminSidebar />
+
+      <div className="flex-1 flex flex-col">
+        <Header />
+
+        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mt-20 mb-16 lg:mb-0 space-y-6">
           <div className="mb-8">
-            <div className="flex items-center gap-4 border-b border-gray-200 pb-2 flex-wrap">
+            <div className="flex items-center gap-3 border-b border-gray-200 pb-2 flex-wrap overflow-x-auto">
               {tabs.map((tab) => {
                 const IconComponent = tab.icon;
                 return (
