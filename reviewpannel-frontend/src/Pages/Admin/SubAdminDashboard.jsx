@@ -44,6 +44,9 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationRowsPerPage] = useState(50);
   const [groupPrefixInput, setGroupPrefixInput] = useState("");
   const [groupPrefixFilter, setGroupPrefixFilter] = useState("");
+  const [resetGroupIdInput, setResetGroupIdInput] = useState("");
+  const dataTablesTabsRef = React.useRef(null);
+  const evaluationTableScrollRef = React.useRef(null);
 
 
 
@@ -321,6 +324,14 @@ const SubAdminDashboard = ({ embedded = false }) => {
     }
   }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter]);
 
+  useEffect(() => {
+    if (selectedTable !== 'evaluation_form_submission') return;
+    const node = evaluationTableScrollRef.current;
+    if (node) {
+      node.scrollLeft = 0;
+    }
+  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, groupPrefixFilter, evaluationSearchQuery]);
+
   // Fetch mentors and students when PBL table is selected and modal is opened
   useEffect(() => {
     if (selectedTable === 'pbl' && (showAddModal || showEditModal)) {
@@ -472,6 +483,45 @@ const SubAdminDashboard = ({ embedded = false }) => {
     } catch (error) {
       console.error("Error deleting evaluation marks:", error);
       alert("Error deleting evaluation marks. Please try again.");
+    }
+  };
+
+  const handleResetEvaluationGroup = async () => {
+    const groupId = resetGroupIdInput.trim();
+
+    if (!selectedEvaluationFormId) {
+      alert("Please select an evaluation form first.");
+      return;
+    }
+
+    if (!groupId) {
+      alert("Please enter a Group ID to reset.");
+      return;
+    }
+
+    if (!window.confirm(`Reset evaluation submission for group ${groupId}? This action cannot be undone.`)) {
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    try {
+      const response = await apiRequest(
+        `/api/role-access/evaluation_form_submission/${encodeURIComponent(groupId)}?formId=${selectedEvaluationFormId}`,
+        'DELETE',
+        null,
+        token
+      );
+
+      if (response.success) {
+        alert(`Evaluation submission reset successfully for group ${groupId}.`);
+        setResetGroupIdInput("");
+        fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
+      } else {
+        alert(`Failed to reset submission: ${response.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error resetting evaluation submission:", error);
+      alert("Error resetting evaluation submission. Please try again.");
     }
   };
 
@@ -719,6 +769,20 @@ const SubAdminDashboard = ({ embedded = false }) => {
     return String(value);
   };
 
+  const scrollDataTableTabs = (direction) => {
+    const node = dataTablesTabsRef.current;
+    if (!node) return;
+    const delta = direction === 'left' ? -220 : 220;
+    node.scrollBy({ left: delta, behavior: 'smooth' });
+  };
+
+  const scrollEvaluationTable = (direction) => {
+    const node = evaluationTableScrollRef.current;
+    if (!node) return;
+    const delta = direction === 'left' ? -320 : 320;
+    node.scrollBy({ left: delta, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
       <div className={embedded ? "w-full flex items-center justify-center" : "min-h-screen bg-gray-50 flex items-center justify-center"}>
@@ -785,8 +849,37 @@ const SubAdminDashboard = ({ embedded = false }) => {
         {/* ── Table Tabs ──────────────────────────────────────── */}
         {tablePermissions.length > 0 && (
           <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Data Tables</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Data Tables</p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => scrollDataTableTabs('left')}
+                  className="p-1.5 border border-gray-200 rounded-md text-gray-500 hover:bg-gray-100"
+                  title="Scroll left"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollDataTableTabs('right')}
+                  className="p-1.5 border border-gray-200 rounded-md text-gray-500 hover:bg-gray-100"
+                  title="Scroll right"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div
+              ref={dataTablesTabsRef}
+              className="overflow-x-auto overflow-y-hidden pb-1"
+              onWheel={(e) => {
+                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                  e.currentTarget.scrollLeft += e.deltaY;
+                }
+              }}
+            >
+              <div className="flex flex-nowrap gap-2 min-w-max">
               {tablePermissions.map(table => (
                 <button
                   key={table}
@@ -794,7 +887,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     setSelectedTable(table);
                     localStorage.setItem("selectedTable", table);
                   }}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     selectedTable === table
                       ? "bg-purple-100 text-purple-700"
                       : "text-gray-600 hover:bg-gray-100"
@@ -804,6 +897,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   {getTableDisplayName(table)}
                 </button>
               ))}
+              </div>
             </div>
           </div>
         )}
@@ -813,7 +907,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
             {/* ── Section Header + Form Selector ───────────────────── */}
             <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
                 {/* Left: title + form select */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -836,7 +930,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   </div>
                 </div>
                 {/* Right: stats + export */}
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap lg:justify-end">
                   <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center min-w-[80px]">
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Records</p>
                     <p className="text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalRecords.toLocaleString()}</p>
@@ -858,6 +952,36 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   </button>
                 </div>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 overflow-visible">
+                  <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-3 xl:items-end">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900 mb-1">Reset Group Submission</p>
+                      <p className="text-xs text-amber-700">This action resets only the exact Group ID in the currently selected form.</p>
+                    </div>
+                    <div className="w-full xl:w-[520px] flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        placeholder="Enter exact Group ID"
+                        value={resetGroupIdInput}
+                        onChange={(e) => setResetGroupIdInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleResetEvaluationGroup(); }}
+                        className="min-w-0 flex-1 px-3 py-2.5 border border-amber-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                      />
+                      <button
+                        onClick={handleResetEvaluationGroup}
+                        disabled={!selectedEvaluationFormId || !resetGroupIdInput.trim()}
+                        className="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-all whitespace-nowrap"
+                        title={!selectedEvaluationFormId ? 'Select a form first' : 'Reset only this group submission'}
+                      >
+                        Reset Group
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Active filter chips */}
               {(evaluationTotalRecords > 0 || groupPrefixFilter) && (
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 flex-wrap">
@@ -1009,17 +1133,38 @@ const SubAdminDashboard = ({ embedded = false }) => {
             {/* ── Data Table ─────────────────────────────────────────── */}
             {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
               <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <MarksTable
-                    students={sortedEvaluationSubmissions}
-                    loading={evaluationLoading}
-                    error={evaluationError}
-                    reviewType="form"
-                    formFields={evaluationFormFields}
-                    totalMarks={evaluationFormTotal || evaluationComputedTotal}
-                    onDeleteGroup={handleDeleteEvaluationGroup}
-                  />
+                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                  <p className="text-xs text-gray-500 font-medium">Scroll horizontally to view all columns</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => scrollEvaluationTable('left')}
+                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
+                      title="Scroll table left"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollEvaluationTable('right')}
+                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
+                      title="Scroll table right"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
+                <MarksTable
+                  students={sortedEvaluationSubmissions}
+                  loading={evaluationLoading}
+                  error={evaluationError}
+                  reviewType="form"
+                  formFields={evaluationFormFields}
+                  totalMarks={evaluationFormTotal || evaluationComputedTotal}
+                  onDeleteGroup={handleDeleteEvaluationGroup}
+                  scrollContainerRef={evaluationTableScrollRef}
+                  enableWheelHorizontal
+                />
                 {/* Pagination bar */}
                 <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50">
                   <p className="text-sm text-gray-500">
