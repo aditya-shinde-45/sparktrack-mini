@@ -125,7 +125,7 @@ Email + OTP Service
 - Supabase Storage
 
 ### Deployment
-- Backend: Render
+- Backend: AWS Serverless (LAMDA) 
 - Frontend: Vercel
 - Database: Supabase Cloud
 
@@ -133,7 +133,7 @@ Email + OTP Service
 
 ## 📊 Database Schema (Core Tables)
 
-- users
+- user
 - groups
 - group_members
 - pbl_review_1
