@@ -133,7 +133,7 @@ Email + OTP Service
 
 ## 📊 Database Schema (Core Tables)
 
-- users
+- user
 - groups
 - group_members
 - pbl_review_1
