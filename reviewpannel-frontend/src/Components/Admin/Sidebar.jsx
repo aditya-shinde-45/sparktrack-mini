@@ -34,7 +34,7 @@ const Sidebar = () => {
     <>
       {/* Desktop Sidebar */}
       {isDesktop && (
-        <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0">
+        <aside className="lg:fixed lg:top-[88px] lg:left-6 lg:w-60 bg-gradient-to-b from-[#7B74EF] to-[#5D3FD3] p-5 rounded-2xl shadow-xl flex flex-col lg:h-[calc(100%-6rem)] overflow-hidden mb-4 lg:mb-0 z-40">
           <div className="flex lg:flex-col gap-3 lg:space-y-3 pr-1 overflow-y-auto">
             {routes.map(({ name, path, icon: Icon }, index) => (
               <NavLink

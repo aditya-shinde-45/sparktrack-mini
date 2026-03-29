@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Common/Header";
 import MarksTable from "../../Components/Admin/MarksTable";
 import Pagination from "../../Components/Admin/Pagination";
-import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, Filter, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, User, Shield } from "lucide-react";
+import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, Filter, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, User, Shield, Mail } from "lucide-react";
 import { apiRequest } from "../../api";
 
 const SubAdminDashboard = ({ embedded = false }) => {
@@ -44,7 +44,24 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationRowsPerPage] = useState(50);
   const [groupPrefixInput, setGroupPrefixInput] = useState("");
   const [groupPrefixFilter, setGroupPrefixFilter] = useState("");
+  const [teacherClassFilter, setTeacherClassFilter] = useState('ALL');
   const [resetGroupIdInput, setResetGroupIdInput] = useState("");
+  const [teacherStatusLoading, setTeacherStatusLoading] = useState(false);
+  const [teacherStatusError, setTeacherStatusError] = useState("");
+  const [teachersCompleteMarks, setTeachersCompleteMarks] = useState([]);
+  const [teachersPartialMarks, setTeachersPartialMarks] = useState([]);
+  const [teachersNotGivenMarks, setTeachersNotGivenMarks] = useState([]);
+  const [teacherReminderSubject, setTeacherReminderSubject] = useState("");
+  const [teacherReminderMessage, setTeacherReminderMessage] = useState("");
+  const [teacherReminderLoading, setTeacherReminderLoading] = useState(false);
+  const [teacherSummary, setTeacherSummary] = useState({
+    totalTeachers: 0,
+    teachersFullyGiven: 0,
+    teachersPartiallyGiven: 0,
+    teachersWithSubmissions: 0,
+    teachersWithoutSubmissions: 0,
+  });
+  const [expandedTeacherKey, setExpandedTeacherKey] = useState(null);
   const dataTablesTabsRef = React.useRef(null);
   const evaluationTableScrollRef = React.useRef(null);
 
@@ -238,6 +255,47 @@ const SubAdminDashboard = ({ embedded = false }) => {
     }
   };
 
+  const fetchTeacherSubmissionStatus = async (formId, groupPrefix = "", classFilter = 'ALL') => {
+    if (!formId) {
+      setTeachersCompleteMarks([]);
+      setTeachersPartialMarks([]);
+      setTeachersNotGivenMarks([]);
+      setTeacherSummary({ totalTeachers: 0, teachersFullyGiven: 0, teachersPartiallyGiven: 0, teachersWithSubmissions: 0, teachersWithoutSubmissions: 0 });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    setTeacherStatusLoading(true);
+    setTeacherStatusError("");
+
+    try {
+      const url = `/api/role-access/evaluation_form_submission?formId=${formId}&teachersStatus=1&groupPrefix=${encodeURIComponent(groupPrefix)}&classFilter=${encodeURIComponent(classFilter)}`;
+      const response = await apiRequest(url, 'GET', null, token);
+
+      if (response?.success && response.data) {
+        setTeachersCompleteMarks(response.data.completeMarks || response.data.gaveMarks || []);
+        setTeachersPartialMarks(response.data.partialMarks || []);
+        setTeachersNotGivenMarks(response.data.notGivenMarks || []);
+        setTeacherSummary(response.data.summary || { totalTeachers: 0, teachersFullyGiven: 0, teachersPartiallyGiven: 0, teachersWithSubmissions: 0, teachersWithoutSubmissions: 0 });
+      } else {
+        setTeachersCompleteMarks([]);
+        setTeachersPartialMarks([]);
+        setTeachersNotGivenMarks([]);
+        setTeacherSummary({ totalTeachers: 0, teachersFullyGiven: 0, teachersPartiallyGiven: 0, teachersWithSubmissions: 0, teachersWithoutSubmissions: 0 });
+        setTeacherStatusError(response?.message || 'Failed to load teacher submission status.');
+      }
+    } catch (error) {
+      console.error("Error fetching teacher submission status:", error);
+      setTeachersCompleteMarks([]);
+      setTeachersPartialMarks([]);
+      setTeachersNotGivenMarks([]);
+      setTeacherSummary({ totalTeachers: 0, teachersFullyGiven: 0, teachersPartiallyGiven: 0, teachersWithSubmissions: 0, teachersWithoutSubmissions: 0 });
+      setTeacherStatusError('Failed to load teacher submission status.');
+    } finally {
+      setTeacherStatusLoading(false);
+    }
+  };
+
   // ── Secure CSV export: fetch with Authorization header, trigger blob download ──
   const handleExportCSV = async () => {
     if (!selectedEvaluationFormId) {
@@ -279,6 +337,58 @@ const SubAdminDashboard = ({ embedded = false }) => {
     }
   };
 
+  const handleSendTeacherReminderEmails = async () => {
+    if (!selectedEvaluationFormId) {
+      alert("Please select an evaluation form first.");
+      return;
+    }
+
+    const targetTeachers = (teachersPartialMarks?.length || 0) + (teachersNotGivenMarks?.length || 0);
+    if (targetTeachers === 0) {
+      alert("No pending teachers found for the selected filters.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Send reminder emails to ${targetTeachers} teacher(s)?\n\nThis will include each teacher's pending groups in the email body.`
+    );
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("token");
+    setTeacherReminderLoading(true);
+
+    try {
+      const response = await apiRequest(
+        '/api/role-access/evaluation_form_submission/teacher-reminder',
+        'POST',
+        {
+          formId: selectedEvaluationFormId,
+          groupPrefix: groupPrefixFilter,
+          classFilter: teacherClassFilter,
+          subject: teacherReminderSubject.trim() || undefined,
+          message: teacherReminderMessage.trim() || undefined,
+        },
+        token
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to send teacher reminder emails.');
+      }
+
+      const data = response?.data || {};
+      const sent = Number(data.sentCount || 0);
+      const failed = Number(data.failedCount || 0);
+      const skipped = Number(data.skippedCount || 0);
+
+      alert(`Teacher reminder mail process completed.\nSent: ${sent}\nFailed: ${failed}\nSkipped: ${skipped}`);
+    } catch (error) {
+      console.error('Teacher reminder email error:', error);
+      alert(`Failed to send teacher reminders: ${error?.message || 'Please try again.'}`);
+    } finally {
+      setTeacherReminderLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Filter data based on search query
     if (searchQuery) {
@@ -317,12 +427,21 @@ const SubAdminDashboard = ({ embedded = false }) => {
     if (selectedTable === 'evaluation_form_submission') {
       if (selectedEvaluationFormId) {
         fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
+        fetchTeacherSubmissionStatus(selectedEvaluationFormId, groupPrefixFilter, teacherClassFilter);
       } else {
         setEvaluationSubmissions([]);
         setEvaluationTotalRecords(0);
+        setTeachersCompleteMarks([]);
+        setTeachersPartialMarks([]);
+        setTeachersNotGivenMarks([]);
+        setTeacherSummary({ totalTeachers: 0, teachersFullyGiven: 0, teachersPartiallyGiven: 0, teachersWithSubmissions: 0, teachersWithoutSubmissions: 0 });
       }
     }
-  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter]);
+  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter, teacherClassFilter]);
+
+  useEffect(() => {
+    setExpandedTeacherKey(null);
+  }, [selectedEvaluationFormId, teacherClassFilter, groupPrefixFilter]);
 
   useEffect(() => {
     if (selectedTable !== 'evaluation_form_submission') return;
@@ -903,19 +1022,19 @@ const SubAdminDashboard = ({ embedded = false }) => {
         )}
 
         {selectedTable === 'evaluation_form_submission' ? (
-          <div className="space-y-5 mb-6">
+          <div className="space-y-4 md:space-y-5 mb-6">
 
             {/* ── Section Header + Form Selector ───────────────────── */}
-            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-4 md:gap-5">
                 {/* Left: title + form select */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1.5">
                     <BarChart3 className="w-4 h-4 text-purple-600" />
                     <h2 className="text-xl font-semibold text-gray-900">Evaluation Form Submissions</h2>
                   </div>
                   <p className="text-sm text-gray-500 mb-4">View, filter, and export evaluation results</p>
-                  <div className="relative max-w-sm">
+                  <div className="relative max-w-full md:max-w-sm">
                     <FileSpreadsheet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
                       value={selectedEvaluationFormId}
@@ -930,21 +1049,21 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   </div>
                 </div>
                 {/* Right: stats + export */}
-                <div className="flex items-center gap-3 flex-wrap lg:justify-end">
-                  <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center min-w-[80px]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-2 md:gap-3 items-stretch xl:justify-end">
+                  <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-center min-w-[80px]">
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Records</p>
-                    <p className="text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalRecords.toLocaleString()}</p>
+                    <p className="text-lg md:text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalRecords.toLocaleString()}</p>
                   </div>
                   {evaluationTotalPages > 1 && (
-                    <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center min-w-[80px]">
+                    <div className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-center min-w-[80px]">
                       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pages</p>
-                      <p className="text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalPages}</p>
+                      <p className="text-lg md:text-xl font-semibold text-gray-900 mt-0.5">{evaluationTotalPages}</p>
                     </div>
                   )}
                   <button
                     onClick={handleExportCSV}
                     disabled={!selectedEvaluationFormId}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap hover:scale-[1.02]"
+                    className="col-span-2 sm:col-span-1 xl:col-span-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap"
                     title={!selectedEvaluationFormId ? 'Select a form first to export' : 'Download filtered data as CSV'}
                   >
                     <Download className="w-4 h-4" />
@@ -954,13 +1073,13 @@ const SubAdminDashboard = ({ embedded = false }) => {
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 overflow-visible">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4 overflow-visible">
                   <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-3 xl:items-end">
                     <div>
                       <p className="text-sm font-semibold text-amber-900 mb-1">Reset Group Submission</p>
                       <p className="text-xs text-amber-700">This action resets only the exact Group ID in the currently selected form.</p>
                     </div>
-                    <div className="w-full xl:w-[520px] flex flex-col sm:flex-row gap-2">
+                    <div className="w-full xl:w-[560px] flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
                         placeholder="Enter exact Group ID"
@@ -1004,9 +1123,272 @@ const SubAdminDashboard = ({ embedded = false }) => {
               )}
             </div>
 
+            {/* ── Teacher Submission Status ───────────────────────── */}
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Teacher Marks Status</h3>
+                  <p className="text-xs text-gray-500">Based on mentor-wise assigned groups for selected evaluation form</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 w-full sm:w-auto">
+                  <select
+                    value={teacherClassFilter}
+                    onChange={(e) => setTeacherClassFilter(e.target.value)}
+                    className="px-2.5 py-1 text-xs font-semibold border border-gray-300 rounded-full text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    title="Filter teacher status by class/year"
+                  >
+                    <option value="ALL">All Classes</option>
+                    <option value="FY">FY</option>
+                    <option value="SY">SY</option>
+                    <option value="TY">TY</option>
+                    <option value="LY">LY</option>
+                  </select>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                    Total Teachers: {teacherSummary.totalTeachers}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                    Complete: {teacherSummary.teachersFullyGiven || 0}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold">
+                    Partial: {teacherSummary.teachersPartiallyGiven || 0}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold">
+                    Not Given: {teacherSummary.teachersWithoutSubmissions}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 md:p-4">
+                <div className="flex flex-col xl:flex-row gap-3 xl:items-end">
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <label className="text-xs font-semibold text-blue-900">Reminder Subject (optional)</label>
+                      <input
+                        type="text"
+                        value={teacherReminderSubject}
+                        onChange={(e) => setTeacherReminderSubject(e.target.value)}
+                        placeholder="Reminder: Please submit pending evaluation marks"
+                        className="mt-1 w-full px-3 py-2 border border-blue-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        maxLength={200}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-blue-900">Reminder Body (optional)</label>
+                      <textarea
+                        value={teacherReminderMessage}
+                        onChange={(e) => setTeacherReminderMessage(e.target.value)}
+                        placeholder={"Dear {{mentor_name}} ({{mentor_code}}),\n\nPlease submit marks for pending groups in {{form_title}}.\n\nPending groups:\n{{pending_groups}}\n\nRegards,\nSparkTrack Admin"}
+                        className="mt-1 w-full px-3 py-2 border border-blue-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[96px]"
+                        maxLength={5000}
+                      />
+                      <p className="mt-1 text-[11px] text-blue-800">
+                        Supported placeholders: {'{{mentor_name}}'}, {'{{mentor_code}}'}, {'{{pending_groups}}'}, {'{{pending_count}}'}, {'{{form_title}}'}, {'{{form_id}}'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full xl:w-auto flex xl:flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSendTeacherReminderEmails}
+                      disabled={teacherReminderLoading || !selectedEvaluationFormId || ((teachersPartialMarks?.length || 0) + (teachersNotGivenMarks?.length || 0) === 0)}
+                      className="w-full xl:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold"
+                    >
+                      <Mail className="w-4 h-4" />
+                      {teacherReminderLoading ? 'Sending…' : 'Send Reminder To Pending Teachers'}
+                    </button>
+                    <p className="text-[11px] text-blue-900 leading-relaxed">
+                      Target teachers: {(teachersPartialMarks?.length || 0) + (teachersNotGivenMarks?.length || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {teacherStatusLoading ? (
+                <div className="py-8 text-center text-sm text-gray-500">Loading teacher status…</div>
+              ) : teacherStatusError ? (
+                <div className="py-3 px-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">{teacherStatusError}</div>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <div className="rounded-lg border border-emerald-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200">
+                      <p className="text-sm font-semibold text-emerald-800">Teachers Who Completed All Marks</p>
+                    </div>
+                    <div className="max-h-72 overflow-auto">
+                      {teachersCompleteMarks.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-gray-500">No teachers found.</p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {teachersCompleteMarks.map((teacher) => (
+                            (() => {
+                              const itemKey = `complete-${teacher.mentor_code}`;
+                              const isExpanded = expandedTeacherKey === itemKey;
+                              const pendingGroups = Array.isArray(teacher.pending_group_ids) ? teacher.pending_group_ids : [];
+                              return (
+                                <li key={itemKey} className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedTeacherKey(isExpanded ? null : itemKey)}
+                                    className="w-full text-left"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <p className="text-sm font-semibold text-gray-900">{teacher.mentor_name} ({teacher.mentor_code})</p>
+                                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">{teacher.submitted_groups}/{teacher.total_groups}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                      <div
+                                        className="h-full bg-emerald-500"
+                                        style={{ width: `${teacher.total_groups > 0 ? Math.min(100, Math.round((teacher.submitted_groups / teacher.total_groups) * 100)) : 0}%` }}
+                                      />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Submitted groups: {teacher.submitted_groups} / {teacher.total_groups} · Click to view pending groups</p>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2.5">
+                                      <p className="text-xs font-semibold text-amber-800 mb-1">Groups with marks not filled:</p>
+                                      {pendingGroups.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {pendingGroups.map((groupId) => (
+                                            <span key={`${itemKey}-${groupId}`} className="px-2 py-0.5 rounded-full bg-white border border-amber-200 text-xs text-amber-800 font-medium">
+                                              {groupId}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-emerald-700">All assigned groups are filled.</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })()
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200">
+                      <p className="text-sm font-semibold text-amber-800">Teachers Who Gave Marks Partially</p>
+                    </div>
+                    <div className="max-h-72 overflow-auto">
+                      {teachersPartialMarks.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-gray-500">No teachers found.</p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {teachersPartialMarks.map((teacher) => (
+                            (() => {
+                              const itemKey = `partial-${teacher.mentor_code}`;
+                              const isExpanded = expandedTeacherKey === itemKey;
+                              const pendingGroups = Array.isArray(teacher.pending_group_ids) ? teacher.pending_group_ids : [];
+                              return (
+                                <li key={itemKey} className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedTeacherKey(isExpanded ? null : itemKey)}
+                                    className="w-full text-left"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <p className="text-sm font-semibold text-gray-900">{teacher.mentor_name} ({teacher.mentor_code})</p>
+                                      <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{teacher.submitted_groups}/{teacher.total_groups}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                      <div
+                                        className="h-full bg-amber-500"
+                                        style={{ width: `${teacher.total_groups > 0 ? Math.min(100, Math.round((teacher.submitted_groups / teacher.total_groups) * 100)) : 0}%` }}
+                                      />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Submitted groups: {teacher.submitted_groups} / {teacher.total_groups} · Click to view pending groups</p>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2.5">
+                                      <p className="text-xs font-semibold text-amber-800 mb-1">Groups with marks not filled:</p>
+                                      {pendingGroups.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {pendingGroups.map((groupId) => (
+                                            <span key={`${itemKey}-${groupId}`} className="px-2 py-0.5 rounded-full bg-white border border-amber-200 text-xs text-amber-800 font-medium">
+                                              {groupId}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-emerald-700">All assigned groups are filled.</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })()
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-rose-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-rose-50 border-b border-rose-200">
+                      <p className="text-sm font-semibold text-rose-800">Teachers Who Have Not Given Marks</p>
+                    </div>
+                    <div className="max-h-72 overflow-auto">
+                      {teachersNotGivenMarks.length === 0 ? (
+                        <p className="px-4 py-3 text-sm text-gray-500">No teachers found.</p>
+                      ) : (
+                        <ul className="divide-y divide-gray-100">
+                          {teachersNotGivenMarks.map((teacher) => (
+                            (() => {
+                              const itemKey = `pending-${teacher.mentor_code}`;
+                              const isExpanded = expandedTeacherKey === itemKey;
+                              const pendingGroups = Array.isArray(teacher.pending_group_ids) ? teacher.pending_group_ids : [];
+                              return (
+                                <li key={itemKey} className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedTeacherKey(isExpanded ? null : itemKey)}
+                                    className="w-full text-left"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <p className="text-sm font-semibold text-gray-900">{teacher.mentor_name} ({teacher.mentor_code})</p>
+                                      <span className="text-xs font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">{teacher.pending_groups}/{teacher.total_groups}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                      <div
+                                        className="h-full bg-rose-500"
+                                        style={{ width: `${teacher.total_groups > 0 ? Math.min(100, Math.round((teacher.pending_groups / teacher.total_groups) * 100)) : 0}%` }}
+                                      />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Pending groups: {teacher.pending_groups} / {teacher.total_groups} · Click to view pending groups</p>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2.5">
+                                      <p className="text-xs font-semibold text-rose-800 mb-1">Groups with marks not filled:</p>
+                                      {pendingGroups.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {pendingGroups.map((groupId) => (
+                                            <span key={`${itemKey}-${groupId}`} className="px-2 py-0.5 rounded-full bg-white border border-rose-200 text-xs text-rose-800 font-medium">
+                                              {groupId}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-gray-600">No pending groups found.</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })()
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* ── Toolbar: Prefix Filter • Search • Sort ─────── */}
-            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-end">
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 md:gap-4 items-end">
 
                 {/* Group prefix filter */}
                 <div className="flex flex-col gap-1.5">
@@ -1029,7 +1411,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     </div>
                     <button
                       onClick={() => { setGroupPrefixFilter(groupPrefixInput.trim()); setEvaluationCurrentPage(1); }}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap hover:scale-[1.02]"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap"
                     >
                       <Search className="w-3.5 h-3.5" />
                       Apply

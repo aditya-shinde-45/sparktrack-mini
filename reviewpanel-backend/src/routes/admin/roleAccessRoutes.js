@@ -9,6 +9,14 @@ const router = express.Router();
  * All routes require authentication and role-based permissions
  */
 
+// POST send reminder emails to teachers for pending marks
+router.post(
+	'/evaluation_form_submission/teacher-reminder',
+	authMiddleware.authenticateUser,
+	authMiddleware.authorize(['admin']),
+	roleAccessController.sendTeacherReminderEmails
+);
+
 // GET all records from a specific table
 router.get('/:tableName', authMiddleware.authenticateUser, roleAccessController.getAllRecords);
 
