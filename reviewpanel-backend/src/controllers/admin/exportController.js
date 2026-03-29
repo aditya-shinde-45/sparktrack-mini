@@ -1,4 +1,11 @@
 import supabase from '../../config/database.js';
+import emailService from '../../services/emailService.js';
+
+const REMINDER_MAX_GROUPS = 200;
+const REMINDER_MAX_RECIPIENTS = 1200;
+const REMINDER_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 min
+const REMINDER_RATE_LIMIT_MAX_REQUESTS = 3;
+const reminderRateMap = new Map();
 
 /**
  * Escape a single CSV cell value.
@@ -31,6 +38,171 @@ function parsePositiveInt(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
+}
+
+function escapeHtml(input) {
+  return String(input || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderTemplate(template, groupId) {
+  return String(template || '').replace(/\{\{\s*group_id\s*\}\}/gi, groupId || '');
+}
+
+function plainTextToHtml(text) {
+  return escapeHtml(text).replace(/\n/g, '<br/>');
+}
+
+function sanitizeTemplateInput(value, maxLen) {
+  const text = String(value || '')
+    .replace(/\r/g, '')
+    .replace(/\u0000/g, '')
+    .trim();
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
+function isValidGroupId(groupId) {
+  return /^[A-Za-z0-9_-]{3,64}$/.test(String(groupId || ''));
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+function getAdminRateKey(user = {}) {
+  return String(user.user_id || user.id || user.email || 'unknown-admin');
+}
+
+function checkReminderRateLimit(user = {}) {
+  const key = getAdminRateKey(user);
+  const now = Date.now();
+  const current = reminderRateMap.get(key);
+
+  if (!current || now - current.windowStart > REMINDER_RATE_LIMIT_WINDOW_MS) {
+    reminderRateMap.set(key, { windowStart: now, count: 1 });
+    return { allowed: true };
+  }
+
+  if (current.count >= REMINDER_RATE_LIMIT_MAX_REQUESTS) {
+    const retryAfterMs = REMINDER_RATE_LIMIT_WINDOW_MS - (now - current.windowStart);
+    return { allowed: false, retryAfterMs };
+  }
+
+  current.count += 1;
+  reminderRateMap.set(key, current);
+  return { allowed: true };
+}
+
+function normalizeEnrollment(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function chunkArray(items, size = 200) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Fetch PBL group-member rows with backward-compatible handling for optional columns.
+ * Some deployments may not have email_id in pbl yet.
+ */
+async function fetchPblMembersForStatus() {
+  let { data, error } = await supabase
+    .from('pbl')
+    .select('group_id, enrollment_no, student_name, mentor_code, email_id')
+    .order('group_id', { ascending: true });
+
+  if (error) {
+    const message = String(error.message || '').toLowerCase();
+    const isEmailColumnIssue = message.includes('email_id') && message.includes('column');
+
+    if (!isEmailColumnIssue) {
+      throw error;
+    }
+
+    // Fallback for older schemas where email_id is absent.
+    const fallback = await supabase
+      .from('pbl')
+      .select('group_id, enrollment_no, student_name, mentor_code')
+      .order('group_id', { ascending: true });
+
+    if (fallback.error) throw fallback.error;
+
+    data = (fallback.data || []).map((row) => ({ ...row, email_id: null }));
+  }
+
+  return data || [];
+}
+
+/**
+ * Resolve student emails by enrollment from master tables.
+ * Primary: students1.student_email_id
+ * Fallback: pbl_2025.email_id (legacy datasets)
+ */
+async function resolveEmailsByEnrollment(enrollments = []) {
+  const uniqueEnrollments = [...new Set((enrollments || []).map(normalizeEnrollment).filter(Boolean))];
+  if (uniqueEnrollments.length === 0) return new Map();
+
+  const emailMap = new Map();
+
+  // Query in chunks to avoid URI/query-size limits on large cohorts.
+  const enrollmentChunks = chunkArray(uniqueEnrollments, 200);
+
+  for (const chunk of enrollmentChunks) {
+    const chunkCandidates = [...new Set(chunk.flatMap((e) => [e, e.toLowerCase(), e.toUpperCase()]))];
+    const { data: studentsRows, error: studentsError } = await supabase
+      .from('students1')
+      .select('enrollment_no, student_email_id')
+      .in('enrollment_no', chunkCandidates);
+
+    if (studentsError) {
+      console.warn('students1 email lookup warning:', studentsError.message || studentsError);
+      continue;
+    }
+
+    for (const row of studentsRows || []) {
+      const enrollment = normalizeEnrollment(row.enrollment_no);
+      const email = String(row.student_email_id || '').trim();
+      if (enrollment && email) {
+        emailMap.set(enrollment, email);
+      }
+    }
+  }
+
+  const missing = uniqueEnrollments.filter((enrollment) => !emailMap.has(enrollment));
+  if (missing.length > 0) {
+    const missingChunks = chunkArray(missing, 200);
+
+    for (const chunk of missingChunks) {
+      const chunkCandidates = [...new Set(chunk.flatMap((e) => [e, e.toLowerCase(), e.toUpperCase()]))];
+      const { data: legacyRows, error: legacyError } = await supabase
+        .from('pbl_2025')
+        .select('enrollement_no, email_id')
+        .in('enrollement_no', chunkCandidates);
+
+      if (legacyError) {
+        console.warn('pbl_2025 email lookup warning:', legacyError.message || legacyError);
+        continue;
+      }
+
+      for (const row of legacyRows || []) {
+        const enrollment = normalizeEnrollment(row.enrollement_no);
+        const email = String(row.email_id || '').trim();
+        if (enrollment && email && !emailMap.has(enrollment)) {
+          emailMap.set(enrollment, email);
+        }
+      }
+    }
+  }
+
+  return emailMap;
 }
 
 /**
@@ -122,13 +294,9 @@ async function getProjectDetailsRows({ search = '', limit = 100, offset = 0 } = 
  */
 async function buildProjectDetailsGroupStatus(search = '') {
   const trimmedSearch = validateSearch(search).toLowerCase();
-
-  const { data: groupMembers, error: groupError } = await supabase
-    .from('pbl')
-    .select('group_id, enrollment_no, student_name, mentor_code')
-    .order('group_id', { ascending: true });
-
-  if (groupError) throw groupError;
+  const groupMembers = await fetchPblMembersForStatus();
+  const enrollments = (groupMembers || []).map((member) => member.enrollment_no);
+  const enrollmentEmailMap = await resolveEmailsByEnrollment(enrollments);
 
   const groupsMap = new Map();
   for (const member of groupMembers || []) {
@@ -141,6 +309,7 @@ async function buildProjectDetailsGroupStatus(search = '') {
         member_count: 0,
         member_names: [],
         mentor_codes: new Set(),
+        member_emails: new Set(),
       });
     }
 
@@ -148,6 +317,12 @@ async function buildProjectDetailsGroupStatus(search = '') {
     group.member_count += 1;
     if (member.student_name) group.member_names.push(member.student_name);
     if (member.mentor_code) group.mentor_codes.add(member.mentor_code);
+
+    const enrollment = normalizeEnrollment(member.enrollment_no);
+    const emailFromGroup = String(member.email_id || '').trim();
+    const emailFromStudentMaster = enrollment ? (enrollmentEmailMap.get(enrollment) || '') : '';
+    const selectedEmail = emailFromStudentMaster || emailFromGroup;
+    if (selectedEmail) group.member_emails.add(selectedEmail);
   }
 
   const allGroupIds = [...groupsMap.keys()];
@@ -190,6 +365,7 @@ async function buildProjectDetailsGroupStatus(search = '') {
       member_count: group.member_count,
       member_names: group.member_names.join('; '),
       mentor_codes: [...group.mentor_codes].join('; '),
+      member_emails: [...group.member_emails],
     };
 
     const matchesSearch = !trimmedSearch
@@ -504,9 +680,192 @@ const getProjectDetailsGroupStatus = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/export/project-details/reminder-email
+ * Body:
+ *   group_ids: optional string[] of specific unfilled groups
+ *   search: optional search filter (used when group_ids not provided)
+ */
+const sendProjectDetailsReminderEmails = async (req, res) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+
+    const limitCheck = checkReminderRateLimit(req.user || {});
+    if (!limitCheck.allowed) {
+      const retryAfterSec = Math.ceil((limitCheck.retryAfterMs || 0) / 1000);
+      res.setHeader('Retry-After', String(retryAfterSec));
+      return res.status(429).json({
+        success: false,
+        message: `Too many reminder requests. Try again in ${retryAfterSec} seconds.`,
+      });
+    }
+
+    const body = req.body || {};
+    const rawGroupIds = Array.isArray(body.group_ids) ? body.group_ids : [];
+    const requestedGroupIds = [...new Set(rawGroupIds.map((id) => String(id || '').trim()).filter(Boolean))];
+    const invalidGroupIds = requestedGroupIds.filter((groupId) => !isValidGroupId(groupId));
+    const search = typeof body.search === 'string' ? body.search : '';
+    const customSubject = sanitizeTemplateInput(body.subject, 200);
+    const customMessage = sanitizeTemplateInput(body.message, 5000);
+
+    if (invalidGroupIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'One or more group IDs are invalid.',
+      });
+    }
+
+    if (customSubject.includes('\n')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email subject cannot contain line breaks.',
+      });
+    }
+
+    if (customSubject.length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email subject is too long. Maximum 200 characters allowed.',
+      });
+    }
+
+    if (customMessage.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email body is too long. Maximum 5000 characters allowed.',
+      });
+    }
+
+    if (requestedGroupIds.length > REMINDER_MAX_GROUPS) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many groups requested. Maximum allowed is ${REMINDER_MAX_GROUPS}.`,
+      });
+    }
+
+    // Guardrail: prevent accidental bulk sends without explicit group selection.
+    if (requestedGroupIds.length === 0 && body.confirm_all !== true) {
+      return res.status(400).json({
+        success: false,
+        message: 'Explicit group selection is required for reminder emails.',
+      });
+    }
+
+    const statusData = await buildProjectDetailsGroupStatus(search);
+    const availableUnfilled = statusData.unfilledGroups || [];
+
+    const targetGroups = requestedGroupIds.length > 0
+      ? availableUnfilled.filter((group) => requestedGroupIds.includes(group.group_id))
+      : availableUnfilled;
+
+    if (targetGroups.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No unfilled groups found for sending reminders.',
+        data: {
+          sentCount: 0,
+          failedCount: 0,
+          skippedCount: 0,
+          sentGroups: [],
+          failedGroups: [],
+          skippedGroups: [],
+        },
+      });
+    }
+
+    const estimatedRecipients = targetGroups.reduce(
+      (acc, group) => acc + (Array.isArray(group.member_emails) ? group.member_emails.length : 0),
+      0,
+    );
+    if (estimatedRecipients > REMINDER_MAX_RECIPIENTS) {
+      return res.status(400).json({
+        success: false,
+        message: `Too many recipients (${estimatedRecipients}). Narrow your selection below ${REMINDER_MAX_RECIPIENTS}.`,
+      });
+    }
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+    const sentGroups = [];
+    const failedGroups = [];
+    const skippedGroups = [];
+
+    for (const group of targetGroups) {
+      const emails = [...new Set((group.member_emails || [])
+        .map((email) => String(email || '').trim().toLowerCase())
+        .filter(Boolean)
+        .filter(isValidEmail))];
+
+      if (emails.length === 0) {
+        skippedCount += 1;
+        skippedGroups.push({ group_id: group.group_id, reason: 'No valid member emails found' });
+        continue;
+      }
+
+        const defaultSubjectTemplate = 'Reminder: Submit Project Details ({{group_id}})';
+        const defaultBodyTemplate = `Dear Team {{group_id}},
+
+Our records show that your group has not yet submitted the required project details on SparkTrack.
+
+Please log in to the student dashboard and complete the Project Details/Problem Statement section at the earliest.
+
+This is an automated reminder from the admin panel.
+
+Regards,
+      SparkTrack Admin`;
+
+        const subject = renderTemplate(customSubject || defaultSubjectTemplate, group.group_id);
+        const text = renderTemplate(customMessage || defaultBodyTemplate, group.group_id);
+        const html = `<p>${plainTextToHtml(text)}</p>`;
+
+      try {
+        await emailService.sendMail(emails.join(','), subject, text, html);
+        sentCount += 1;
+          sentGroups.push({ group_id: group.group_id, recipients: emails });
+      } catch (error) {
+        failedCount += 1;
+        failedGroups.push({ group_id: group.group_id, error: 'Failed to send email' });
+      }
+    }
+
+    console.info('[Admin Reminder Mail]', {
+      admin: getAdminRateKey(req.user || {}),
+      selected_groups: targetGroups.length,
+      sent: sentCount,
+      failed: failedCount,
+      skipped: skippedCount,
+      search: validateSearch(search),
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Project details reminder email process completed.',
+      data: {
+        sentCount,
+        failedCount,
+        skippedCount,
+        sentGroups,
+        failedGroups,
+        skippedGroups,
+      },
+    });
+  } catch (error) {
+    console.error('Send project-details reminder emails error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send reminder emails',
+      error: error.message,
+    });
+  }
+};
+
 export default {
   exportCSV,
   getProjectDetails,
   downloadProjectDetailsCSV,
   getProjectDetailsGroupStatus,
+  sendProjectDetailsReminderEmails,
 };
