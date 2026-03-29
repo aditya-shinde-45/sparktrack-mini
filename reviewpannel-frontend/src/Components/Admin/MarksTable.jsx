@@ -42,6 +42,13 @@ const MarksTable = ({
     return '1400px';
   }, [isForm, isReview2, isZeroReview, normalizedFormFields.length, showDelete, editableFormMarks]);
 
+  const stickyHeaderClass = isForm ? "sticky left-0 z-30 bg-purple-700" : "";
+  const stickyEnrollmentHeaderClass = isForm ? "sticky left-[164px] z-30 bg-purple-700" : "";
+  const stickyStudentHeaderClass = isForm ? "sticky left-[328px] z-30 bg-purple-700" : "";
+  const stickyCellClass = isForm ? "sticky left-0 z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.25)]" : "";
+  const stickyEnrollmentCellClass = isForm ? "sticky left-[164px] z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.2)]" : "";
+  const stickyStudentCellClass = isForm ? "sticky left-[328px] z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.15)]" : "";
+
   const handleViewDocument = (fileUrl) => {
     if (fileUrl && fileUrl !== 'pending_upload') {
       window.open(fileUrl, '_blank');
@@ -80,7 +87,7 @@ const MarksTable = ({
   return (
     <div
       ref={scrollContainerRef}
-      className="overflow-x-auto"
+      className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
       onWheel={(e) => {
         if (!enableWheelHorizontal) return;
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -92,19 +99,19 @@ const MarksTable = ({
         <thead>
           <tr className="bg-purple-600">
             {!isZeroReview && (
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+              <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyHeaderClass}`}>
                 Group ID
               </th>
             )}
             {isZeroReview && (
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+              <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyHeaderClass}`}>
                 Group ID
               </th>
             )}
-            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+            <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyEnrollmentHeaderClass}`}>
               Enrollment No
             </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+            <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[200px] ${stickyStudentHeaderClass}`}>
               Student Name
             </th>
             {isZeroReview && (
@@ -208,19 +215,19 @@ const MarksTable = ({
                 }`}
               >
                 {!isZeroReview && (
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">
+                  <td className={`px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200 min-w-[164px] ${stickyCellClass}`}>
                     {renderCellValue(student.group_id)}
                   </td>
                 )}
                 {isZeroReview && (
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">
+                  <td className={`px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200 min-w-[164px] ${stickyCellClass}`}>
                     {renderCellValue(student.group_id)}
                   </td>
                 )}
-                <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
+                <td className={`px-4 py-3 text-sm text-gray-700 border-r border-gray-200 min-w-[164px] ${stickyEnrollmentCellClass}`}>
                   {renderCellValue(student.enrollement_no || student.enrollment_no)}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
+                <td className={`px-4 py-3 text-sm text-gray-900 border-r border-gray-200 min-w-[200px] ${stickyStudentCellClass}`}>
                   {renderCellValue(student.name_of_student || student.student_name)}
                 </td>
                 {isZeroReview && (

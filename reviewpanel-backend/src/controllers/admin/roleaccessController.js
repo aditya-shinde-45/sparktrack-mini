@@ -493,7 +493,7 @@ Please complete the marks submission at the earliest.
 Regards,
 SparkTrack Admin`;
 
-    for (const teacher of targetTeachers) {
+    const processTeacher = async (teacher) => {
       const mentorCode = String(teacher.mentor_code || '').trim();
       const mentorEmailInfo = mentorEmailMap.get(mentorCode);
       const mentorEmail = String(mentorEmailInfo?.email || '').trim();
@@ -504,15 +504,17 @@ SparkTrack Admin`;
         : [];
 
       if (!mentorEmail || !this.isValidEmail(mentorEmail)) {
-        skippedCount += 1;
-        skippedTeachers.push({ mentor_code: mentorCode, mentor_name: mentorName, reason: 'No valid mentor email found' });
-        continue;
+        return {
+          status: 'skipped',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, reason: 'No valid mentor email found' },
+        };
       }
 
       if (pendingGroups.length === 0) {
-        skippedCount += 1;
-        skippedTeachers.push({ mentor_code: mentorCode, mentor_name: mentorName, reason: 'No pending groups for this teacher' });
-        continue;
+        return {
+          status: 'skipped',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, reason: 'No pending groups for this teacher' },
+        };
       }
 
       const templateVariables = {
@@ -530,12 +532,34 @@ SparkTrack Admin`;
 
       try {
         await emailService.sendMail(mentorEmail, subject, text, html);
-        sentCount += 1;
-        sentTeachers.push({ mentor_code: mentorCode, mentor_name: mentorName, recipients: [mentorEmail], pending_groups: pendingGroups });
-      } catch (error) {
-        failedCount += 1;
-        failedTeachers.push({ mentor_code: mentorCode, mentor_name: mentorName, error: 'Failed to send email' });
+        return {
+          status: 'sent',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, recipients: [mentorEmail], pending_groups: pendingGroups },
+        };
+      } catch (_error) {
+        return {
+          status: 'failed',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, error: 'Failed to send email' },
+        };
       }
+    };
+
+    const batchSize = 5;
+    for (let i = 0; i < targetTeachers.length; i += batchSize) {
+      const batch = targetTeachers.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map((teacher) => processTeacher(teacher)));
+      batchResults.forEach((result) => {
+        if (result.status === 'sent') {
+          sentCount += 1;
+          sentTeachers.push(result.payload);
+        } else if (result.status === 'failed') {
+          failedCount += 1;
+          failedTeachers.push(result.payload);
+        } else {
+          skippedCount += 1;
+          skippedTeachers.push(result.payload);
+        }
+      });
     }
 
     return ApiResponse.success(res, 'Teacher reminder email process completed', {
@@ -720,6 +744,8 @@ SparkTrack Admin`;
           .insert([{
             mentor_name,
             contact_number: normalizedContact,
+            email: email ? String(email).trim().toLowerCase() : null,
+            designation: designation ? String(designation).trim() : null,
             mentor_code: newMentorCode,
             group_id: null,
           }])

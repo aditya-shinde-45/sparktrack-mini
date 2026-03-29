@@ -62,8 +62,13 @@ const SubAdminDashboard = ({ embedded = false }) => {
     teachersWithoutSubmissions: 0,
   });
   const [expandedTeacherKey, setExpandedTeacherKey] = useState(null);
+  const [evaluationCanScrollLeft, setEvaluationCanScrollLeft] = useState(false);
+  const [evaluationCanScrollRight, setEvaluationCanScrollRight] = useState(false);
+  const [evaluationTopRailWidth, setEvaluationTopRailWidth] = useState(0);
   const dataTablesTabsRef = React.useRef(null);
   const evaluationTableScrollRef = React.useRef(null);
+  const evaluationTopRailRef = React.useRef(null);
+  const evaluationScrollSyncLockRef = React.useRef(false);
 
 
 
@@ -90,6 +95,21 @@ const SubAdminDashboard = ({ embedded = false }) => {
       return 0;
     });
   }, [evaluationSubmissions, evaluationSortBy, evaluationSortOrder]);
+
+  const updateEvaluationScrollState = React.useCallback(() => {
+    const node = evaluationTableScrollRef.current;
+    if (!node) {
+      setEvaluationCanScrollLeft(false);
+      setEvaluationCanScrollRight(false);
+      setEvaluationTopRailWidth(0);
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
+    setEvaluationCanScrollLeft(node.scrollLeft > 4);
+    setEvaluationCanScrollRight(node.scrollLeft < maxScrollLeft - 4);
+    setEvaluationTopRailWidth(node.scrollWidth || 0);
+  }, []);
 
   useEffect(() => {
     const fetchUserPermissions = async () => {
@@ -368,7 +388,9 @@ const SubAdminDashboard = ({ embedded = false }) => {
           subject: teacherReminderSubject.trim() || undefined,
           message: teacherReminderMessage.trim() || undefined,
         },
-        token
+        token,
+        false,
+        120000
       );
 
       if (!response?.success) {
@@ -449,7 +471,48 @@ const SubAdminDashboard = ({ embedded = false }) => {
     if (node) {
       node.scrollLeft = 0;
     }
-  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, groupPrefixFilter, evaluationSearchQuery]);
+    updateEvaluationScrollState();
+  }, [selectedTable, selectedEvaluationFormId, evaluationCurrentPage, groupPrefixFilter, evaluationSearchQuery, updateEvaluationScrollState]);
+
+  useEffect(() => {
+    if (selectedTable !== 'evaluation_form_submission') return;
+    const node = evaluationTableScrollRef.current;
+    const topNode = evaluationTopRailRef.current;
+    if (!node || !topNode) return;
+
+    const handleTableScroll = () => {
+      if (evaluationScrollSyncLockRef.current) return;
+      evaluationScrollSyncLockRef.current = true;
+      topNode.scrollLeft = node.scrollLeft;
+      updateEvaluationScrollState();
+      requestAnimationFrame(() => {
+        evaluationScrollSyncLockRef.current = false;
+      });
+    };
+
+    const handleTopRailScroll = () => {
+      if (evaluationScrollSyncLockRef.current) return;
+      evaluationScrollSyncLockRef.current = true;
+      node.scrollLeft = topNode.scrollLeft;
+      updateEvaluationScrollState();
+      requestAnimationFrame(() => {
+        evaluationScrollSyncLockRef.current = false;
+      });
+    };
+
+    const handleResize = () => updateEvaluationScrollState();
+
+    handleTableScroll();
+    node.addEventListener('scroll', handleTableScroll, { passive: true });
+    topNode.addEventListener('scroll', handleTopRailScroll, { passive: true });
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      node.removeEventListener('scroll', handleTableScroll);
+      topNode.removeEventListener('scroll', handleTopRailScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [selectedTable, selectedEvaluationFormId, evaluationSubmissions, updateEvaluationScrollState]);
 
   // Fetch mentors and students when PBL table is selected and modal is opened
   useEffect(() => {
@@ -1516,12 +1579,18 @@ const SubAdminDashboard = ({ embedded = false }) => {
             {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
               <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                  <p className="text-xs text-gray-500 font-medium">Scroll horizontally to view all columns</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-600 font-medium">Horizontal navigation</p>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-500 font-medium">
+                      Shift + Mouse Wheel
+                    </span>
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => scrollEvaluationTable('left')}
-                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
+                      disabled={!evaluationCanScrollLeft}
+                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                       title="Scroll table left"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -1529,24 +1598,50 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     <button
                       type="button"
                       onClick={() => scrollEvaluationTable('right')}
-                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100"
+                      disabled={!evaluationCanScrollRight}
+                      className="p-1.5 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                       title="Scroll table right"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-                <MarksTable
-                  students={sortedEvaluationSubmissions}
-                  loading={evaluationLoading}
-                  error={evaluationError}
-                  reviewType="form"
-                  formFields={evaluationFormFields}
-                  totalMarks={evaluationFormTotal || evaluationComputedTotal}
-                  onDeleteGroup={handleDeleteEvaluationGroup}
-                  scrollContainerRef={evaluationTableScrollRef}
-                  enableWheelHorizontal
-                />
+                <div className="px-4 py-2 border-b border-gray-100 bg-white">
+                  <div className="flex items-center gap-3">
+                    <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-600">
+                      Quick Scroll Rail
+                    </span>
+                    <div
+                      ref={evaluationTopRailRef}
+                      className="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
+                      aria-label="Top horizontal scrollbar"
+                    >
+                      <div
+                        style={{ width: `${Math.max(evaluationTopRailWidth, 1)}px` }}
+                        className="h-2 rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="relative">
+                  {evaluationCanScrollLeft && (
+                    <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20" />
+                  )}
+                  {evaluationCanScrollRight && (
+                    <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20" />
+                  )}
+                  <MarksTable
+                    students={sortedEvaluationSubmissions}
+                    loading={evaluationLoading}
+                    error={evaluationError}
+                    reviewType="form"
+                    formFields={evaluationFormFields}
+                    totalMarks={evaluationFormTotal || evaluationComputedTotal}
+                    onDeleteGroup={handleDeleteEvaluationGroup}
+                    scrollContainerRef={evaluationTableScrollRef}
+                    enableWheelHorizontal
+                  />
+                </div>
                 {/* Pagination bar */}
                 <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-gray-50">
                   <p className="text-sm text-gray-500">
