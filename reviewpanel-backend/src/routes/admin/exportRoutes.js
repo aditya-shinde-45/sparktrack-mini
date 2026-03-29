@@ -23,6 +23,12 @@ router.get('/project-details/csv', authMiddleware.authenticateAdmin, exportContr
 router.get('/project-details/group-status', authMiddleware.authenticateAdmin, exportController.getProjectDetailsGroupStatus);
 
 /**
+ * POST /api/export/project-details/reminder-email
+ * Sends reminder emails to groups who have not filled project details.
+ */
+router.post('/project-details/reminder-email', authMiddleware.authenticateAdmin, exportController.sendProjectDetailsReminderEmails);
+
+/**
  * GET /api/export
  * Query params: formId, groupPrefix, token (JWT may also come from Bearer header)
  * Downloads a flattened CSV of evaluation form submissions.

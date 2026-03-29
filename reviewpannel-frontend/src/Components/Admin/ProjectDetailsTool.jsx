@@ -14,6 +14,11 @@ const ProjectDetailsTool = () => {
   const [summary, setSummary] = useState({ totalGroups: 0, filledCount: 0, unfilledCount: 0 });
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [showReminderComposer, setShowReminderComposer] = useState(false);
+  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
+  const [mailSubject, setMailSubject] = useState('Reminder: Submit Project Details ({{group_id}})');
+  const [mailBody, setMailBody] = useState(`Dear Team {{group_id}},\n\nOur records show that your group has not yet submitted the required project details on SparkTrack.\n\nPlease log in to the student dashboard and complete the Project Details/Problem Statement section at the earliest.\n\nThis is an automated reminder from the admin panel.\n\nRegards,\nSparkTrack Admin`);
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -49,6 +54,8 @@ const ProjectDetailsTool = () => {
     } else {
       setFilledGroups([]);
       setUnfilledGroups([]);
+      setSummary({ totalGroups: 0, filledCount: 0, unfilledCount: 0 });
+      setMessage((prev) => prev || statusRes.message || 'Failed to load group status.');
     }
 
     setLoading(false);
@@ -57,6 +64,10 @@ const ProjectDetailsTool = () => {
   useEffect(() => {
     fetchRows('', 1);
   }, []);
+
+  useEffect(() => {
+    setSelectedGroupIds(unfilledGroups.map((group) => group.group_id));
+  }, [unfilledGroups]);
 
   const handleApplySearch = () => {
     setPage(1);
@@ -124,7 +135,58 @@ const ProjectDetailsTool = () => {
     setDownloading(false);
   };
 
+  const toggleGroupSelection = (groupId) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
+    );
+  };
+
+  const handleSendReminderEmails = async () => {
+    if (selectedGroupIds.length === 0) {
+      setMessage('Please select at least one group to send reminder emails.');
+      return;
+    }
+
+    if (!mailSubject.trim() || !mailBody.trim()) {
+      setMessage('Please provide both email subject and email body.');
+      return;
+    }
+
+    const selectedGroups = unfilledGroups.filter((group) => selectedGroupIds.includes(group.group_id));
+    const recipientCount = selectedGroups.reduce((count, group) => count + ((group.member_emails || []).length), 0);
+    const confirmed = window.confirm(`Send reminder emails to ${selectedGroupIds.length} group(s) and ${recipientCount} recipient(s)?`);
+    if (!confirmed) return;
+
+    setSendingReminder(true);
+    setMessage('');
+
+    const payload = {
+      group_ids: selectedGroupIds,
+      search: appliedSearch,
+      subject: mailSubject,
+      message: mailBody,
+    };
+
+    const res = await apiRequest('/api/export/project-details/reminder-email', 'POST', payload);
+
+    if (res.success !== false) {
+      const sentCount = res?.data?.sentCount ?? 0;
+      const failedCount = res?.data?.failedCount ?? 0;
+      const skippedCount = res?.data?.skippedCount ?? 0;
+      setMessage(`Reminder process complete. Sent: ${sentCount}, Failed: ${failedCount}, Skipped: ${skippedCount}.`);
+      setShowReminderComposer(false);
+    } else {
+      setMessage(res.message || 'Failed to send reminder emails.');
+    }
+
+    setSendingReminder(false);
+  };
+
   const totalProjects = useMemo(() => rows.length, [rows]);
+  const selectedRecipientsCount = useMemo(() => {
+    const selectedGroups = unfilledGroups.filter((group) => selectedGroupIds.includes(group.group_id));
+    return selectedGroups.reduce((count, group) => count + ((group.member_emails || []).length), 0);
+  }, [unfilledGroups, selectedGroupIds]);
 
   return (
     <section className="space-y-5">
@@ -279,7 +341,17 @@ const ProjectDetailsTool = () => {
 
         <div className="overflow-hidden rounded-xl border border-rose-200 bg-white shadow-sm">
           <div className="border-b border-rose-200 bg-rose-50 px-4 py-3">
-            <h3 className="text-sm font-bold text-rose-800">Groups Who Have Not Filled Project Details</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-rose-800">Groups Who Have Not Filled Project Details</h3>
+              <button
+                onClick={() => setShowReminderComposer((prev) => !prev)}
+                disabled={unfilledGroups.length === 0}
+                className="inline-flex items-center gap-2 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <span>Mail</span>
+                {showReminderComposer ? 'Hide Mail Composer' : 'Send Reminder Mail'}
+              </button>
+            </div>
           </div>
           <div className="max-h-80 overflow-auto">
             {unfilledGroups.length === 0 ? (
@@ -297,6 +369,82 @@ const ProjectDetailsTool = () => {
           </div>
         </div>
       </div>
+
+      {showReminderComposer && (
+        <div className="rounded-xl border border-rose-200 bg-white p-4 shadow-sm">
+          <h4 className="text-sm font-bold text-rose-800">Compose Reminder Mail</h4>
+          <p className="mt-1 text-xs text-gray-600">
+            Placeholder supported: <strong>{'{{group_id}}'}</strong>. Mail is sent to all listed team member emails of selected groups.
+          </p>
+
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-700">Subject</label>
+              <input
+                type="text"
+                value={mailSubject}
+                onChange={(e) => setMailSubject(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+              />
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              <p><strong>Selected Groups:</strong> {selectedGroupIds.length}</p>
+              <p><strong>Total Recipients:</strong> {selectedRecipientsCount}</p>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <label className="mb-1 block text-xs font-semibold text-gray-700">Email Body</label>
+            <textarea
+              rows={8}
+              value={mailBody}
+              onChange={(e) => setMailBody(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+            />
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs font-semibold text-gray-700">Select groups and review recipients:</p>
+            <div className="max-h-52 space-y-2 overflow-auto rounded-lg border border-gray-200 p-2">
+              {unfilledGroups.map((group) => (
+                <label key={`mail-${group.group_id}`} className="flex cursor-pointer items-start gap-2 rounded-md border border-gray-100 px-2 py-2 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={selectedGroupIds.includes(group.group_id)}
+                    onChange={() => toggleGroupSelection(group.group_id)}
+                    className="mt-0.5"
+                  />
+                  <div className="text-sm">
+                    <p className="font-semibold text-gray-900">{group.group_id}</p>
+                    <p className="text-xs text-gray-600">
+                      Recipients: {(group.member_emails && group.member_emails.length > 0)
+                        ? group.member_emails.join(', ')
+                        : 'No valid emails available'}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              onClick={() => setShowReminderComposer(false)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSendReminderEmails}
+              disabled={sendingReminder || selectedGroupIds.length === 0}
+              className="inline-flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sendingReminder ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Send Mail to Selected Groups
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <button
