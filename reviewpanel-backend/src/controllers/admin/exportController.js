@@ -6,11 +6,31 @@ import supabase from '../../config/database.js';
  */
 function escapeCSV(value) {
   if (value === null || value === undefined) return '';
-  const str = String(value);
+  let str = String(value);
+
+  // Prevent CSV/Excel formula injection when opened in spreadsheet tools.
+  if (/^\s*[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
+
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
     return '"' + str.replace(/"/g, '""') + '"';
   }
   return str;
+}
+
+function validateSearch(search) {
+  const value = typeof search === 'string' ? search.trim() : '';
+  if (value.length > 100) {
+    throw new Error('Search query is too long (max 100 chars)');
+  }
+  return value;
+}
+
+function parsePositiveInt(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
 }
 
 /**
@@ -25,6 +45,183 @@ function buildCSV(headers, keys, rows) {
     keys.map(k => escapeCSV(row[k] !== undefined ? row[k] : '')).join(',')
   );
   return [headerLine, ...dataLines].join('\r\n');
+}
+
+/**
+ * Fetch project details rows for API table and CSV export.
+ * One row per problem statement with grouped member details.
+ */
+async function getProjectDetailsRows({ search = '', limit = 100, offset = 0 } = {}) {
+  let psQuery = supabase
+    .from('problem_statement')
+    .select('ps_id, group_id, title, type, technologybucket, domain, description, status, review_feedback')
+    .order('ps_id', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const trimmedSearch = validateSearch(search);
+  if (trimmedSearch) {
+    psQuery = psQuery.or(`group_id.ilike.%${trimmedSearch}%,title.ilike.%${trimmedSearch}%`);
+  }
+
+  const { data: statements, error: psError } = await psQuery;
+  if (psError) throw psError;
+
+  if (!statements || statements.length === 0) {
+    return [];
+  }
+
+  const groupIds = [...new Set(statements.map((item) => item.group_id).filter(Boolean))];
+
+  let membersByGroupId = {};
+  if (groupIds.length > 0) {
+    const { data: members, error: memberError } = await supabase
+      .from('pbl')
+      .select('group_id, enrollment_no, student_name, mentor_code')
+      .in('group_id', groupIds)
+      .order('enrollment_no', { ascending: true });
+
+    if (memberError) throw memberError;
+
+    membersByGroupId = (members || []).reduce((acc, item) => {
+      if (!acc[item.group_id]) {
+        acc[item.group_id] = [];
+      }
+      acc[item.group_id].push(item);
+      return acc;
+    }, {});
+  }
+
+  return statements.map((item) => {
+    const members = membersByGroupId[item.group_id] || [];
+    const mentorCodes = [...new Set(members.map((m) => m.mentor_code).filter(Boolean))];
+
+    return {
+      ps_id: item.ps_id,
+      group_id: item.group_id || '',
+      title: item.title || '',
+      type: item.type || '',
+      technology_bucket: item.technologybucket || '',
+      domain: item.domain || '',
+      description: item.description || '',
+      status: item.status || '',
+      review_feedback: item.review_feedback || '',
+      member_count: members.length,
+      member_enrollments: members.map((m) => m.enrollment_no).filter(Boolean).join('; '),
+      member_names: members.map((m) => m.student_name).filter(Boolean).join('; '),
+      mentor_codes: mentorCodes.join('; '),
+      created_at: item.created_at || '',
+      updated_at: item.updated_at || '',
+    };
+  });
+}
+
+/**
+ * Build group-level status for project details:
+ * - filledGroups: group has a problem_statement row with a non-empty title
+ * - unfilledGroups: group exists in pbl but has no filled project detail
+ */
+async function buildProjectDetailsGroupStatus(search = '') {
+  const trimmedSearch = validateSearch(search).toLowerCase();
+
+  const { data: groupMembers, error: groupError } = await supabase
+    .from('pbl')
+    .select('group_id, enrollment_no, student_name, mentor_code')
+    .order('group_id', { ascending: true });
+
+  if (groupError) throw groupError;
+
+  const groupsMap = new Map();
+  for (const member of groupMembers || []) {
+    const groupId = member.group_id;
+    if (!groupId) continue;
+
+    if (!groupsMap.has(groupId)) {
+      groupsMap.set(groupId, {
+        group_id: groupId,
+        member_count: 0,
+        member_names: [],
+        mentor_codes: new Set(),
+      });
+    }
+
+    const group = groupsMap.get(groupId);
+    group.member_count += 1;
+    if (member.student_name) group.member_names.push(member.student_name);
+    if (member.mentor_code) group.mentor_codes.add(member.mentor_code);
+  }
+
+  const allGroupIds = [...groupsMap.keys()];
+  if (allGroupIds.length === 0) {
+    return {
+      filledGroups: [],
+      unfilledGroups: [],
+      summary: { totalGroups: 0, filledCount: 0, unfilledCount: 0 },
+    };
+  }
+
+  const { data: statements, error: psError } = await supabase
+    .from('problem_statement')
+    .select('ps_id, group_id, title, status')
+    .in('group_id', allGroupIds)
+    .order('ps_id', { ascending: false });
+
+  if (psError) throw psError;
+
+  const latestStatementByGroup = new Map();
+  for (const ps of statements || []) {
+    if (!ps.group_id) continue;
+    if (!latestStatementByGroup.has(ps.group_id)) {
+      latestStatementByGroup.set(ps.group_id, ps);
+    }
+  }
+
+  const filledGroups = [];
+  const unfilledGroups = [];
+
+  for (const [groupId, group] of groupsMap.entries()) {
+    const statement = latestStatementByGroup.get(groupId);
+    const title = (statement?.title || '').trim();
+
+    const normalized = {
+      group_id: groupId,
+      project_title: title,
+      project_status: statement?.status || '',
+      ps_id: statement?.ps_id || null,
+      member_count: group.member_count,
+      member_names: group.member_names.join('; '),
+      mentor_codes: [...group.mentor_codes].join('; '),
+    };
+
+    const matchesSearch = !trimmedSearch
+      || groupId.toLowerCase().includes(trimmedSearch)
+      || title.toLowerCase().includes(trimmedSearch);
+
+    if (!matchesSearch) continue;
+
+    if (title) {
+      filledGroups.push(normalized);
+    } else {
+      unfilledGroups.push({
+        ...normalized,
+        project_title: '',
+        project_status: '',
+        ps_id: null,
+      });
+    }
+  }
+
+  filledGroups.sort((a, b) => a.group_id.localeCompare(b.group_id));
+  unfilledGroups.sort((a, b) => a.group_id.localeCompare(b.group_id));
+
+  return {
+    filledGroups,
+    unfilledGroups,
+    summary: {
+      totalGroups: filledGroups.length + unfilledGroups.length,
+      filledCount: filledGroups.length,
+      unfilledCount: unfilledGroups.length,
+    },
+  };
 }
 
 /**
@@ -174,4 +371,142 @@ const exportCSV = async (req, res) => {
   }
 };
 
-export default { exportCSV };
+/**
+ * GET /api/export/project-details
+ * Query params:
+ *   search - optional search by group_id or title
+ */
+const getProjectDetails = async (req, res) => {
+  try {
+    const { search, limit, page } = req.query;
+    const safeLimit = Math.min(parsePositiveInt(limit, 100), 500);
+    const safePage = parsePositiveInt(page, 1);
+    const offset = (safePage - 1) * safeLimit;
+
+    const rows = await getProjectDetailsRows({ search, limit: safeLimit, offset });
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Project details fetched successfully',
+      data: {
+        projectDetails: rows,
+        pagination: {
+          page: safePage,
+          limit: safeLimit,
+          returned: rows.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get project details error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch project details',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/export/project-details/csv
+ * Query params:
+ *   search - optional search by group_id or title
+ */
+const downloadProjectDetailsCSV = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const rows = await getProjectDetailsRows({ search, limit: 5000, offset: 0 });
+
+    const headers = [
+      'PS ID',
+      'Group ID',
+      'Project Title',
+      'Type',
+      'Technology Bucket',
+      'Domain',
+      'Description',
+      'Status',
+      'Review Feedback',
+      'Member Count',
+      'Member Enrollments',
+      'Member Names',
+      'Mentor Codes',
+      'Created At',
+      'Updated At',
+    ];
+
+    const keys = [
+      'ps_id',
+      'group_id',
+      'title',
+      'type',
+      'technology_bucket',
+      'domain',
+      'description',
+      'status',
+      'review_feedback',
+      'member_count',
+      'member_enrollments',
+      'member_names',
+      'mentor_codes',
+      'created_at',
+      'updated_at',
+    ];
+
+    const csv = buildCSV(headers, keys, rows);
+    const safeSearch = (search || 'all').toString().trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+    const filename = `project_details_${safeSearch || 'all'}.csv`;
+
+    const BOM = '\uFEFF';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    return res.status(200).send(BOM + csv);
+  } catch (error) {
+    console.error('Download project details CSV error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to download project details CSV',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/export/project-details/group-status
+ * Query params:
+ *   search - optional search by group_id or project title
+ */
+const getProjectDetailsGroupStatus = async (req, res) => {
+  try {
+    const { search } = req.query;
+    const statusData = await buildProjectDetailsGroupStatus(search);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Group project-details status fetched successfully',
+      data: statusData,
+    });
+  } catch (error) {
+    console.error('Get project-details group status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch group status',
+      error: error.message,
+    });
+  }
+};
+
+export default {
+  exportCSV,
+  getProjectDetails,
+  downloadProjectDetailsCSV,
+  getProjectDetailsGroupStatus,
+};
