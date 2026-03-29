@@ -30,6 +30,7 @@ import AnnouncementAdmin from '../Components/Admin/announcement';
 import AdminPost from '../Components/Admin/post';
 import RolePermissionManager from '../Components/Admin/role';
 import ClassLead from '../Components/Admin/assignclasslead';
+import ProjectDetailsTool from '../Components/Admin/ProjectDetailsTool';
 // You can import other admin tool subpages here
 
 // Students page
@@ -146,6 +147,7 @@ const AppRoutes = () => {
       }>
         {/* Nested routes under /admintools */}
         <Route path="data-management" element={<AdminDataManager />} />
+        <Route path="project-details" element={<ProjectDetailsTool />} />
         <Route path="role-permission" element={<RolePermissionManager />} />
         <Route path="deadline" element={<DeadlineAdmin />} />
         <Route path="announcement" element={<AnnouncementAdmin />} />

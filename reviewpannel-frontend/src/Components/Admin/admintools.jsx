@@ -12,7 +12,8 @@ import {
   CrownIcon,
   BellRing,
   ImageIcon,
-  Database
+  Database,
+  FileSpreadsheet
 } from 'lucide-react';
 import Header from '../../Components/Common/Header';
 import AdminSidebar from './Sidebar';
@@ -32,6 +33,11 @@ const tabs = [
     label: 'Data Management', 
     icon: Database, 
     path: '/admintools/data-management' 
+  },
+  {
+    label: 'Project Details',
+    icon: FileSpreadsheet,
+    path: '/admintools/project-details'
   },
   { 
     label: 'Assigned ClassLead', 
