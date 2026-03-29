@@ -69,7 +69,7 @@ const refreshAccessToken = async () => {
   }
 };
 
-export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false) => {
+export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false, timeoutMs = 20000) => {
   // Skip authentication check for login and public endpoints
   const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password') || endpoint.includes('/check-status') || endpoint.includes('/set-password');
   const isDashboardEndpoint = endpoint.includes('/dashboard');
@@ -134,9 +134,10 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     options.body = isFormData ? body : JSON.stringify(body);
   }
 
-  // Abort request if backend takes more than 20 seconds (Lambda cold-start protection)
+  // Abort request if backend takes too long; timeout can be overridden per request.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const safeTimeoutMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : 20000;
+  const timeoutId = setTimeout(() => controller.abort(), safeTimeoutMs);
   options.signal = controller.signal;
 
   try {
@@ -256,11 +257,11 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
 
     // Request timed out (Lambda cold-start or network too slow)
     if (error.name === 'AbortError') {
-      console.warn('Request timed out after 20 seconds:', endpoint);
+      console.warn(`Request timed out after ${safeTimeoutMs}ms:`, endpoint);
       return {
         success: false,
         status: 408,
-        message: 'Request timed out. The server is taking too long to respond. Please try again.',
+        message: `Request timed out after ${Math.round(safeTimeoutMs / 1000)} seconds. Please try again.`,
       };
     }
     
