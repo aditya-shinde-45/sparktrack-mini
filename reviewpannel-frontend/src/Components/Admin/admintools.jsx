@@ -76,13 +76,13 @@ const AdminToolTabs = () => {
   };
 
   return (
-    <div className="font-[Poppins] flex min-h-screen bg-gray-100">
+    <div className="font-[Poppins] flex min-h-screen bg-gray-100 overflow-x-hidden">
       <AdminSidebar />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-72">
         <Header />
 
-        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mt-20 mb-16 lg:mb-0 space-y-6">
+        <main className="flex-1 min-w-0 p-3 md:p-6 bg-white mt-20 mb-16 lg:mb-0 space-y-6 overflow-x-hidden">
           <div className="mb-8">
             <div className="flex items-center gap-3 border-b border-gray-200 pb-2 flex-wrap overflow-x-auto">
               {tabs.map((tab) => {
