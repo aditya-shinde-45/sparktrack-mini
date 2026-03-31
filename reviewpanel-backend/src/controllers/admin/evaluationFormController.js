@@ -454,16 +454,6 @@ class EvaluationFormController {
         evaluations: mergedEvaluations
       });
 
-      // Auto-disable mentor edit after successful update by mentor
-      if (isMentorRole && isMentorEditEnabled) {
-        try {
-          await evaluationFormModel.toggleMentorEditForGroup(formId, group_id, false);
-          console.log(`✓ Auto-disabled mentor edit for group ${group_id} after mentor update`);
-        } catch (error) {
-          console.error(`✗ Failed to auto-disable mentor edit for group ${group_id}:`, error);
-        }
-      }
-
       return ApiResponse.success(res, 'Evaluation updated successfully', updatedSubmission);
     }
 

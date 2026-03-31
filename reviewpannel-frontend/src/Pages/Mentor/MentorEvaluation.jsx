@@ -111,7 +111,6 @@ const MentorEvaluation = () => {
       : [];
     return Boolean(normalizedSelected) && normalizedEnabled.includes(normalizedSelected);
   }, [mentorEditEnabledGroups, selectedGroupId]);
-  const canEditAfterSubmit = editAfterSubmitRoles.includes(currentUserRole);
   const canSubmitForm = submitRoles.includes(currentUserRole);
   const canUpdateSubmission = hasSubmission && isMentorEditEnabledForGroup && !isReadOnly;
 
@@ -538,7 +537,7 @@ const MentorEvaluation = () => {
       return;
     }
 
-    if (hasSubmission && isReadOnly) {
+    if (hasSubmission && !isMentorEditEnabledForGroup) {
       setStatusMessage("✗ Editing is disabled. Cannot update marks.");
       return;
     }
@@ -572,7 +571,7 @@ const MentorEvaluation = () => {
     if (response?.success) {
       setHasSubmission(true);
       
-      // Refresh form to get updated mentor_edit_enabled_groups (auto-disabled after mentor update)
+      // Refresh form to get latest mentor_edit_enabled_groups configured by admin
       const formResponse = await apiRequest(`/api/mentors/evaluation-forms/${selectedFormId}`, "GET", null, token);
       if (formResponse?.success) {
         const updatedEnabledGroups = Array.isArray(formResponse.data?.mentor_edit_enabled_groups) 
@@ -584,19 +583,16 @@ const MentorEvaluation = () => {
         const normalizedEnabledGroups = updatedEnabledGroups.map((id) => normalizeGroupId(id)).filter(Boolean);
         const stillEnabled = normalizedEnabledGroups.includes(normalizedGroupId);
         
-        if (!stillEnabled) {
-          setIsReadOnly(true);
-          setStatusMessage("✓ Evaluation updated. Editing auto-disabled.");
-        } else if (canEditAfterSubmit) {
+        if (stillEnabled) {
           setIsReadOnly(false);
-          setStatusMessage("✓ Evaluation submitted. You can continue editing.");
+          setStatusMessage("✓ Evaluation updated. Mentor edit is enabled by admin.");
         } else {
           setIsReadOnly(true);
-          setStatusMessage("✓ Evaluation submitted. Editing disabled.");
+          setStatusMessage("✓ Evaluation updated. Editing is disabled until admin enables mentor edit.");
         }
       } else {
         setIsReadOnly(true);
-        setStatusMessage("✓ Evaluation updated successfully.");
+        setStatusMessage("✓ Evaluation updated. Editing is disabled until admin enables mentor edit.");
       }
     } else {
       setStatusMessage(response?.message || "✗ Failed to submit evaluation.");
@@ -1031,16 +1027,16 @@ const MentorEvaluation = () => {
             {canSubmitForm && (
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || students.length === 0 || !isFormSelected || (hasSubmission && isReadOnly)}
+                disabled={isSubmitting || students.length === 0 || !isFormSelected || (hasSubmission && !isMentorEditEnabledForGroup)}
                 className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {isSubmitting
                   ? "Submitting..."
-                  : isApproved
-                    ? "Approved (Locked)"
-                    : hasSubmission && !isReadOnly
-                      ? "Update Evaluation"
-                      : hasSubmission && isReadOnly
+                  : hasSubmission && isMentorEditEnabledForGroup
+                    ? "Update Evaluation"
+                    : isApproved
+                      ? "Approved (Locked)"
+                      : hasSubmission
                         ? "Submitted (Locked)"
                         : "Submit Evaluation"}
               </button>
