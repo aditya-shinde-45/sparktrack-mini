@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import config from './src/config/index.js';
 import { databaseConfig as dbConfig } from './src/config/database.js';
 import logger from './src/utils/logger.js';
+import userModel from './src/models/userModel.js';
 
 // Import middleware
 
@@ -173,6 +174,16 @@ if (process.env.NODE_ENV !== 'lambda') {
   app.listen(PORT, () => {
     logger.serverStarted(PORT, config.server.env);
     testConnection();
+    if (!isProduction) {
+      userModel.getAll()
+        .then((users) => {
+          const summary = users.map(user => `${user.username}(${user.role})`).join(', ') || 'none';
+          logger.info(`Loaded admin users: ${summary}`);
+        })
+        .catch((error) => {
+          logger.warn(`Failed to load admin users: ${error?.message || 'unknown error'}`);
+        });
+    }
   });
 }
 
