@@ -402,7 +402,10 @@ class RoleAccessController {
             totalRecords,
             limit: safeLimit
           },
-          form: evalForm || null
+          form: evalForm ? {
+            ...evalForm,
+            mentor_edit_enabled_groups: evalForm.mentor_edit_enabled_groups || []
+          } : null
         });
       }
 

@@ -16,18 +16,22 @@ const MarksTable = ({
   dirtyRowKeys = null,
   scrollContainerRef = null,
   enableWheelHorizontal = false,
+  mentorEditEnabledGroups = [],
+  onToggleMentorEditForGroup = null,
+  togglingGroupId = null,
 }) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
   const isForm = reviewType === "form";
   const showDelete = typeof onDeleteGroup === "function";
+  const showMentorEditToggle = isForm && typeof onToggleMentorEditForGroup === "function";
   const normalizedFormFields = formFields.map((field) => ({
     ...field,
     type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
   }));
   const computedMinWidth = React.useMemo(() => {
     if (isForm) {
-      const baseColumns = 6 + (showDelete ? 1 : 0) + (editableFormMarks ? 1 : 0);
+      const baseColumns = 6 + (showDelete ? 1 : 0) + (editableFormMarks ? 1 : 0) + (showMentorEditToggle ? 1 : 0);
       const totalColumns = normalizedFormFields.length + baseColumns;
       return `${Math.max(1600, totalColumns * 140)}px`;
     }
@@ -104,6 +108,11 @@ const MarksTable = ({
             {!isZeroReview && (
               <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyHeaderClass}`}>
                 Group ID
+              </th>
+            )}
+            {showMentorEditToggle && (
+              <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[140px]">
+                Mentor Edit
               </th>
             )}
             {isZeroReview && (
@@ -220,6 +229,41 @@ const MarksTable = ({
                 {!isZeroReview && (
                   <td className={`px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200 min-w-[164px] ${stickyCellClass}`}>
                     {renderCellValue(student.group_id)}
+                  </td>
+                )}
+                {showMentorEditToggle && student._isFirstInGroup && (
+                  <td className="px-4 py-3 text-center border-r border-gray-200" rowSpan={student._groupRowSpan || 1}>
+                    {(() => {
+                      const groupId = student.group_id;
+                      const isEnabled = mentorEditEnabledGroups.includes(groupId);
+                      const isToggling = togglingGroupId === groupId;
+                      
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onToggleMentorEditForGroup(groupId)}
+                          disabled={isToggling}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                            isEnabled
+                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          title={isEnabled ? 'Click to disable mentor editing' : 'Click to enable mentor editing'}
+                        >
+                          {isToggling ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              <span>...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                              <span>{isEnabled ? 'ON' : 'OFF'}</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </td>
                 )}
                 {isZeroReview && (

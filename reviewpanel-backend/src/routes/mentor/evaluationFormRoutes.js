@@ -65,6 +65,18 @@ router.post(
 );
 
 /**
+ * @route   PUT /api/mentors/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo
+ * @desc    Update marks for a specific student (when mentor edit is enabled)
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
+  evaluationFormController.updateSubmissionStudentMarksByMentor
+);
+
+/**
  * @route   POST /api/mentors/evaluation-forms/:formId/group/:groupId/approve
  * @desc    Approve a submitted evaluation for a group
  * @access  Private (Industry Mentor)

@@ -123,7 +123,7 @@ class AuthMiddleware {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        if (decoded.role !== 'admin') {
+        if (String(decoded.role || '').toLowerCase() !== 'admin') {
           throw ApiError.forbidden('Admin access required');
         }
         

@@ -85,6 +85,13 @@ const refreshAccessToken = async () => {
 };
 
 export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false, timeoutMs = 20000) => {
+  // DEBUG LOGGING
+  console.log(`🔍 API Request Debug:`);
+  console.log(`  Endpoint: ${endpoint}`);
+  console.log(`  Method: ${method}`);
+  console.log(`  Body:`, body);
+  console.log(`  Has Token: ${!!token}`);
+  
   // Skip authentication check for login and public endpoints
   const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password') || endpoint.includes('/check-status') || endpoint.includes('/set-password');
   const isDashboardEndpoint = endpoint.includes('/dashboard');
@@ -96,9 +103,19 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     headers["Content-Type"] = "application/json";
   }
 
-  // Use token from parameter first, then try localStorage
+  // Use token from parameter first, then try localStorage based on endpoint
   if (!token) {
-    token = localStorage.getItem('token') || localStorage.getItem('student_token');
+    const endpointPath = String(endpoint || '').toLowerCase();
+    const isAdminEndpoint = endpointPath.startsWith('/api/admin') || endpointPath.startsWith('/api/role-access') || endpointPath.startsWith('/api/export');
+    const isMentorEndpoint = endpointPath.startsWith('/api/mentors') || endpointPath.startsWith('/api/industrial-mentors');
+
+    if (isAdminEndpoint) {
+      token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+    } else if (isMentorEndpoint) {
+      token = localStorage.getItem('mentor_token') || localStorage.getItem('token');
+    } else {
+      token = localStorage.getItem('token') || localStorage.getItem('student_token');
+    }
   }
   
   // Don't check token for auth endpoints
@@ -110,6 +127,8 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
         // Perform a full logout
         localStorage.removeItem('token');
         localStorage.removeItem('student_token');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('mentor_token');
         localStorage.removeItem('role');
         localStorage.removeItem('name');
         localStorage.removeItem('id');
@@ -148,6 +167,13 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     // If it's FormData, send it directly without JSON.stringify
     options.body = isFormData ? body : JSON.stringify(body);
   }
+  
+  // DEBUG: Log final fetch options
+  console.log(`📤 Final Fetch Options:`);
+  console.log(`  URL: ${API_BASE_URL}${endpoint}`);
+  console.log(`  Method: ${options.method}`);
+  console.log(`  Headers:`, options.headers);
+  console.log(`  Body:`, options.body);
 
   // Abort request if backend takes too long; timeout can be overridden per request.
   const controller = new AbortController();
@@ -218,6 +244,8 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           localStorage.removeItem('token');
           localStorage.removeItem('student_token');
           localStorage.removeItem('student_refresh_token');
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('mentor_token');
           localStorage.removeItem('role');
           localStorage.removeItem('name');
           localStorage.removeItem('id');

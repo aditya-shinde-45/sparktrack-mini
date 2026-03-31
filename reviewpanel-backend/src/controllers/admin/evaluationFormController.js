@@ -428,11 +428,20 @@ class EvaluationFormController {
     const existingSubmission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, group_id);
 
     if (existingSubmission) {
-      if (existingSubmission.is_approved && !this.isAdmin(req.user)) {
-        throw ApiError.forbidden('Evaluation has been approved and can no longer be edited');
+      const isMentorRole = ['mentor', 'industry_mentor'].includes(String(req.user?.role || '').toLowerCase());
+      const isMentorEditEnabled = isMentorRole
+        ? await evaluationFormModel.isMentorEditEnabledForGroup(formId, group_id)
+        : false;
+
+      // For mentors: Check if mentor edit is enabled
+      if (isMentorRole && !isMentorEditEnabled) {
+        throw ApiError.forbidden('Mentor editing is not enabled for this group. Ask admin to enable it.');
       }
 
-      this.assertFormAccess(req.user, form, 'edit_after_submit');
+      // For non-mentors: Check edit_after_submit_roles
+      if (!isMentorRole && !this.isAdmin(req.user)) {
+        this.assertFormAccess(req.user, form, 'edit_after_submit');
+      }
 
       const mergedEvaluations = mergeEvaluationsWithExisting(
         Array.isArray(existingSubmission.evaluations) ? existingSubmission.evaluations : [],
@@ -444,6 +453,16 @@ class EvaluationFormController {
         feedback: feedback || null,
         evaluations: mergedEvaluations
       });
+
+      // Auto-disable mentor edit after successful update by mentor
+      if (isMentorRole && isMentorEditEnabled) {
+        try {
+          await evaluationFormModel.toggleMentorEditForGroup(formId, group_id, false);
+          console.log(`✓ Auto-disabled mentor edit for group ${group_id} after mentor update`);
+        } catch (error) {
+          console.error(`✗ Failed to auto-disable mentor edit for group ${group_id}:`, error);
+        }
+      }
 
       return ApiResponse.success(res, 'Evaluation updated successfully', updatedSubmission);
     }
@@ -736,6 +755,203 @@ class EvaluationFormController {
     if (!submission) {
       throw ApiError.notFound('Submission not found');
     }
+
+    const normalizedEnrollment = String(enrollmentNo).trim();
+    const evaluations = Array.isArray(submission.evaluations) ? [...submission.evaluations] : [];
+
+    const studentIndex = evaluations.findIndex((item) => {
+      const itemEnrollment = String(item?.enrollment_no || item?.enrollement_no || '').trim();
+      return itemEnrollment === normalizedEnrollment;
+    });
+
+    if (studentIndex === -1) {
+      throw ApiError.notFound('Student evaluation not found in this submission');
+    }
+
+    const currentEvaluation = evaluations[studentIndex] || {};
+    const mergedMarks = { ...(currentEvaluation.marks || {}) };
+
+    for (const [key, rawValue] of Object.entries(marks)) {
+      const field = fieldMap.get(key);
+      if (!field) {
+        throw ApiError.badRequest(`Invalid mark field: ${key}`);
+      }
+
+      const fieldType = normalizeFieldType(field);
+
+      if (fieldType === 'number') {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          mergedMarks[key] = 0;
+          continue;
+        }
+
+        const numericValue = Number(rawValue);
+        if (Number.isNaN(numericValue)) {
+          throw ApiError.badRequest(`Invalid numeric value for field: ${key}`);
+        }
+
+        const minMarks = 0;
+        const maxMarks = Number(field.max_marks) || 0;
+        if (numericValue < minMarks || numericValue > maxMarks) {
+          throw ApiError.badRequest(`Field ${key} must be between ${minMarks} and ${maxMarks}`);
+        }
+
+        mergedMarks[key] = numericValue;
+        continue;
+      }
+
+      if (fieldType === 'boolean') {
+        mergedMarks[key] = coerceBooleanValue(rawValue);
+        continue;
+      }
+
+      mergedMarks[key] = rawValue ?? '';
+    }
+
+    const total = fields.reduce((sum, field) => {
+      if (normalizeFieldType(field) !== 'number') return sum;
+      return sum + (Number(mergedMarks[field.key]) || 0);
+    }, 0);
+
+    const updatedEvaluation = {
+      ...currentEvaluation,
+      marks: mergedMarks,
+      total
+    };
+
+    evaluations[studentIndex] = updatedEvaluation;
+
+    const updatedSubmission = await evaluationFormModel.updateSubmission(submissionId, formId, {
+      evaluations
+    });
+
+    return ApiResponse.success(res, 'Student marks updated successfully', {
+      submission_id: updatedSubmission.id,
+      group_id: updatedSubmission.group_id,
+      external_name: updatedSubmission.external_name,
+      feedback: updatedSubmission.feedback,
+      created_at: updatedSubmission.created_at,
+      enrollment_no: updatedEvaluation.enrollment_no || updatedEvaluation.enrollement_no,
+      student_name: updatedEvaluation.student_name || updatedEvaluation.name_of_student,
+      marks: updatedEvaluation.marks || {},
+      total: updatedEvaluation.total ?? 0,
+      absent: updatedEvaluation.absent || false
+    });
+  });
+
+  toggleMentorEditEnabled = asyncHandler(async (req, res) => {
+    const { formId } = req.params;
+    const { groupId, enabled } = req.body;
+
+    this.assertEvaluationSubmissionAccess(req.user, 'toggle mentor edit permission');
+
+    if (!formId) {
+      throw ApiError.badRequest('Form ID is required');
+    }
+
+    if (!groupId || typeof groupId !== 'string') {
+      throw ApiError.badRequest('Group ID is required and must be a string');
+    }
+
+    if (typeof enabled !== 'boolean') {
+      throw ApiError.badRequest('Enabled must be a boolean value');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    let updatedForm;
+    try {
+      updatedForm = await evaluationFormModel.toggleMentorEditForGroup(formId, groupId, enabled);
+    } catch (error) {
+      if (error?.code === 'MISSING_MENTOR_EDIT_COLUMN') {
+        throw ApiError.badRequest(error.message);
+      }
+      throw error;
+    }
+
+    return ApiResponse.success(res, `Mentor edit ${enabled ? 'enabled' : 'disabled'} for group ${groupId}`, {
+      id: updatedForm.id,
+      name: updatedForm.name,
+      group_id: groupId,
+      enabled: enabled,
+      mentor_edit_enabled_groups: updatedForm.mentor_edit_enabled_groups
+    });
+  });
+
+  setMentorEditGroups = asyncHandler(async (req, res) => {
+    const { formId } = req.params;
+    const { groupIds } = req.body;
+
+    this.assertEvaluationSubmissionAccess(req.user, 'set mentor edit groups');
+
+    if (!formId) {
+      throw ApiError.badRequest('Form ID is required');
+    }
+
+    if (!Array.isArray(groupIds)) {
+      throw ApiError.badRequest('groupIds must be an array');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    let updatedForm;
+    try {
+      updatedForm = await evaluationFormModel.setMentorEditGroups(formId, groupIds);
+    } catch (error) {
+      if (error?.code === 'MISSING_MENTOR_EDIT_COLUMN') {
+        throw ApiError.badRequest(error.message);
+      }
+      throw error;
+    }
+
+    return ApiResponse.success(res, 'Mentor edit groups updated successfully', {
+      id: updatedForm.id,
+      name: updatedForm.name,
+      mentor_edit_enabled_groups: updatedForm.mentor_edit_enabled_groups
+    });
+  });
+
+  updateSubmissionStudentMarksByMentor = asyncHandler(async (req, res) => {
+    const { formId, submissionId, enrollmentNo } = req.params;
+    const { marks } = req.body || {};
+
+    if (!formId || !submissionId || !enrollmentNo) {
+      throw ApiError.badRequest('Form ID, submission ID and enrollment number are required');
+    }
+
+    if (!marks || typeof marks !== 'object' || Array.isArray(marks)) {
+      throw ApiError.badRequest('Marks object is required');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    this.assertFormAccess(req.user, form, 'view');
+
+    const submission = await evaluationFormModel.getSubmissionById(submissionId, formId);
+    if (!submission) {
+      throw ApiError.notFound('Submission not found');
+    }
+
+    // Check if mentor edit is enabled for this specific group
+    const isEditEnabled = await evaluationFormModel.isMentorEditEnabledForGroup(formId, submission.group_id);
+    if (!isEditEnabled) {
+      throw ApiError.forbidden(`Mentor editing is not enabled for group ${submission.group_id}`);
+    }
+
+    // Check if mentor has access to this group
+    await this.assertGroupAccess(req.user, submission.group_id);
+
+    const fields = Array.isArray(form.fields) ? form.fields : [];
+    const fieldMap = new Map(fields.map((field) => [field.key, field]));
 
     const normalizedEnrollment = String(enrollmentNo).trim();
     const evaluations = Array.isArray(submission.evaluations) ? [...submission.evaluations] : [];

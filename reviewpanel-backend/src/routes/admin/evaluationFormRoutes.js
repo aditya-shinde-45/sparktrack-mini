@@ -125,4 +125,28 @@ router.put(
   evaluationFormController.updateSubmissionStudentMarks
 );
 
+/**
+ * @route   PATCH /api/admin/evaluation-forms/:formId/toggle-mentor-edit
+ * @desc    Toggle mentor edit permission for a specific group
+ * @access  Private (Admin/SubAdmin with evaluation_form_submission permission)
+ */
+router.patch(
+  '/evaluation-forms/:formId/toggle-mentor-edit',
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
+  evaluationFormController.toggleMentorEditEnabled
+);
+
+/**
+ * @route   PUT /api/admin/evaluation-forms/:formId/mentor-edit-groups
+ * @desc    Set multiple groups that can edit marks (bulk update)
+ * @access  Private (Admin/SubAdmin with evaluation_form_submission permission)
+ */
+router.put(
+  '/evaluation-forms/:formId/mentor-edit-groups',
+  authMiddleware.verifyToken,
+  authMiddleware.authenticateAdmin,
+  evaluationFormController.setMentorEditGroups
+);
+
 export default router;

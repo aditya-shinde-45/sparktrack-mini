@@ -117,6 +117,8 @@ const Login = () => {
             }
             
             localStorage.setItem("token", token);
+            localStorage.setItem("admin_token", token);
+            localStorage.setItem("admin_token", token);
             localStorage.setItem("role", "admin");
             localStorage.setItem("user_id", username);
             localStorage.setItem("name", username);

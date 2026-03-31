@@ -10,6 +10,9 @@ import emailService from '../../services/emailService.js';
 import { validatePassword } from '../../utils/passwordValidator.js';
 
 class MentorAuthController {
+  logout = asyncHandler(async (req, res) => {
+    return ApiResponse.success(res, 'Logged out successfully', null);
+  });
   checkMentorStatus = asyncHandler(async (req, res) => {
     const contactNumber = req.body?.contact_number || req.body?.username;
 

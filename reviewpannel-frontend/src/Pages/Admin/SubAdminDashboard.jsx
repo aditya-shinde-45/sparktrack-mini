@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../../Components/Common/Header";
 import MarksTable from "../../Components/Admin/MarksTable";
 import Pagination from "../../Components/Admin/Pagination";
+import MentorEditGroupManager from "../../Components/Admin/MentorEditGroupManager";
 import { Database, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, Filter, X, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, BarChart3, User, Shield, Mail } from "lucide-react";
 import { apiRequest } from "../../api";
 
@@ -34,6 +35,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationFormTotal, setEvaluationFormTotal] = useState(0);
   const [evaluationSubmissions, setEvaluationSubmissions] = useState([]);
   const [evaluationSearchQuery, setEvaluationSearchQuery] = useState("");
+  const [evaluationSearchInput, setEvaluationSearchInput] = useState("");
   const [evaluationLoading, setEvaluationLoading] = useState(false);
   const [evaluationError, setEvaluationError] = useState("");
   const [evaluationCurrentPage, setEvaluationCurrentPage] = useState(1);
@@ -68,6 +70,18 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationCanScrollLeft, setEvaluationCanScrollLeft] = useState(false);
   const [evaluationCanScrollRight, setEvaluationCanScrollRight] = useState(false);
   const [evaluationTopRailWidth, setEvaluationTopRailWidth] = useState(0);
+  const [mentorEditEnabledGroups, setMentorEditEnabledGroups] = useState([]);
+  const [togglingGroupId, setTogglingGroupId] = useState(null);
+  const [toast, setToast] = useState({ type: "info", message: "", visible: false });
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: "Confirm",
+    message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
+    tone: "default"
+  });
+  const confirmResolverRef = React.useRef(null);
   const dataTablesTabsRef = React.useRef(null);
   const evaluationTableScrollRef = React.useRef(null);
   const evaluationTopRailRef = React.useRef(null);
@@ -78,6 +92,37 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const evaluationComputedTotal = React.useMemo(() => {
     return evaluationFormFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
   }, [evaluationFormFields]);
+
+  const showToast = React.useCallback((type, message, duration = 3000) => {
+    if (!message) return;
+    setToast({ type, message, visible: true });
+    window.clearTimeout(showToast._timer);
+    showToast._timer = window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+    }, duration);
+  }, []);
+
+  const requestConfirm = React.useCallback((options = {}) => {
+    return new Promise((resolve) => {
+      confirmResolverRef.current = resolve;
+      setConfirmModal({
+        visible: true,
+        title: options.title || "Confirm",
+        message: options.message || "",
+        confirmText: options.confirmText || "Confirm",
+        cancelText: options.cancelText || "Cancel",
+        tone: options.tone || "default"
+      });
+    });
+  }, []);
+
+  const closeConfirm = React.useCallback((result) => {
+    if (confirmResolverRef.current) {
+      confirmResolverRef.current(result);
+      confirmResolverRef.current = null;
+    }
+    setConfirmModal((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   const canEditEvaluationMarks = React.useMemo(() => {
     return tablePermissions.includes('evaluation_form_submission');
@@ -110,6 +155,40 @@ const SubAdminDashboard = ({ embedded = false }) => {
       return 0;
     });
   }, [evaluationSubmissions, evaluationSortBy, evaluationSortOrder]);
+
+  const evaluationGroupOptions = React.useMemo(() => {
+    const unique = new Set();
+    (evaluationSubmissions || []).forEach((row) => {
+      if (row?.group_id) {
+        unique.add(String(row.group_id));
+      }
+    });
+    return Array.from(unique).sort();
+  }, [evaluationSubmissions]);
+
+  const sortedEvaluationSubmissionsWithUniqueGroups = React.useMemo(() => {
+    const groupMap = new Map();
+    sortedEvaluationSubmissions.forEach((student) => {
+      const groupId = student.group_id;
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, []);
+      }
+      groupMap.get(groupId).push(student);
+    });
+    
+    const result = [];
+    groupMap.forEach((students, groupId) => {
+      students.forEach((student, index) => {
+        result.push({
+          ...student,
+          _isFirstInGroup: index === 0,
+          _groupRowSpan: students.length
+        });
+      });
+    });
+    
+    return result;
+  }, [sortedEvaluationSubmissions]);
 
   const normalizeEvaluationFieldType = React.useCallback((field) => {
     return field?.type || (Number(field?.max_marks) === 0 ? "boolean" : "number");
@@ -292,6 +371,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
         const sortedFields = [...incomingFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         setEvaluationFormFields(sortedFields);
         setEvaluationFormTotal(payload.form?.total_marks || 0);
+        setMentorEditEnabledGroups(Array.isArray(payload.form?.mentor_edit_enabled_groups) ? payload.form.mentor_edit_enabled_groups : []);
         setEvaluationTotalPages(paginationInfo.totalPages || 1);
         setEvaluationTotalRecords(paginationInfo.totalRecords || 0);
         setEvaluationError("");
@@ -361,7 +441,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
   // ── Secure CSV export: fetch with Authorization header, trigger blob download ──
   const handleExportCSV = async () => {
     if (!selectedEvaluationFormId) {
-      alert("Please select an evaluation form before exporting.");
+      showToast("warning", "Please select an evaluation form before exporting.");
       return;
     }
     const token = localStorage.getItem("token");
@@ -395,25 +475,29 @@ const SubAdminDashboard = ({ embedded = false }) => {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("CSV export error:", err);
-      alert(`Export failed: ${err.message || "Please try again."}`);
+      showToast("error", `Export failed: ${err.message || "Please try again."}`);
     }
   };
 
   const handleSendTeacherReminderEmails = async () => {
     if (!selectedEvaluationFormId) {
-      alert("Please select an evaluation form first.");
+      showToast("warning", "Please select an evaluation form first.");
       return;
     }
 
     const targetTeachers = (teachersPartialMarks?.length || 0) + (teachersNotGivenMarks?.length || 0);
     if (targetTeachers === 0) {
-      alert("No pending teachers found for the selected filters.");
+      showToast("info", "No pending teachers found for the selected filters.");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Send reminder emails to ${targetTeachers} teacher(s)?\n\nThis will include each teacher's pending groups in the email body.`
-    );
+    const confirmed = await requestConfirm({
+      title: "Send Reminder Emails",
+      message: `Send reminder emails to ${targetTeachers} teacher(s)? This will include each teacher's pending groups in the email body.`,
+      confirmText: "Send",
+      cancelText: "Cancel",
+      tone: "info"
+    });
     if (!confirmed) return;
 
     const token = localStorage.getItem("token");
@@ -444,10 +528,10 @@ const SubAdminDashboard = ({ embedded = false }) => {
       const failed = Number(data.failedCount || 0);
       const skipped = Number(data.skippedCount || 0);
 
-      alert(`Teacher reminder mail process completed.\nSent: ${sent}\nFailed: ${failed}\nSkipped: ${skipped}`);
+      showToast("success", `Teacher reminders completed. Sent: ${sent}, Failed: ${failed}, Skipped: ${skipped}.`, 6000);
     } catch (error) {
       console.error('Teacher reminder email error:', error);
-      alert(`Failed to send teacher reminders: ${error?.message || 'Please try again.'}`);
+      showToast("error", `Failed to send teacher reminders: ${error?.message || 'Please try again.'}`);
     } finally {
       setTeacherReminderLoading(false);
     }
@@ -483,9 +567,18 @@ const SubAdminDashboard = ({ embedded = false }) => {
     setSearchQuery('');
     setEvaluationCurrentPage(1);
     setEvaluationSearchQuery('');
+    setEvaluationSearchInput('');
     setGroupPrefixInput('');
     setGroupPrefixFilter('');
   }, [selectedTable]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setEvaluationSearchQuery(evaluationSearchInput.trim());
+    }, 350);
+
+    return () => window.clearTimeout(handle);
+  }, [evaluationSearchInput]);
 
   useEffect(() => {
     if (selectedTable === 'evaluation_form_submission') {
@@ -606,7 +699,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
         return prev.filter((entry) => entry.enrollment_no !== student.enrollment_no);
       }
       if (prev.length >= 4) {
-        alert("You can add up to 4 students per group.");
+        showToast("warning", "You can add up to 4 students per group.");
         return prev;
       }
       return [
@@ -650,9 +743,14 @@ const SubAdminDashboard = ({ embedded = false }) => {
   };
 
   const handleDeleteRecord = async (record) => {
-    if (!window.confirm(`Are you sure you want to delete this record?`)) {
-      return;
-    }
+    const confirmed = await requestConfirm({
+      title: "Delete Record",
+      message: "Are you sure you want to delete this record?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger"
+    });
+    if (!confirmed) return;
 
     const token = localStorage.getItem("token");
     // Get the correct ID field based on table type
@@ -671,23 +769,28 @@ const SubAdminDashboard = ({ embedded = false }) => {
       const response = await apiRequest(`/api/role-access/${selectedTable}/${recordId}`, 'DELETE', null, token);
 
       if (response.success) {
-        alert("Record deleted successfully!");
+        showToast("success", "Record deleted successfully!");
         fetchTableData(); // Refresh data
       } else {
-        alert(`Failed to delete record: ${response.message || "Unknown error"}`);
+        showToast("error", `Failed to delete record: ${response.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error deleting record:", error);
-      alert("Error deleting record. Please try again.");
+      showToast("error", "Error deleting record. Please try again.");
     }
   };
 
   const handleDeleteEvaluationGroup = async (groupId) => {
     if (!selectedEvaluationFormId || !groupId) return;
 
-    if (!window.confirm(`Delete evaluation marks for group ${groupId}?`)) {
-      return;
-    }
+    const confirmed = await requestConfirm({
+      title: "Delete Evaluation Marks",
+      message: `Delete evaluation marks for group ${groupId}?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger"
+    });
+    if (!confirmed) return;
 
     const token = localStorage.getItem("token");
     try {
@@ -699,14 +802,14 @@ const SubAdminDashboard = ({ embedded = false }) => {
       );
 
       if (response.success) {
-        alert("Evaluation marks deleted successfully!");
+        showToast("success", "Evaluation marks deleted successfully!");
         fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
       } else {
-        alert(`Failed to delete marks: ${response.message || "Unknown error"}`);
+        showToast("error", `Failed to delete marks: ${response.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error deleting evaluation marks:", error);
-      alert("Error deleting evaluation marks. Please try again.");
+      showToast("error", "Error deleting evaluation marks. Please try again.");
     }
   };
 
@@ -752,7 +855,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
     const enrollmentNo = student.enrollment_no || student.enrollement_no;
     if (!student.submission_id || !enrollmentNo) {
-      alert("Missing submission/student identifier, cannot save marks.");
+      showToast("error", "Missing submission/student identifier, cannot save marks.");
       return;
     }
 
@@ -794,28 +897,105 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
       setEvaluationSaveMessage(`Saved marks for ${updatedRow.student_name || student.student_name || enrollmentNo}`);
     } catch (error) {
-      alert(error?.message || 'Failed to save marks');
+      showToast("error", error?.message || 'Failed to save marks');
     } finally {
       setEvaluationSavingRowKey(null);
     }
   }, [canEditEvaluationMarks, selectedEvaluationFormId]);
 
-  const handleResetEvaluationGroup = async () => {
-    const groupId = resetGroupIdInput.trim();
-
+  const handleToggleMentorEditForGroup = async (groupId) => {
+    console.log('🎯 handleToggleMentorEditForGroup called with:', groupId);
+    
     if (!selectedEvaluationFormId) {
-      alert("Please select an evaluation form first.");
+      showToast("warning", "Please select an evaluation form first.");
+      return;
+    }
+
+    if (!canEditEvaluationMarks) {
+      showToast("warning", "You don't have permission to toggle mentor edit settings.");
       return;
     }
 
     if (!groupId) {
-      alert("Please enter a Group ID to reset.");
+      showToast("warning", "Group ID is required.");
       return;
     }
 
-    if (!window.confirm(`Reset evaluation submission for group ${groupId}? This action cannot be undone.`)) {
+    const isCurrentlyEnabled = mentorEditEnabledGroups.includes(groupId);
+    const newState = !isCurrentlyEnabled;
+    
+    console.log('📊 Toggle state:', { groupId, isCurrentlyEnabled, newState });
+    
+    const confirmMessage = newState
+      ? `Enable mentor editing for group ${groupId}? The mentor assigned to this group will be able to edit marks.`
+      : `Disable mentor editing for group ${groupId}? The mentor will no longer be able to edit marks.`;
+
+    const confirmed = await requestConfirm({
+      title: newState ? "Enable Mentor Editing" : "Disable Mentor Editing",
+      message: confirmMessage,
+      confirmText: newState ? "Enable" : "Disable",
+      cancelText: "Cancel",
+      tone: newState ? "info" : "warning"
+    });
+    if (!confirmed) {
+      console.log('❌ User cancelled toggle');
       return;
     }
+
+    setTogglingGroupId(groupId);
+
+    try {
+      const token = localStorage.getItem("token");
+      const url = `/api/admin/evaluation-forms/${selectedEvaluationFormId}/toggle-mentor-edit`;
+      const method = 'PATCH';
+      const body = { groupId: groupId, enabled: newState };
+      
+      console.log('🚀 Making API request:');
+      console.log('  URL:', url);
+      console.log('  Method:', method);
+      console.log('  Body:', body);
+      console.log('  Has Token:', !!token);
+      
+      const response = await apiRequest(url, method, body, token);
+      
+      console.log('📥 API Response:', response);
+
+      if (response?.success) {
+        setMentorEditEnabledGroups(response.data.mentor_edit_enabled_groups || []);
+        showToast("success", `Mentor editing ${newState ? 'enabled' : 'disabled'} for group ${groupId}.`);
+        console.log('✅ Toggle successful');
+      } else {
+        throw new Error(response?.message || 'Failed to toggle mentor edit permission');
+      }
+    } catch (error) {
+      console.error("❌ Error toggling mentor edit:", error);
+      showToast("error", `Failed to toggle mentor edit: ${error?.message || 'Please try again.'}`);
+    } finally {
+      setTogglingGroupId(null);
+    }
+  };
+
+  const handleResetEvaluationGroup = async () => {
+    const groupId = resetGroupIdInput.trim();
+
+    if (!selectedEvaluationFormId) {
+      showToast("warning", "Please select an evaluation form first.");
+      return;
+    }
+
+    if (!groupId) {
+      showToast("warning", "Please enter a Group ID to reset.");
+      return;
+    }
+
+    const confirmed = await requestConfirm({
+      title: "Reset Evaluation Submission",
+      message: `Reset evaluation submission for group ${groupId}? This action cannot be undone.`,
+      confirmText: "Reset",
+      cancelText: "Cancel",
+      tone: "danger"
+    });
+    if (!confirmed) return;
 
     const token = localStorage.getItem("token");
     try {
@@ -827,15 +1007,15 @@ const SubAdminDashboard = ({ embedded = false }) => {
       );
 
       if (response.success) {
-        alert(`Evaluation submission reset successfully for group ${groupId}.`);
+        showToast("success", `Evaluation submission reset for group ${groupId}.`);
         setResetGroupIdInput("");
         fetchEvaluationSubmissions(selectedEvaluationFormId, evaluationCurrentPage, evaluationSearchQuery, groupPrefixFilter);
       } else {
-        alert(`Failed to reset submission: ${response.message || "Unknown error"}`);
+        showToast("error", `Failed to reset submission: ${response.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error resetting evaluation submission:", error);
-      alert("Error resetting evaluation submission. Please try again.");
+      showToast("error", "Error resetting evaluation submission. Please try again.");
     }
   };
 
@@ -860,15 +1040,15 @@ const SubAdminDashboard = ({ embedded = false }) => {
       
       if (selectedTable === 'pbl') {
         if (!dataToSubmit.group_id) {
-          alert("Group ID is required.");
+          showToast("warning", "Group ID is required.");
           return;
         }
         if (selectedStudents.length === 0) {
-          alert("Select at least one student for this group.");
+          showToast("warning", "Select at least one student for this group.");
           return;
         }
         if (!dataToSubmit.mentor_code) {
-          alert("Select a mentor for this group.");
+          showToast("warning", "Select a mentor for this group.");
           return;
         }
 
@@ -886,11 +1066,11 @@ const SubAdminDashboard = ({ embedded = false }) => {
 
         const failed = responses.find((res) => !res?.success);
         if (failed) {
-          alert(`Failed to create record: ${failed.message || "Unknown error"}`);
+          showToast("error", `Failed to create record: ${failed.message || "Unknown error"}`);
           return;
         }
 
-        alert("Records created successfully!");
+        showToast("success", "Records created successfully!");
         setShowAddModal(false);
         setFormData({});
         setSelectedStudents([]);
@@ -901,16 +1081,16 @@ const SubAdminDashboard = ({ embedded = false }) => {
       const response = await apiRequest(`/api/role-access/${selectedTable}`, 'POST', dataToSubmit, token);
 
       if (response.success) {
-        alert("Record created successfully!");
+        showToast("success", "Record created successfully!");
         setShowAddModal(false);
         setFormData({});
         fetchTableData(); // Refresh data
       } else {
-        alert(`Failed to create record: ${response.message || "Unknown error"}`);
+        showToast("error", `Failed to create record: ${response.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error creating record:", error);
-      alert("Error creating record. Please try again.");
+      showToast("error", "Error creating record. Please try again.");
     }
   };
 
@@ -969,13 +1149,13 @@ const SubAdminDashboard = ({ embedded = false }) => {
         setSelectedRecord(null);
         setFormData({});
         await fetchTableData(); // Refresh data
-        alert("Record updated successfully!");
+        showToast("success", "Record updated successfully!");
       } else {
-        alert(`Failed to update record: ${response.message || "Unknown error"}`);
+        showToast("error", `Failed to update record: ${response.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error updating record:", error);
-      alert("Error updating record. Please try again.");
+      showToast("error", "Error updating record. Please try again.");
     }
   };
 
@@ -1132,6 +1312,71 @@ const SubAdminDashboard = ({ embedded = false }) => {
     <div className={embedded ? "w-full" : "min-h-screen bg-gray-50"}>
       {!embedded && <Header name={userName} id={userId} />}
 
+      {toast.visible && (
+        <div className="fixed top-6 right-6 z-50">
+          <div
+            className={`flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg text-sm max-w-sm ${
+              toast.type === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : toast.type === "error"
+                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                  : toast.type === "warning"
+                    ? "bg-amber-50 border-amber-200 text-amber-800"
+                    : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}
+          >
+            <div className="flex-1">
+              <p className="font-semibold capitalize">{toast.type}</p>
+              <p className="mt-0.5 text-xs leading-relaxed">{toast.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setToast((prev) => ({ ...prev, visible: false }))}
+              className="text-xs font-semibold px-2 py-1 rounded-md border border-transparent hover:border-current"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmModal.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-base font-semibold text-slate-900">{confirmModal.title}</h3>
+              {confirmModal.message && (
+                <p className="mt-1 text-sm text-slate-600">{confirmModal.message}</p>
+              )}
+            </div>
+            <div className="px-5 py-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={() => closeConfirm(false)}
+                className="w-full sm:w-auto px-4 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50"
+              >
+                {confirmModal.cancelText}
+              </button>
+              <button
+                type="button"
+                onClick={() => closeConfirm(true)}
+                className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold text-white ${
+                  confirmModal.tone === "danger"
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : confirmModal.tone === "warning"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : confirmModal.tone === "info"
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-slate-900 hover:bg-slate-800"
+                }`}
+              >
+                {confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={embedded ? "px-4 py-4" : "w-full max-w-[1800px] mx-auto px-6 lg:px-10 pt-[88px] pb-12 space-y-5"}>
 
         {/* ── Compact Header Card ──────────────────────────── */}
@@ -1236,6 +1481,12 @@ const SubAdminDashboard = ({ embedded = false }) => {
                         Unsaved Rows: {evaluationDirtyRowKeys.size}
                       </span>
                     )}
+                    {canEditEvaluationMarks && selectedEvaluationFormId && mentorEditEnabledGroups.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <span>{mentorEditEnabledGroups.length} group{mentorEditEnabledGroups.length !== 1 ? 's' : ''} can edit</span>
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 mb-4">View, filter, and export evaluation results</p>
                   {canEditEvaluationMarks && (
@@ -1331,6 +1582,17 @@ const SubAdminDashboard = ({ embedded = false }) => {
                 </div>
               )}
             </div>
+
+            {canEditEvaluationMarks && (
+              <MentorEditGroupManager
+                canEdit={canEditEvaluationMarks}
+                selectedFormId={selectedEvaluationFormId}
+                enabledGroups={mentorEditEnabledGroups}
+                groupOptions={evaluationGroupOptions}
+                onToggleGroup={handleToggleMentorEditForGroup}
+                togglingGroupId={togglingGroupId}
+              />
+            )}
 
             {/* ── Teacher Submission Status ───────────────────────── */}
             <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5 order-last">
@@ -1642,15 +1904,41 @@ const SubAdminDashboard = ({ embedded = false }) => {
                 {/* Full-text search */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-medium text-gray-500 flex items-center gap-1"><Search className="w-3.5 h-3.5" /> Search Records</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Group ID, Enrollment No or Student Name…"
-                      value={evaluationSearchQuery}
-                      onChange={(e) => { setEvaluationSearchQuery(e.target.value); setEvaluationCurrentPage(1); }}
-                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                    />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Group ID, Enrollment No or Student Name…"
+                        value={evaluationSearchInput}
+                        onChange={(e) => { setEvaluationSearchInput(e.target.value); setEvaluationCurrentPage(1); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            setEvaluationSearchQuery(evaluationSearchInput.trim());
+                            setEvaluationCurrentPage(1);
+                          }
+                        }}
+                        className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                      />
+                      {evaluationSearchInput && (
+                        <button
+                          type="button"
+                          onClick={() => { setEvaluationSearchInput(''); setEvaluationSearchQuery(''); setEvaluationCurrentPage(1); }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          title="Clear search"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setEvaluationSearchQuery(evaluationSearchInput.trim()); setEvaluationCurrentPage(1); }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200 text-sm whitespace-nowrap"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      Apply
+                    </button>
                   </div>
                 </div>
 
@@ -1698,7 +1986,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold">
                       <Search className="w-3 h-3" />
                       "{evaluationSearchQuery}"
-                      <button onClick={() => { setEvaluationSearchQuery(''); setEvaluationCurrentPage(1); }} className="ml-0.5 hover:text-purple-900">
+                      <button onClick={() => { setEvaluationSearchInput(''); setEvaluationSearchQuery(''); setEvaluationCurrentPage(1); }} className="ml-0.5 hover:text-purple-900">
                         <X className="w-3 h-3" />
                       </button>
                     </span>
@@ -1785,7 +2073,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20" />
                   )}
                   <MarksTable
-                    students={sortedEvaluationSubmissions}
+                    students={sortedEvaluationSubmissionsWithUniqueGroups}
                     loading={evaluationLoading}
                     error={evaluationError}
                     reviewType="form"
@@ -1799,6 +2087,9 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     dirtyRowKeys={evaluationDirtyRowKeys}
                     scrollContainerRef={evaluationTableScrollRef}
                     enableWheelHorizontal
+                    mentorEditEnabledGroups={mentorEditEnabledGroups}
+                    onToggleMentorEditForGroup={canEditEvaluationMarks ? handleToggleMentorEditForGroup : undefined}
+                    togglingGroupId={togglingGroupId}
                   />
                 </div>
                 {/* Pagination bar */}
