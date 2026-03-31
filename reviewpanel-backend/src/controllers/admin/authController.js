@@ -18,14 +18,7 @@ class AuthController {
       throw ApiError.badRequest('Username and password are required');
     }
 
-    const normalizedUsername = String(username).trim();
-    const normalizedPassword = String(password);
-
-    if (!normalizedUsername || !normalizedPassword) {
-      throw ApiError.badRequest('Username and password are required');
-    }
-
-    const user = await userModel.validateCredentials(normalizedUsername, normalizedPassword);
+    const user = await userModel.validateCredentials(username, password);
     
     if (!user) {
       throw ApiError.unauthorized('Invalid username or password');

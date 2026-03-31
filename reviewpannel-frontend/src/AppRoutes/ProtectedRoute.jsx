@@ -27,6 +27,8 @@ const ProtectedRoute = ({ children, allowedRoles = [], adminScope = ADMIN_SCOPE.
   useEffect(() => {
     // Special dev bypass for easier testing - DO NOT USE IN PRODUCTION
     const devMode = import.meta.env.MODE === 'development' && false; // Set to true to bypass auth in dev
+    const isDev = import.meta.env.MODE === 'development';
+    const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
     
     const validateToken = async () => {
       if (!token) {
@@ -91,18 +93,29 @@ const ProtectedRoute = ({ children, allowedRoles = [], adminScope = ADMIN_SCOPE.
             
             if (!result || result.success === false) {
               // Fail closed for protected routes if validation endpoint rejects the token.
-              console.warn('Server rejected token during validation');
-              setIsAuthenticated(false);
-              setDecodedToken(null);
+              // Allow dev localhost to proceed to avoid blocking local testing on transient API issues.
+              if (isDev && isLocalHost) {
+                console.warn('Validation failed in dev localhost; proceeding with client-side token.');
+                setIsAuthenticated(true);
+              } else {
+                console.warn('Server rejected token during validation');
+                setIsAuthenticated(false);
+                setDecodedToken(null);
+              }
             } else {
               // Token passed both client-side and server-side validation.
               setIsAuthenticated(true);
             }
           } catch (apiError) {
             // Fail closed on validation errors for protected routes.
+            // Allow dev localhost to proceed to avoid blocking local testing on transient API issues.
             console.error('Token validation API error:', apiError);
-            setIsAuthenticated(false);
-            setDecodedToken(null);
+            if (isDev && isLocalHost) {
+              setIsAuthenticated(true);
+            } else {
+              setIsAuthenticated(false);
+              setDecodedToken(null);
+            }
           }
         } else if (isValid && decoded && decoded.role === 'reviewerAdmin') {
           setIsAuthenticated(true);

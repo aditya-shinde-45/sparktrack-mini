@@ -1,8 +1,23 @@
 // src/utils/api.js
-const API_BASE_URL =
+let API_BASE_URL =
   import.meta.env.MODE === "development"
     ? import.meta.env.VITE_API_BASE_URL
     : import.meta.env.VITE_API_BASE_URL_PROD;
+
+if (import.meta.env.MODE === "development") {
+  const fallbackLocal = "http://localhost:5000";
+  API_BASE_URL = API_BASE_URL || fallbackLocal;
+}
+
+if (typeof window !== "undefined") {
+  const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isLikelyProdApi = typeof API_BASE_URL === "string" && (API_BASE_URL.includes("execute-api") || API_BASE_URL.includes("13.201.46.41"));
+
+  if (isLocalHost && import.meta.env.MODE !== "production" && isLikelyProdApi) {
+    console.warn("Detected production API base URL while running on localhost. Forcing local API base URL.");
+    API_BASE_URL = "http://localhost:5000";
+  }
+}
 
 // Import jwtDecode for token validation
 import { jwtDecode } from 'jwt-decode';
