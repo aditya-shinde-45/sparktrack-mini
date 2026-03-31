@@ -104,6 +104,7 @@ const MentorEvaluation = () => {
   const isFormSelected = Boolean(selectedFormId);
   const canEditAfterSubmit = editAfterSubmitRoles.includes(currentUserRole);
   const canSubmitForm = submitRoles.includes(currentUserRole);
+  const canUpdateSubmission = hasSubmission && canEditAfterSubmit && !isApproved && !isReadOnly;
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -940,7 +941,15 @@ const MentorEvaluation = () => {
                 disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected}
                 className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                {isSubmitting ? "Submitting Evaluation..." : isApproved ? "Evaluation Approved" : isReadOnly ? "Evaluation Submitted" : "Submit Evaluation"}
+                {isSubmitting
+                  ? "Submitting Evaluation..."
+                  : isApproved
+                    ? "Evaluation Approved"
+                    : isReadOnly
+                      ? "Evaluation Submitted"
+                      : canUpdateSubmission
+                        ? "Update Evaluation"
+                        : "Submit Evaluation"}
               </button>
             )}
             <p className="text-sm text-gray-500 text-center mt-2">

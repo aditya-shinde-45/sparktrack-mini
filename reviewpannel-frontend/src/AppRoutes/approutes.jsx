@@ -69,52 +69,148 @@ const AppRoutes = () => {
       <Route path="/download" element={<Download />} />
       <Route path="/students" element={<Students />} />
       <Route path="/studentlogin" element={<StudentLogin />} />
-      <Route path="/studentdashboard" element={<StudentDashboard />} />
-      <Route path="/student/problem-statement" element={<ProblemStatement />} />
-      <Route path="/student/student-profile" element={<StudentProfile />} />
-      <Route path="/student/InternshipDetails" element={<InternshipDetails />} />
-      <Route path="/team-workspace" element={<TeamWorkspace />} />
-      <Route path="/project-planning" element={<ProjectPlanning />} />
-      <Route path="/project-review" element={<ProjectReview />} />
-      <Route path="/documentation" element={<Documentation />} />
-      <Route path="/student/documentation" element={<Documentation />} />
-      <Route path="/studenttools" element={<Tools />} />
-      <Route path="/create-group" element={<CreateGroup />} />
+      <Route path="/studentdashboard" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <StudentDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/problem-statement" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <ProblemStatement />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/student-profile" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <StudentProfile />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/InternshipDetails" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <InternshipDetails />
+        </ProtectedRoute>
+      } />
+      <Route path="/team-workspace" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <TeamWorkspace />
+        </ProtectedRoute>
+      } />
+      <Route path="/project-planning" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <ProjectPlanning />
+        </ProtectedRoute>
+      } />
+      <Route path="/project-review" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <ProjectReview />
+        </ProtectedRoute>
+      } />
+      <Route path="/documentation" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <Documentation />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/documentation" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <Documentation />
+        </ProtectedRoute>
+      } />
+      <Route path="/studenttools" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <Tools />
+        </ProtectedRoute>
+      } />
+      <Route path="/create-group" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <CreateGroup />
+        </ProtectedRoute>
+      } />
       <Route path="/loading-test" element={<LoadingTest />} />
 
       {/* Mentor Routes */}
-      <Route path="/mentor/dashboard" element={<MentorDashboard />} />
-      <Route path="/mentor/groups" element={<MentorGroups />} />
-      <Route path="/mentor/groups/:groupId" element={<MentorGroups />} />
-      <Route path="/mentor/reviews" element={<MentorEvaluation />} />
-      <Route path="/mentor/evaluation" element={<MentorEvaluation />} />
-      <Route path="/mentor/zeroth-review" element={<ZerothReview />} />
-      <Route path="/mentor/schedule" element={<MentorDashboard />} />
-      <Route path="/mentor/settings" element={<MentorSettings />} />
+      <Route path="/mentor/dashboard" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/groups" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorGroups />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/groups/:groupId" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorGroups />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/reviews" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorEvaluation />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/evaluation" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorEvaluation />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/zeroth-review" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <ZerothReview />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/schedule" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/settings" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorSettings />
+        </ProtectedRoute>
+      } />
 
       {/* Industry Mentor Routes */}
-      <Route path="/industry-mentor/dashboard" element={<IndustryMentorDashboard />} />
-      <Route path="/industry-mentor/groups" element={<IndustryMentorGroups />} />
-      <Route path="/industry-mentor/groups/:groupId" element={<IndustryMentorGroups />} />
-      <Route path="/industry-mentor/evaluation" element={<MentorEvaluation />} />
-      <Route path="/industry-mentor/reviews" element={<MentorEvaluation />} />
+      <Route path="/industry-mentor/dashboard" element={
+        <ProtectedRoute allowedRoles={['industry_mentor']}>
+          <IndustryMentorDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/industry-mentor/groups" element={
+        <ProtectedRoute allowedRoles={['industry_mentor']}>
+          <IndustryMentorGroups />
+        </ProtectedRoute>
+      } />
+      <Route path="/industry-mentor/groups/:groupId" element={
+        <ProtectedRoute allowedRoles={['industry_mentor']}>
+          <IndustryMentorGroups />
+        </ProtectedRoute>
+      } />
+      <Route path="/industry-mentor/evaluation" element={
+        <ProtectedRoute allowedRoles={['industry_mentor']}>
+          <MentorEvaluation />
+        </ProtectedRoute>
+      } />
+      <Route path="/industry-mentor/reviews" element={
+        <ProtectedRoute allowedRoles={['industry_mentor']}>
+          <MentorEvaluation />
+        </ProtectedRoute>
+      } />
 
 
       {/* External Routes removed */}
 
       {/* Admin Routes */}
       <Route path="/admin-dashboard" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <AdminDashboard />
         </ProtectedRoute>
       } />
       <Route path="/sub-admin-dashboard" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="sub">
           <SubAdminDashboard />
         </ProtectedRoute>
       } />
       <Route path="/assign-external" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <AssignExternal />
         </ProtectedRoute>
       } />
@@ -124,24 +220,24 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       <Route path="/add-group" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <AddGroup />
         </ProtectedRoute>
       } />
       <Route path="/mentor" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <Mentor />
         </ProtectedRoute>
       } />
       <Route path="/admin-evaluation-forms" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <EvaluationFormBuilder />
         </ProtectedRoute>
       } />
 
       {/* Nested Admin Tools Routes */}
       <Route path="/admintools" element={
-        <ProtectedRoute allowedRoles={['Admin']}>
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <AdminToolTabs />
         </ProtectedRoute>
       }>

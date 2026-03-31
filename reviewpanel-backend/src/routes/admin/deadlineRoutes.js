@@ -11,6 +11,7 @@ const router = express.Router();
  */
 router.get(
   '/',
+  authMiddleware.verifyToken,
   deadlineController.getAllDeadlines
 );
 

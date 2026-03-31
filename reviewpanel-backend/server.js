@@ -52,6 +52,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = config.server.port;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // CORS configuration - Allow all origins for serverless
 app.use(cors({
@@ -107,7 +108,9 @@ app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/student/documents", documentRoutes); // Student document upload/management
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
-app.use("/api", testRoutes); // Test routes for CI/CD
+if (!isProduction) {
+  app.use("/api", testRoutes); // Test routes for non-production environments only
+}
 
 // Basic route
 app.get("/", (req, res) => {
@@ -119,20 +122,22 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Database connection test route
-app.get("/db-test", async (req, res) => {
-  try {
-    const result = await dbConfig.testConnection();
-    res.json({
-      success: true,
-      message: "Database connected successfully!",
-      sampleData: result.data,
-      supabaseUrl: process.env.SUPABASE_URL,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Database connection test route (non-production only)
+if (!isProduction) {
+  app.get("/db-test", async (req, res) => {
+    try {
+      const result = await dbConfig.testConnection();
+      res.json({
+        success: true,
+        message: "Database connected successfully!",
+        sampleData: result.data,
+        supabaseUrl: process.env.SUPABASE_URL,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}
 
 // Global error handling middleware
 app.use(errorHandler);
@@ -148,8 +153,7 @@ app.use('*', (req, res) => {
       'GET /',
       'GET /health',
       'POST /api/mentors/login',
-      'POST /api/auth/login',
-      'GET /api/test'
+      'POST /api/auth/login'
     ]
   });
 });

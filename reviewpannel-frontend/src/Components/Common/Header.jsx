@@ -101,6 +101,7 @@ const Header = ({ name, id }) => {
     // Clear all authentication-related data
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    localStorage.removeItem("isMainAdmin");
     localStorage.removeItem("name");
     localStorage.removeItem("groups");
     localStorage.removeItem("id");

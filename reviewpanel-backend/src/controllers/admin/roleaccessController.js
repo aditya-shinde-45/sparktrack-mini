@@ -11,6 +11,17 @@ import emailService from '../../services/emailService.js';
  * Controller for sub-admin role-based table access operations
  */
 class RoleAccessController {
+  isMainAdmin = (user = {}) => {
+    const role = String(user?.role || '').toLowerCase();
+    return role === 'admin' && !Boolean(user?.isRoleBased);
+  };
+
+  assertMainAdmin = (user = {}, message = 'Only main admin can perform this action') => {
+    if (!this.isMainAdmin(user)) {
+      throw ApiError.forbidden(message);
+    }
+  };
+
   isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 
   sanitizeTemplateInput = (value, maxLen) => {
@@ -409,10 +420,7 @@ class RoleAccessController {
    * POST: Send reminder emails to teachers with pending marks for an evaluation form
    */
   sendTeacherReminderEmails = asyncHandler(async (req, res) => {
-    const role = String(req.user?.role || '').toLowerCase();
-    if (role !== 'admin') {
-      throw ApiError.forbidden('Only admin can send teacher reminder emails');
-    }
+    this.assertMainAdmin(req.user, 'Only main admin can send teacher reminder emails');
 
     const body = req.body || {};
     const formId = String(body.formId || '').trim();
@@ -1079,6 +1087,8 @@ SparkTrack Admin`;
         break;
 
       case 'evaluation_form_submission':
+        this.assertMainAdmin(req.user, 'Only main admin can reset evaluation form submissions');
+
         if (!formId) {
           throw ApiError.badRequest('Form ID is required');
         }

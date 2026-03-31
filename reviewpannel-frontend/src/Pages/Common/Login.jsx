@@ -86,6 +86,13 @@ const Login = () => {
       
       // Handle Admin login with role-based authentication first
       if (role === "Admin") {
+        const isMainAdminAccount = username === "8698078603";
+
+        // Main admin must use the regular admin login flow to receive a non-role-based token.
+        if (isMainAdminAccount) {
+          endpoint = "/api/auth/login";
+          payload = { username, password, role: apiRole };
+        } else {
         // Try role login first for all admin logins
         console.log("Attempting role login for username:", username);
         try {
@@ -158,6 +165,7 @@ const Login = () => {
         console.log("Attempting regular admin login for username:", username);
         endpoint = "/api/auth/login";
         payload = { username, password, role: apiRole };
+        }
       } else if (role === "Mentor") {
         // For mentor login, send credentials directly
         // Backend will handle first-time login with default password 'ideabliss2305'

@@ -35,11 +35,20 @@ router.get('/group/:groupId',
   studentController.getStudentsByGroup
 );
 
-router.get('/class/:classname', studentController.getStudentsByClass);
+router.get('/class/:classname',
+  authMiddleware.authenticateUser,
+  studentController.getStudentsByClass
+);
 
-router.get('/specialization/:specialization', studentController.getStudentsBySpecialization);
+router.get('/specialization/:specialization',
+  authMiddleware.authenticateUser,
+  studentController.getStudentsBySpecialization
+);
 
-router.get('/', studentController.getAllStudents);
+router.get('/',
+  authMiddleware.authenticateUser,
+  studentController.getAllStudents
+);
 
 router.get('/:id', 
   authMiddleware.authenticateUser,

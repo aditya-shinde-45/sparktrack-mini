@@ -13,6 +13,7 @@ const MarksTable = ({
   onFormMarkChange,
   onSaveFormRow,
   savingRowKey = null,
+  dirtyRowKeys = null,
   scrollContainerRef = null,
   enableWheelHorizontal = false,
 }) => {
@@ -83,6 +84,8 @@ const MarksTable = ({
 
     return String(value);
   };
+
+  const getFormRowKey = (student) => `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`;
 
   return (
     <div
@@ -298,14 +301,24 @@ const MarksTable = ({
                     )}
                     {editableFormMarks && (
                       <td className="px-4 py-3 text-center">
+                        {(() => {
+                          const rowKey = getFormRowKey(student);
+                          const isSaving = savingRowKey === rowKey;
+                          const isDirty = dirtyRowKeys ? dirtyRowKeys.has(rowKey) : true;
+                          const isDisabled = isSaving || !isDirty;
+
+                          return (
                         <button
                           type="button"
                           onClick={() => onSaveFormRow?.(student)}
-                          disabled={savingRowKey === `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`}
+                          disabled={isDisabled}
                           className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                          title={isDirty ? "Save row changes" : "No unsaved changes in this row"}
                         >
-                          {savingRowKey === `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}` ? "Saving..." : "Save"}
+                          {isSaving ? "Saving..." : isDirty ? "Save" : "Saved"}
                         </button>
+                          );
+                        })()}
                       </td>
                     )}
                   </>

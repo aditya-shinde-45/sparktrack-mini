@@ -103,6 +103,28 @@ const mergeEvaluationsWithExisting = (existing = [], incoming = []) => {
 class EvaluationFormController {
   isAdmin = (user = {}) => String(user?.role || '').toLowerCase() === 'admin';
 
+  isMainAdmin = (user = {}) => this.isAdmin(user) && !Boolean(user?.isRoleBased);
+
+  isRoleBasedAdmin = (user = {}) => this.isAdmin(user) && Boolean(user?.isRoleBased);
+
+  hasEvaluationSubmissionAccess = (user = {}) => {
+    if (!this.isRoleBasedAdmin(user)) return true;
+    const permissions = Array.isArray(user?.tablePermissions)
+      ? user.tablePermissions
+      : (Array.isArray(user?.table_permissions) ? user.table_permissions : []);
+    return permissions.includes('evaluation_form_submission');
+  };
+
+  assertEvaluationSubmissionAccess = (user = {}, action = 'access evaluation submissions') => {
+    if (!this.isAdmin(user)) {
+      throw ApiError.forbidden('Admin access required');
+    }
+
+    if (!this.hasEvaluationSubmissionAccess(user)) {
+      throw ApiError.forbidden(`You do not have permission to ${action}`);
+    }
+  };
+
   isIndustryMentor = (user = {}) => String(user?.role || '').toLowerCase() === 'industry_mentor';
 
   getFormRolePermissions = (form = {}) => {
@@ -552,6 +574,8 @@ class EvaluationFormController {
       throw ApiError.badRequest('Form ID is required');
     }
 
+    this.assertEvaluationSubmissionAccess(req.user, 'view evaluation submissions');
+
     const form = await evaluationFormModel.getFormById(formId);
     this.assertFormAccess(req.user, form, 'view');
 
@@ -669,6 +693,10 @@ class EvaluationFormController {
   deleteSubmission = asyncHandler(async (req, res) => {
     const { formId, submissionId } = req.params;
 
+    if (!this.isMainAdmin(req.user)) {
+      throw ApiError.forbidden('Only main admin can delete evaluation submissions');
+    }
+
     if (!formId || !submissionId) {
       throw ApiError.badRequest('Form ID and Submission ID are required');
     }
@@ -685,6 +713,8 @@ class EvaluationFormController {
   updateSubmissionStudentMarks = asyncHandler(async (req, res) => {
     const { formId, submissionId, enrollmentNo } = req.params;
     const { marks } = req.body || {};
+
+    this.assertEvaluationSubmissionAccess(req.user, 'edit submitted student marks');
 
     if (!formId || !submissionId || !enrollmentNo) {
       throw ApiError.badRequest('Form ID, submission ID and enrollment number are required');

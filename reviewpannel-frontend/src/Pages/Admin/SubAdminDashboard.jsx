@@ -42,6 +42,9 @@ const SubAdminDashboard = ({ embedded = false }) => {
   const [evaluationSortBy, setEvaluationSortBy] = useState("group_id");
   const [evaluationSortOrder, setEvaluationSortOrder] = useState("asc");
   const [evaluationRowsPerPage] = useState(50);
+  const [evaluationSavingRowKey, setEvaluationSavingRowKey] = useState(null);
+  const [evaluationSaveMessage, setEvaluationSaveMessage] = useState("");
+  const [evaluationDirtyRowKeys, setEvaluationDirtyRowKeys] = useState(new Set());
   const [groupPrefixInput, setGroupPrefixInput] = useState("");
   const [groupPrefixFilter, setGroupPrefixFilter] = useState("");
   const [teacherClassFilter, setTeacherClassFilter] = useState('ALL');
@@ -76,6 +79,18 @@ const SubAdminDashboard = ({ embedded = false }) => {
     return evaluationFormFields.reduce((sum, field) => sum + (Number(field.max_marks) || 0), 0);
   }, [evaluationFormFields]);
 
+  const canEditEvaluationMarks = React.useMemo(() => {
+    return tablePermissions.includes('evaluation_form_submission');
+  }, [tablePermissions]);
+
+  const getEvaluationRowKey = React.useCallback((student) => {
+    return `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`;
+  }, []);
+
+  const isMainAdminUser = React.useMemo(() => {
+    return String(localStorage.getItem("isMainAdmin") || "").toLowerCase() === "true";
+  }, []);
+
   const sortedEvaluationSubmissions = React.useMemo(() => {
     const dataToSort = [...evaluationSubmissions];
     return dataToSort.sort((a, b) => {
@@ -95,6 +110,27 @@ const SubAdminDashboard = ({ embedded = false }) => {
       return 0;
     });
   }, [evaluationSubmissions, evaluationSortBy, evaluationSortOrder]);
+
+  const normalizeEvaluationFieldType = React.useCallback((field) => {
+    return field?.type || (Number(field?.max_marks) === 0 ? "boolean" : "number");
+  }, []);
+
+  const clampEvaluationNumberByField = React.useCallback((field, value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return "";
+    const min = 0;
+    const max = Number(field?.max_marks) || 0;
+    if (parsed < min) return min;
+    if (parsed > max) return max;
+    return parsed;
+  }, []);
+
+  const calculateEvaluationTotalFromMarks = React.useCallback((marks) => {
+    return evaluationFormFields.reduce((sum, field) => {
+      if (normalizeEvaluationFieldType(field) !== "number") return sum;
+      return sum + (Number(marks?.[field.key]) || 0);
+    }, 0);
+  }, [evaluationFormFields, normalizeEvaluationFieldType]);
 
   const updateEvaluationScrollState = React.useCallback(() => {
     const node = evaluationTableScrollRef.current;
@@ -259,15 +295,21 @@ const SubAdminDashboard = ({ embedded = false }) => {
         setEvaluationTotalPages(paginationInfo.totalPages || 1);
         setEvaluationTotalRecords(paginationInfo.totalRecords || 0);
         setEvaluationError("");
+        setEvaluationSaveMessage("");
+        setEvaluationDirtyRowKeys(new Set());
         setEvaluationSubmissions(submissionsData);
         return;
       }
 
+      setEvaluationSaveMessage("");
+      setEvaluationDirtyRowKeys(new Set());
       setEvaluationSubmissions([]);
       setEvaluationTotalPages(1);
       setEvaluationTotalRecords(0);
     } catch (error) {
       console.error("Error fetching evaluation submissions:", error);
+      setEvaluationSaveMessage("");
+      setEvaluationDirtyRowKeys(new Set());
       setEvaluationSubmissions([]);
       setEvaluationError("Failed to load evaluation submissions.");
     } finally {
@@ -667,6 +709,96 @@ const SubAdminDashboard = ({ embedded = false }) => {
       alert("Error deleting evaluation marks. Please try again.");
     }
   };
+
+  const handleEvaluationFormMarkChange = React.useCallback((student, field, value) => {
+    if (!canEditEvaluationMarks) return;
+
+    const enrollmentNo = student.enrollment_no || student.enrollement_no;
+    if (!enrollmentNo) return;
+
+    const fieldType = normalizeEvaluationFieldType(field);
+    const nextValue = fieldType === "number"
+      ? (value === "" ? "" : clampEvaluationNumberByField(field, value))
+      : (fieldType === "boolean" ? Boolean(value) : value);
+
+    setEvaluationSubmissions((prev) => prev.map((row) => {
+      const rowEnrollment = row.enrollment_no || row.enrollement_no;
+      if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+        return row;
+      }
+
+      const updatedMarks = {
+        ...(row.marks || {}),
+        [field.key]: nextValue
+      };
+
+      return {
+        ...row,
+        marks: updatedMarks,
+        total: calculateEvaluationTotalFromMarks(updatedMarks)
+      };
+    }));
+
+    const rowKey = getEvaluationRowKey(student);
+    setEvaluationDirtyRowKeys((prev) => {
+      const next = new Set(prev);
+      next.add(rowKey);
+      return next;
+    });
+  }, [canEditEvaluationMarks, normalizeEvaluationFieldType, clampEvaluationNumberByField, calculateEvaluationTotalFromMarks, getEvaluationRowKey]);
+
+  const handleSaveEvaluationFormRow = React.useCallback(async (student) => {
+    if (!canEditEvaluationMarks || !selectedEvaluationFormId) return;
+
+    const enrollmentNo = student.enrollment_no || student.enrollement_no;
+    if (!student.submission_id || !enrollmentNo) {
+      alert("Missing submission/student identifier, cannot save marks.");
+      return;
+    }
+
+    setEvaluationSaveMessage("");
+    const rowKey = `${student.submission_id}:${enrollmentNo}`;
+    setEvaluationSavingRowKey(rowKey);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await apiRequest(
+        `/api/admin/evaluation-forms/${selectedEvaluationFormId}/submissions/${student.submission_id}/students/${encodeURIComponent(enrollmentNo)}`,
+        'PUT',
+        { marks: student.marks || {} },
+        token
+      );
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to update marks');
+      }
+
+      const updatedRow = response.data || {};
+
+      setEvaluationSubmissions((prev) => prev.map((row) => {
+        const rowEnrollment = row.enrollment_no || row.enrollement_no;
+        if (row.submission_id !== student.submission_id || rowEnrollment !== enrollmentNo) {
+          return row;
+        }
+        return {
+          ...row,
+          ...updatedRow
+        };
+      }));
+
+      setEvaluationDirtyRowKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(rowKey);
+        return next;
+      });
+
+      setEvaluationSaveMessage(`Saved marks for ${updatedRow.student_name || student.student_name || enrollmentNo}`);
+    } catch (error) {
+      alert(error?.message || 'Failed to save marks');
+    } finally {
+      setEvaluationSavingRowKey(null);
+    }
+  }, [canEditEvaluationMarks, selectedEvaluationFormId]);
 
   const handleResetEvaluationGroup = async () => {
     const groupId = resetGroupIdInput.trim();
@@ -1085,18 +1217,30 @@ const SubAdminDashboard = ({ embedded = false }) => {
         )}
 
         {selectedTable === 'evaluation_form_submission' ? (
-          <div className="space-y-4 md:space-y-5 mb-6">
+          <div className="flex flex-col gap-4 md:gap-5 mb-6">
 
             {/* ── Section Header + Form Selector ───────────────────── */}
             <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-4 md:gap-5">
                 {/* Left: title + form select */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <BarChart3 className="w-4 h-4 text-purple-600" />
                     <h2 className="text-xl font-semibold text-gray-900">Evaluation Form Submissions</h2>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${canEditEvaluationMarks ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${canEditEvaluationMarks ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                      {canEditEvaluationMarks ? 'Edit Enabled' : 'View Only'}
+                    </span>
+                    {canEditEvaluationMarks && evaluationDirtyRowKeys.size > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
+                        Unsaved Rows: {evaluationDirtyRowKeys.size}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 mb-4">View, filter, and export evaluation results</p>
+                  {canEditEvaluationMarks && (
+                    <p className="text-xs text-emerald-700 mb-3">Edit marks directly in cells, then click Save on the row. Scroll horizontally to reach the Save column.</p>
+                  )}
                   <div className="relative max-w-full md:max-w-sm">
                     <FileSpreadsheet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
@@ -1135,7 +1279,8 @@ const SubAdminDashboard = ({ embedded = false }) => {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              {isMainAdminUser && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 md:p-4 overflow-visible">
                   <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-3 xl:items-end">
                     <div>
@@ -1163,6 +1308,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Active filter chips */}
               {(evaluationTotalRecords > 0 || groupPrefixFilter) && (
@@ -1187,7 +1333,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
             </div>
 
             {/* ── Teacher Submission Status ───────────────────────── */}
-            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5">
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5 order-last">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">Teacher Marks Status</h3>
@@ -1221,7 +1367,8 @@ const SubAdminDashboard = ({ embedded = false }) => {
                 </div>
               </div>
 
-              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 md:p-4">
+              {isMainAdminUser && (
+                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 md:p-4">
                 <div className="flex flex-col xl:flex-row gap-3 xl:items-end">
                   <div className="flex-1 space-y-2">
                     <div>
@@ -1265,6 +1412,7 @@ const SubAdminDashboard = ({ embedded = false }) => {
                   </div>
                 </div>
               </div>
+              )}
 
               {teacherStatusLoading ? (
                 <div className="py-8 text-center text-sm text-gray-500">Loading teacher status…</div>
@@ -1575,6 +1723,12 @@ const SubAdminDashboard = ({ embedded = false }) => {
               </div>
             )}
 
+            {evaluationSaveMessage && !evaluationLoading && !evaluationError && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <p className="text-sm text-green-700 font-medium">{evaluationSaveMessage}</p>
+              </div>
+            )}
+
             {/* ── Data Table ─────────────────────────────────────────── */}
             {!evaluationLoading && !evaluationError && evaluationTotalRecords > 0 && (
               <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1637,7 +1791,12 @@ const SubAdminDashboard = ({ embedded = false }) => {
                     reviewType="form"
                     formFields={evaluationFormFields}
                     totalMarks={evaluationFormTotal || evaluationComputedTotal}
-                    onDeleteGroup={handleDeleteEvaluationGroup}
+                    onDeleteGroup={isMainAdminUser ? handleDeleteEvaluationGroup : undefined}
+                    editableFormMarks={canEditEvaluationMarks}
+                    onFormMarkChange={handleEvaluationFormMarkChange}
+                    onSaveFormRow={handleSaveEvaluationFormRow}
+                    savingRowKey={evaluationSavingRowKey}
+                    dirtyRowKeys={evaluationDirtyRowKeys}
                     scrollContainerRef={evaluationTableScrollRef}
                     enableWheelHorizontal
                   />

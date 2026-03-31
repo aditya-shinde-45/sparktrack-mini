@@ -10,6 +10,8 @@ const ViewMarks = () => {
   const [students, setStudents] = useState([]);
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [groupOptions, setGroupOptions] = useState([]);
   const [formFields, setFormFields] = useState([]);
   const [formTotalMarks, setFormTotalMarks] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,8 +26,13 @@ const ViewMarks = () => {
   const [sortOrder, setSortOrder] = useState("asc");
   const [savingRowKey, setSavingRowKey] = useState(null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [dirtyRowKeys, setDirtyRowKeys] = useState(new Set());
   const rowsPerPage = 50;
   const csvLinkRef = React.useRef(null);
+
+  const getRowKey = React.useCallback((student) => {
+    return `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`;
+  }, []);
 
   const normalizeFieldType = React.useCallback((field) => {
     return field?.type || (Number(field?.max_marks) === 0 ? "boolean" : "number");
@@ -142,6 +149,32 @@ const ViewMarks = () => {
     }
   };
 
+  const fetchGroupOptions = async (formId) => {
+    if (!formId) {
+      setGroupOptions([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await apiRequest(
+        `/api/admin/evaluation-forms/${formId}/submissions?page=1&limit=10000`,
+        "GET",
+        null,
+        token
+      );
+
+      const studentsData = response?.data?.data || response?.data || [];
+      const groups = Array.from(
+        new Set((Array.isArray(studentsData) ? studentsData : []).map((row) => String(row.group_id || "").trim()).filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b));
+      setGroupOptions(groups);
+    } catch (err) {
+      console.error("Failed to load group options:", err);
+      setGroupOptions([]);
+    }
+  };
+
   const handleFormMarkChange = React.useCallback((student, field, value) => {
     const enrollmentNo = student.enrollment_no || student.enrollement_no;
     if (!enrollmentNo) return;
@@ -186,7 +219,14 @@ const ViewMarks = () => {
         total: calculateTotalFromMarks(updatedMarks)
       };
     }));
-  }, [calculateTotalFromMarks, clampNumberByField, normalizeFieldType]);
+
+    const rowKey = getRowKey(student);
+    setDirtyRowKeys((prev) => {
+      const next = new Set(prev);
+      next.add(rowKey);
+      return next;
+    });
+  }, [calculateTotalFromMarks, clampNumberByField, normalizeFieldType, getRowKey]);
 
   const handleSaveFormRow = React.useCallback(async (student) => {
     if (!selectedFormId) return;
@@ -238,6 +278,12 @@ const ViewMarks = () => {
         };
       }));
 
+      setDirtyRowKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(rowKey);
+        return next;
+      });
+
       setSaveMessage(`Saved marks for ${updatedRow.student_name || student.student_name || enrollmentNo}`);
     } catch (err) {
       alert(err.message || "Failed to save marks");
@@ -247,13 +293,16 @@ const ViewMarks = () => {
   }, [selectedFormId]);
 
   // Fetch all students for CSV export (no pagination)
-  const fetchAllStudentsForCSV = async (formId, search = "") => {
+  const fetchAllStudentsForCSV = async (formId, search = "", groupId = "") => {
     setExportingCSV(true);
     try {
       const token = localStorage.getItem("token");
       let url = `/api/admin/evaluation-forms/${formId}/submissions?page=1&limit=10000`;
       if (search) {
         url += `&search=${encodeURIComponent(search)}`;
+      }
+      if (groupId) {
+        url += `&groupId=${encodeURIComponent(groupId)}`;
       }
       
       const response = await apiRequest(url, "GET", null, token);
@@ -273,7 +322,7 @@ const ViewMarks = () => {
   };
 
   // Fetch students API with pagination and search
-  const fetchStudents = async (formId, page, search = "") => {
+  const fetchStudents = async (formId, page, search = "", groupId = "") => {
     setLoading(true);
     setError("");
     try {
@@ -281,6 +330,9 @@ const ViewMarks = () => {
       let url = `/api/admin/evaluation-forms/${formId}/submissions?page=${page}&limit=${rowsPerPage}`;
       if (search) {
         url += `&search=${encodeURIComponent(search)}`;
+      }
+      if (groupId) {
+        url += `&groupId=${encodeURIComponent(groupId)}`;
       }
       
       const response = await apiRequest(url, "GET", null, token);
@@ -294,12 +346,18 @@ const ViewMarks = () => {
         const paginationInfo = response.data.pagination || {};
         setTotalPages(paginationInfo.totalPages || 1);
         setTotalRecords(paginationInfo.totalRecords || 0);
+        setSaveMessage("");
+        setDirtyRowKeys(new Set());
       } else {
         setStudents([]);
+        setSaveMessage("");
+        setDirtyRowKeys(new Set());
       }
     } catch (err) {
       setError(err.message || "Failed to fetch data.");
       setStudents([]);
+      setSaveMessage("");
+      setDirtyRowKeys(new Set());
     }
     setLoading(false);
   };
@@ -311,30 +369,45 @@ const ViewMarks = () => {
   useEffect(() => {
     if (selectedFormId) {
       fetchFormDetails(selectedFormId);
-      fetchStudents(selectedFormId, currentPage, searchQuery);
+      fetchGroupOptions(selectedFormId);
+      fetchStudents(selectedFormId, currentPage, searchQuery, selectedGroupId);
     } else {
       setStudents([]);
+      setGroupOptions([]);
+      setSelectedGroupId("");
       setTotalPages(1);
       setTotalRecords(0);
     }
-  }, [selectedFormId, currentPage, searchQuery]);
+  }, [selectedFormId, selectedGroupId, currentPage, searchQuery]);
 
   return (
-    <div className="font-sans bg-gray-50">
-      <div className="flex flex-col min-h-screen">
-        <Header />
-        <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
-          <Sidebar />
-          <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 mb-16 lg:mb-0 space-y-6 mt-16">
+    <div className="font-sans min-h-screen bg-slate-100">
+      <Header />
+      <Sidebar />
+
+      <main className="pt-[88px] pb-16 lg:pb-8 lg:ml-[18rem]">
+        <div className="px-3 sm:px-5 lg:px-8 py-4 sm:py-6 max-w-[1500px] mx-auto space-y-6">
             {/* Header with Form Selection */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg shadow-lg p-6 mb-6">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl shadow-lg p-6 border border-purple-400/30">
               <h1 className="text-3xl font-bold text-white mb-4">View Marks</h1>
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Edit Enabled
+                </span>
+                {dirtyRowKeys.size > 0 && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
+                    Unsaved Rows: {dirtyRowKeys.size}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-4 items-center">
                 <div className="flex gap-2">
                   <select
                     value={selectedFormId}
                     onChange={(e) => {
                       setSelectedFormId(e.target.value);
+                      setSelectedGroupId("");
                       setCurrentPage(1);
                     }}
                     className="px-4 py-2 rounded-lg font-semibold bg-white text-purple-700 shadow-lg"
@@ -347,6 +420,24 @@ const ViewMarks = () => {
                     ))}
                   </select>
                 </div>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedGroupId}
+                    onChange={(e) => {
+                      setSelectedGroupId(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    disabled={!selectedFormId}
+                    className="px-4 py-2 rounded-lg font-semibold bg-white text-purple-700 shadow-lg disabled:bg-gray-200 disabled:text-gray-500"
+                  >
+                    <option value="">Select Group</option>
+                    {groupOptions.map((groupId) => (
+                      <option key={groupId} value={groupId}>
+                        {groupId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="text-white text-sm">
                   <span className="font-semibold">Total Records:</span> {totalRecords}
                 </div>
@@ -354,7 +445,7 @@ const ViewMarks = () => {
             </div>
 
             {/* Search */}
-            <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-4">
               {saveMessage && (
                 <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded-md">
                   <p className="text-green-700 text-sm font-semibold">{saveMessage}</p>
@@ -367,7 +458,7 @@ const ViewMarks = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="Search by Group ID, Enrollment No or Student Name..."
+                    placeholder="Search by Enrollment No or Student Name..."
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -415,7 +506,7 @@ const ViewMarks = () => {
                         alert("Please select an evaluation form first");
                         return;
                       }
-                      const success = await fetchAllStudentsForCSV(selectedFormId, searchQuery);
+                      const success = await fetchAllStudentsForCSV(selectedFormId, searchQuery, selectedGroupId);
                       if (success) {
                         setTimeout(() => {
                           csvLinkRef.current?.link.click();
@@ -460,7 +551,7 @@ const ViewMarks = () => {
 
             {/* Table inside scrollable wrapper */}
             {!loading && !error && (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <MarksTable
                     students={sortedStudents}
@@ -473,6 +564,7 @@ const ViewMarks = () => {
                     onFormMarkChange={handleFormMarkChange}
                     onSaveFormRow={handleSaveFormRow}
                     savingRowKey={savingRowKey}
+                    dirtyRowKeys={dirtyRowKeys}
                   />
                 </div>
               </div>
@@ -480,7 +572,7 @@ const ViewMarks = () => {
 
             {/* Pagination */}
             {!loading && !error && totalRecords > 0 && (
-              <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                   <div className="text-sm text-gray-600">
                     Showing <span className="font-semibold text-purple-600">{((currentPage - 1) * rowsPerPage) + 1}</span> to{" "}
@@ -502,15 +594,14 @@ const ViewMarks = () => {
 
             {/* No Data State */}
             {!loading && !error && totalRecords === 0 && (
-              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+              <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center">
                 <span className="material-icons text-gray-400 text-6xl mb-4">inbox</span>
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">No Records Found</h3>
                 <p className="text-gray-500">Try adjusting your filters or search query.</p>
               </div>
             )}
-          </main>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
