@@ -22,6 +22,20 @@ const MentorsPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 12;
 
+  const errorText = (() => {
+    if (!error) return "";
+    if (typeof error === "string") return error;
+    if (typeof error === "object") {
+      if (typeof error.message === "string") return error.message;
+      try {
+        return JSON.stringify(error);
+      } catch {
+        return "Failed to load mentors.";
+      }
+    }
+    return String(error);
+  })();
+
   useEffect(() => {
     fetchMentors();
   }, []);
@@ -229,7 +243,7 @@ const MentorsPage = () => {
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-red-800 text-sm">{error}</p>
+              <p className="text-red-800 text-sm">{errorText}</p>
             </div>
           )}
 

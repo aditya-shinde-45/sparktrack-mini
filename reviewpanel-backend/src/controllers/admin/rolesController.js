@@ -37,6 +37,7 @@ export const createRole = async (req, res) => {
 
     // Validate table permissions
     const validTables = [
+      "students1",
       "students",
       "pbl",
       "mentors",
@@ -186,6 +187,7 @@ export const updateRole = async (req, res) => {
 
       // Validate table permissions
       const validTables = [
+        "students1",
         "students",
         "pbl",
         "mentors",

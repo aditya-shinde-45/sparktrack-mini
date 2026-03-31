@@ -12,7 +12,7 @@ const router = express.Router();
 router.get(
   '/evaluation-forms',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.listForms
 );
 
@@ -24,7 +24,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getForm
 );
 
@@ -36,7 +36,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId/group/:groupId',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getGroupDetails
 );
 
@@ -48,7 +48,7 @@ router.get(
 router.get(
   '/evaluation-forms/:formId/group/:groupId/submission',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.getSubmissionByGroup
 );
 
@@ -60,8 +60,32 @@ router.get(
 router.post(
   '/evaluation-forms/:formId/submit',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   evaluationFormController.submitEvaluation
+);
+
+/**
+ * @route   PUT /api/mentors/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo
+ * @desc    Update marks for a specific student (when mentor edit is enabled)
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/evaluation-forms/:formId/submissions/:submissionId/students/:enrollmentNo',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
+  evaluationFormController.updateSubmissionStudentMarksByMentor
+);
+
+/**
+ * @route   POST /api/mentors/evaluation-forms/:formId/group/:groupId/approve
+ * @desc    Approve a submitted evaluation for a group
+ * @access  Private (Industry Mentor)
+ */
+router.post(
+  '/evaluation-forms/:formId/group/:groupId/approve',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['industry_mentor']),
+  evaluationFormController.approveSubmissionByGroup
 );
 
 /**
@@ -72,7 +96,7 @@ router.post(
 router.post(
   '/evaluation-forms/:formId/upload',
   authMiddleware.verifyToken,
-  authMiddleware.authorize(['mentor']),
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   uploadEvaluationFileMiddleware,
   evaluationFormController.uploadEvaluationFile
 );

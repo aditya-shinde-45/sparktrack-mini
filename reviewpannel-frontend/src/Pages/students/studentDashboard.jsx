@@ -8,7 +8,7 @@ import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
 import StudentPosts from "../../Components/Student/posts";
 import Loading from "../../Components/Common/loading";
-import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
+import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus, CheckCircle, XCircle, Clock, AlertCircle, Users, ClipboardCheck, BellRing, Sparkles, ChevronRight } from "lucide-react";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -18,6 +18,7 @@ const StudentDashboard = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerContent, setDrawerContent] = useState({ title: "", message: "" });
   const [announcements, setAnnouncements] = useState([]);
+  const [groupSnapshot, setGroupSnapshot] = useState(null);
   
   // Posts modal state
   const [showPostModal, setShowPostModal] = useState(false);
@@ -26,7 +27,7 @@ const StudentDashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem("student_token");
     if (!token) {
-      setStudent(null);
+      navigate('/studentlogin');
       return;
     }
 
@@ -58,6 +59,7 @@ const StudentDashboard = () => {
         // Fetch group details and problem statement
         const groupDetailsRes = await apiRequest(`/api/students/student/group-details/${profileData.enrollment_no}`, "GET", null, token);
         const groupDetails = groupDetailsRes?.data?.group || groupDetailsRes?.group;
+        setGroupSnapshot(groupDetails || null);
         
         // If group_id exists, fetch problem statement
         if (groupDetails?.group_id) {
@@ -66,8 +68,10 @@ const StudentDashboard = () => {
 
         // Fetch evaluation marks (enabled forms only)
         fetchEvaluationMarks(token);
+        fetchAnnouncements();
       } catch (error) {
         console.error('Error in fetchStudent:', error);
+        navigate('/studentlogin');
       }
     };
 
@@ -83,10 +87,6 @@ const StudentDashboard = () => {
 
     fetchStudent();
   }, []);
-
-  const formatTaskName = (name) => {
-    return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  };
 
   const handleDownloadFile = async (id, fileName) => {
     try {
@@ -318,28 +318,170 @@ const StudentDashboard = () => {
   if (!student)
     return <Loading message="Loading your dashboard" />;
 
+  const evaluatedForms = evaluationMarks.filter((entry) => !!entry.evaluation).length;
+  const totalEvaluations = evaluationMarks.length;
+  const pendingEvaluations = Math.max(totalEvaluations - evaluatedForms, 0);
+  const totalAnnouncements = announcements.length;
+  const hasGroup = !!groupSnapshot?.group_id;
+  const teamSize = Array.isArray(groupSnapshot?.members)
+    ? groupSnapshot.members.length
+    : Array.isArray(groupSnapshot?.students)
+    ? groupSnapshot.students.length
+    : Array.isArray(groupSnapshot?.group_members)
+    ? groupSnapshot.group_members.length
+    : hasGroup
+    ? 1
+    : 0;
+
+  const approvedProblem = problem?.status === "APPROVED";
+  const pendingProblem = problem?.status && problem?.status !== "APPROVED" && problem?.status !== "REJECTED";
+
+  const problemStatusClasses = problem?.status === "APPROVED"
+    ? "bg-green-100 text-green-700"
+    : problem?.status === "REJECTED"
+    ? "bg-red-100 text-red-700"
+    : "bg-yellow-100 text-yellow-700";
+
+  const topStats = [
+    {
+      label: "Team Members",
+      value: teamSize,
+      icon: Users,
+      from: "from-purple-500",
+      to: "to-purple-700",
+      light: "text-purple-100",
+      hint: hasGroup ? "Active team" : "No finalized group",
+    },
+    {
+      label: "Evaluated Forms",
+      value: evaluatedForms,
+      icon: ClipboardCheck,
+      from: "from-violet-500",
+      to: "to-violet-700",
+      light: "text-violet-100",
+      hint: `${pendingEvaluations} pending`,
+    },
+    {
+      label: "Announcements",
+      value: totalAnnouncements,
+      icon: BellRing,
+      from: "from-indigo-500",
+      to: "to-indigo-700",
+      light: "text-indigo-100",
+      hint: "Latest updates",
+    },
+    {
+      label: "Problem Status",
+      value: problem?.status ? 1 : 0,
+      icon: Sparkles,
+      from: "from-fuchsia-500",
+      to: "to-indigo-600",
+      light: "text-fuchsia-100",
+      hint: problem?.status || "Not submitted",
+    },
+  ];
+
   return (
-    <div className="font-[Poppins] bg-gray-50 flex flex-col min-h-screen">
+    <div className="font-[Poppins] bg-white flex flex-col min-h-screen">
       <Header
         name={student?.name_of_student || student?.name_of_students || student?.name || "Student"}
         id={student?.enrollment_no || "----"}
       />
-      <div className="flex flex-1 flex-col lg:flex-row mt-[70px] md:mt-[60px]">
+      <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <Sidebar />
-        <main className="flex-1 p-3 md:p-6 bg-white lg:ml-72 space-y-6">
-          <DashboardCards onCardClick={handleCardClick} />
+        <main className="flex-1 px-3 py-5 sm:px-5 md:px-8 bg-white lg:ml-72 mb-24 lg:mb-0">
+          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-7">
+            <div
+              className="rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+              style={{ background: "linear-gradient(120deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)" }}
+            >
+              <div>
+                <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">
+                  Student Dashboard
+                </p>
+                <h1 className="text-[clamp(1.75rem,7.5vw,2.25rem)] font-bold leading-tight break-words">
+                  Welcome, {student?.name_of_student || student?.name_of_students || student?.name || "Student"}
+                </h1>
+                <p className="text-purple-200 text-sm mt-1">
+                  Track your team, evaluations, and project statement from one place.
+                </p>
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
+                <div className="bg-white/10 border border-white/20 rounded-xl px-3 sm:px-4 py-3 w-full sm:min-w-[130px]">
+                  <p className="text-xs text-purple-200 font-medium">Enrollment</p>
+                  <p className="text-white font-bold text-base truncate">{student?.enrollment_no || "----"}</p>
+                </div>
+                <div className="bg-white/10 border border-white/20 rounded-xl px-3 sm:px-4 py-3 w-full sm:min-w-[130px]">
+                  <p className="text-xs text-purple-200 font-medium">Evaluated Forms</p>
+                  <p className="text-white font-bold text-base">{evaluatedForms}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+              {topStats.map(({ label, value, icon: Icon, from, to, light, hint }) => (
+                <div
+                  key={label}
+                  className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-4 sm:p-5 text-white shadow-md hover:shadow-xl transition-all`}
+                >
+                  <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <span className="text-2xl sm:text-4xl font-extrabold leading-none">{value}</span>
+                  </div>
+                  <p className={`${light} text-xs sm:text-sm font-semibold leading-tight`}>{label}</p>
+                  <p className="text-[11px] sm:text-xs text-white/80 mt-1 truncate">{hint}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-purple-800">Quick Actions</h2>
+                  <p className="text-xs sm:text-sm text-gray-500">Fast access to announcements, posts, documents, and collaboration tools.</p>
+                </div>
+                <button
+                  onClick={() => handleCardClick("Announcements")}
+                  className="inline-flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-800 font-semibold"
+                >
+                  Open announcements
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="mt-4">
+                <DashboardCards onCardClick={handleCardClick} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
+              <div className="xl:col-span-8">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-purple-800">Team Workspace</h2>
+                  {hasGroup && (
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">
+                      Group: {groupSnapshot?.group_id}
+                    </span>
+                  )}
+                </div>
               <GroupDetails enrollmentNo={student.enrollment_no} />
 
               {/* Evaluation Marks */}
-              <div className="bg-white p-6 rounded-xl shadow-sm mt-8 flex flex-col">
-                <h2 className="text-xl font-bold text-purple-800 mb-4">Evaluation Marks</h2>
+                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-purple-100 mt-6 sm:mt-8 flex flex-col">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                    <h2 className="text-xl font-bold text-purple-800">Evaluation Marks</h2>
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">
+                      {evaluationMarks.length} total
+                    </span>
+                  </div>
                 {evaluationMarks.length === 0 ? (
-                  <p className="text-gray-500">Marks not available.</p>
+                    <div className="bg-purple-50 border border-purple-100 rounded-xl p-5 text-center">
+                      <p className="text-purple-700 font-medium">Marks are not available yet.</p>
+                    </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     {evaluationMarks.map((entry) => {
                       const evaluation = entry.evaluation;
                       const marksLabel = evaluation
@@ -349,31 +491,34 @@ const StudentDashboard = () => {
                         : null;
 
                       return (
-                        <div key={entry.form_id} className="border rounded-lg p-4 bg-purple-50">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-semibold text-purple-700">
+                          <div
+                            key={entry.form_id}
+                            className="border border-purple-100 rounded-xl p-4 bg-gradient-to-br from-white to-purple-50 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between mb-3 gap-3">
+                              <h3 className="font-semibold text-purple-700 leading-tight">
                               {entry.form_name || "Evaluation"}
                             </h3>
-                            <span className="text-xs text-gray-500">{entry.total_marks ?? "-"} marks</span>
-                          </div>
+                              <span className="text-xs text-gray-500 whitespace-nowrap">{entry.total_marks ?? "-"} marks</span>
+                            </div>
                           {evaluation ? (
                             <>
-                              <p className="text-gray-700">
-                                <span className="font-bold">Marks:</span> {marksLabel}
+                                <p className="text-gray-700 text-sm">
+                                  <span className="font-bold">Marks:</span> {marksLabel}
                               </p>
                               {entry.created_at && (
-                                <p className="text-gray-700 text-sm mt-1">
+                                  <p className="text-gray-700 text-sm mt-1">
                                   <span className="font-bold">Date:</span>{" "}
                                   {new Date(entry.created_at).toLocaleDateString()}
                                 </p>
                               )}
-                              <p className="text-gray-700 mt-2">
+                                <p className="text-gray-700 text-sm mt-2 leading-relaxed">
                                 <span className="font-bold">Feedback:</span>{" "}
                                 {evaluation.feedback || "No feedback yet."}
                               </p>
                             </>
                           ) : (
-                            <p className="text-gray-500">Marks not available.</p>
+                              <p className="text-gray-500 text-sm">Marks not available.</p>
                           )}
                         </div>
                       );
@@ -383,34 +528,28 @@ const StudentDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              <div className="xl:col-span-4 bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden h-fit xl:sticky xl:top-24">
               {/* Header */}
-              <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <div className="px-5 sm:px-6 py-5 border-b border-purple-100 bg-gradient-to-r from-purple-600 to-purple-700">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <Lightbulb className="w-5 h-5 text-yellow-600" />
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <Lightbulb className="w-5 h-5 text-white" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                    <h2 className="text-xl font-bold text-white">
                     Problem Statement
                   </h2>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6">
+                <div className="p-5 sm:p-6">
                 {problem ? (
                   <div className="space-y-4">
                     {/* Status Badge */}
                     {problem.status && (
-                      <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-purple-100">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${
-                            problem.status === 'APPROVED' 
-                              ? 'bg-green-100 text-green-700'
-                              : problem.status === 'REJECTED'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
+                            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${problemStatusClasses}`}>
                             {problem.status === 'APPROVED' ? (
                               <CheckCircle className="w-4 h-4" />
                             ) : problem.status === 'REJECTED' ? (
@@ -422,7 +561,7 @@ const StudentDashboard = () => {
                           </span>
                         </div>
                         {problem.updated_at && (
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
                             <Calendar className="w-3 h-3" />
                             {new Date(problem.updated_at).toLocaleString('en-US', {
                               month: 'short',
@@ -454,7 +593,7 @@ const StudentDashboard = () => {
 
                     {/* Approval Success Message */}
                     {problem.status === 'APPROVED' && (
-                      <div className="bg-gradient-to-r from-purple-50 to-violet-50 border-2 border-purple-300 rounded-lg p-4 shadow-sm">
+                        <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-4 shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="p-1 bg-purple-100 rounded-full">
                             <CheckCircle className="w-5 h-5 text-purple-600" />
@@ -468,7 +607,7 @@ const StudentDashboard = () => {
 
                     {/* Title */}
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900 mb-3 leading-tight">
+                        <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 leading-tight">
                         {problem.title}
                       </h3>
                     </div>
@@ -510,7 +649,7 @@ const StudentDashboard = () => {
 
                     {/* Description */}
                     {problem.description && (
-                      <div className="mt-4 pt-4 border-t border-purple-100">
+                        <div className="mt-4 pt-4 border-t border-purple-100">
                         <div className="flex items-center gap-2 mb-3">
                           <BookOpen className="w-5 h-5 text-purple-600" />
                           <h4 className="font-semibold text-gray-900">Description</h4>
@@ -525,7 +664,7 @@ const StudentDashboard = () => {
                     <div className="pt-4 border-t border-purple-100">
                       <a
                         href="/student/problem-statement"
-                        className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium text-sm transition-colors"
+                          className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-semibold text-sm transition-colors"
                       >
                         <FileText className="w-4 h-4" />
                         Edit Problem Statement
@@ -534,15 +673,15 @@ const StudentDashboard = () => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8">
-                    <div className="p-4 bg-gray-100 rounded-full mb-4">
-                      <Lightbulb className="w-12 h-12 text-gray-400" />
+                      <div className="p-4 bg-purple-100 rounded-full mb-4">
+                        <Lightbulb className="w-12 h-12 text-purple-500" />
                     </div>
                     <p className="text-gray-600 font-medium mb-4 text-center">
                       No problem statement submitted yet
                     </p>
                     <a
                       href="/student/problem-statement"
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all"
                     >
                       <Plus className="w-5 h-5" />
                       Add Problem Statement
@@ -551,6 +690,22 @@ const StudentDashboard = () => {
                 )}
               </div>
             </div>
+            </div>
+
+            {problem?.status && (
+              <div className="rounded-2xl border border-purple-100 bg-white p-4 sm:p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-purple-700">Project Statement Status</p>
+                    <p className="text-xs text-gray-500">Keep your problem statement updated for faster mentor review.</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold w-fit ${problemStatusClasses}`}>
+                    {approvedProblem ? <CheckCircle className="w-4 h-4" /> : pendingProblem ? <Clock className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    {problem.status}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

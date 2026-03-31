@@ -1,15 +1,58 @@
 import React from "react";
 import { Eye, Trash2 } from "lucide-react";
 
-const MarksTable = ({ students, loading, error, reviewType = "review1", formFields = [], totalMarks = 0, onDeleteGroup }) => {
+const MarksTable = ({
+  students,
+  loading,
+  error,
+  reviewType = "review1",
+  formFields = [],
+  totalMarks = 0,
+  onDeleteGroup,
+  editableFormMarks = false,
+  onFormMarkChange,
+  onSaveFormRow,
+  savingRowKey = null,
+  dirtyRowKeys = null,
+  scrollContainerRef = null,
+  enableWheelHorizontal = false,
+  mentorEditEnabledGroups = [],
+  onToggleMentorEditForGroup = null,
+  togglingGroupId = null,
+}) => {
   const isReview2 = reviewType === "review2";
   const isZeroReview = reviewType === "zeroreview";
   const isForm = reviewType === "form";
   const showDelete = typeof onDeleteGroup === "function";
+  const showMentorEditToggle = isForm && typeof onToggleMentorEditForGroup === "function";
   const normalizedFormFields = formFields.map((field) => ({
     ...field,
     type: field.type || (Number(field.max_marks) === 0 ? "boolean" : "number")
   }));
+  const computedMinWidth = React.useMemo(() => {
+    if (isForm) {
+      const baseColumns = 6 + (showDelete ? 1 : 0) + (editableFormMarks ? 1 : 0) + (showMentorEditToggle ? 1 : 0);
+      const totalColumns = normalizedFormFields.length + baseColumns;
+      return `${Math.max(1600, totalColumns * 140)}px`;
+    }
+
+    if (isReview2) {
+      return '1800px';
+    }
+
+    if (isZeroReview) {
+      return '1500px';
+    }
+
+    return '1400px';
+  }, [isForm, isReview2, isZeroReview, normalizedFormFields.length, showDelete, editableFormMarks]);
+
+  const stickyHeaderClass = isForm ? "sticky left-0 z-30 bg-purple-700" : "";
+  const stickyEnrollmentHeaderClass = isForm ? "sticky left-[164px] z-30 bg-purple-700" : "";
+  const stickyStudentHeaderClass = isForm ? "sticky left-[328px] z-30 bg-purple-700" : "";
+  const stickyCellClass = isForm ? "sticky left-0 z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.25)]" : "";
+  const stickyEnrollmentCellClass = isForm ? "sticky left-[164px] z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.2)]" : "";
+  const stickyStudentCellClass = isForm ? "sticky left-[328px] z-20 bg-inherit shadow-[8px_0_8px_-10px_rgba(17,24,39,0.15)]" : "";
 
   const handleViewDocument = (fileUrl) => {
     if (fileUrl && fileUrl !== 'pending_upload') {
@@ -19,25 +62,68 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
     }
   };
 
+  const renderCellValue = (value) => {
+    if (value === null || value === undefined || value === '') return '-';
+
+    if (typeof value === 'object') {
+      if (value.url && typeof value.url === 'string') {
+        return (
+          <a
+            href={value.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            {value.name || 'View file'}
+          </a>
+        );
+      }
+
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return '[Object]';
+      }
+    }
+
+    return String(value);
+  };
+
+  const getFormRowKey = (student) => `${student.submission_id}:${student.enrollment_no || student.enrollement_no || ""}`;
+
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse">
+    <div
+      ref={scrollContainerRef}
+      className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
+      onWheel={(e) => {
+        if (!enableWheelHorizontal) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          e.currentTarget.scrollLeft += e.deltaY;
+        }
+      }}
+    >
+      <table className="min-w-full border-collapse" style={{ minWidth: computedMinWidth }}>
         <thead>
           <tr className="bg-purple-600">
             {!isZeroReview && (
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+              <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyHeaderClass}`}>
                 Group ID
+              </th>
+            )}
+            {showMentorEditToggle && (
+              <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[140px]">
+                Mentor Edit
               </th>
             )}
             {isZeroReview && (
-              <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+              <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyHeaderClass}`}>
                 Group ID
               </th>
             )}
-            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+            <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[164px] ${stickyEnrollmentHeaderClass}`}>
               Enrollment No
             </th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500">
+            <th className={`px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500 min-w-[200px] ${stickyStudentHeaderClass}`}>
               Student Name
             </th>
             {isZeroReview && (
@@ -53,7 +139,7 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                     className="px-3 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide border-r border-purple-500"
                   >
                     <div className="flex flex-col items-center gap-1">
-                      <span>{field.label}</span>
+                      <span>{renderCellValue(field.label)}</span>
                       {field.type === "boolean" && (
                         <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">Yes/No</span>
                       )}
@@ -72,6 +158,11 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 {showDelete && (
                   <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
                     Actions
+                  </th>
+                )}
+                {editableFormMarks && (
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-white uppercase tracking-wide">
+                    Save
                   </th>
                 )}
               </>
@@ -136,31 +227,90 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 }`}
               >
                 {!isZeroReview && (
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">
-                    {student.group_id || "-"}
+                  <td className={`px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200 min-w-[164px] ${stickyCellClass}`}>
+                    {renderCellValue(student.group_id)}
+                  </td>
+                )}
+                {showMentorEditToggle && student._isFirstInGroup && (
+                  <td className="px-4 py-3 text-center border-r border-gray-200" rowSpan={student._groupRowSpan || 1}>
+                    {(() => {
+                      const groupId = student.group_id;
+                      const isEnabled = mentorEditEnabledGroups.includes(groupId);
+                      const isToggling = togglingGroupId === groupId;
+                      
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onToggleMentorEditForGroup(groupId)}
+                          disabled={isToggling}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                            isEnabled
+                              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          title={isEnabled ? 'Click to disable mentor editing' : 'Click to enable mentor editing'}
+                        >
+                          {isToggling ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              <span>...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isEnabled ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                              <span>{isEnabled ? 'ON' : 'OFF'}</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </td>
                 )}
                 {isZeroReview && (
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200">
-                    {student.group_id || "-"}
+                  <td className={`px-4 py-3 text-sm font-medium text-gray-900 border-r border-gray-200 min-w-[164px] ${stickyCellClass}`}>
+                    {renderCellValue(student.group_id)}
                   </td>
                 )}
-                <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                  {student.enrollement_no || student.enrollment_no || "-"}
+                <td className={`px-4 py-3 text-sm text-gray-700 border-r border-gray-200 min-w-[164px] ${stickyEnrollmentCellClass}`}>
+                  {renderCellValue(student.enrollement_no || student.enrollment_no)}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900 border-r border-gray-200">
-                  {student.name_of_student || student.student_name || "-"}
+                <td className={`px-4 py-3 text-sm text-gray-900 border-r border-gray-200 min-w-[200px] ${stickyStudentCellClass}`}>
+                  {renderCellValue(student.name_of_student || student.student_name)}
                 </td>
                 {isZeroReview && (
                   <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                    {student.organization_name || "-"}
+                    {renderCellValue(student.organization_name)}
                   </td>
                 )}
                 {isForm ? (
                   <>
                     {normalizedFormFields.map((field) => (
                       <td key={field.key} className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                        {field.type === "boolean" ? (
+                        {editableFormMarks && field.type === "number" ? (
+                          <input
+                            type="number"
+                            value={student.marks?.[field.key] ?? ""}
+                            min={0}
+                            max={Number(field.max_marks) || undefined}
+                            step="0.01"
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.value)}
+                            className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                        ) : editableFormMarks && field.type === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(student.marks?.[field.key])}
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.checked)}
+                            className="w-4 h-4 accent-purple-600"
+                          />
+                        ) : editableFormMarks ? (
+                          <input
+                            type="text"
+                            value={student.marks?.[field.key] ?? ""}
+                            onChange={(e) => onFormMarkChange?.(student, field, e.target.value)}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                        ) : field.type === "boolean" ? (
                           <input
                             type="checkbox"
                             checked={Boolean(student.marks?.[field.key])}
@@ -168,18 +318,18 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                             className="w-4 h-4 accent-purple-600"
                           />
                         ) : (
-                          student.marks?.[field.key] ?? "-"
+                          renderCellValue(student.marks?.[field.key])
                         )}
                       </td>
                     ))}
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
-                      {student.total ?? totalMarks ?? "-"}
+                      {renderCellValue(student.total ?? totalMarks)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.external_name || "-"}
+                      {renderCellValue(student.external_name)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {student.feedback || "-"}
+                      {renderCellValue(student.feedback)}
                     </td>
                     {showDelete && (
                       <td className="px-4 py-3 text-center">
@@ -193,32 +343,54 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                         </button>
                       </td>
                     )}
+                    {editableFormMarks && (
+                      <td className="px-4 py-3 text-center">
+                        {(() => {
+                          const rowKey = getFormRowKey(student);
+                          const isSaving = savingRowKey === rowKey;
+                          const isDirty = dirtyRowKeys ? dirtyRowKeys.has(rowKey) : true;
+                          const isDisabled = isSaving || !isDirty;
+
+                          return (
+                        <button
+                          type="button"
+                          onClick={() => onSaveFormRow?.(student)}
+                          disabled={isDisabled}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+                          title={isDirty ? "Save row changes" : "No unsaved changes in this row"}
+                        >
+                          {isSaving ? "Saving..." : isDirty ? "Save" : "Saved"}
+                        </button>
+                          );
+                        })()}
+                      </td>
+                    )}
                   </>
                 ) : isZeroReview ? (
                   <>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m1 ?? "-"}
+                      {renderCellValue(student.m1)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m2 ?? "-"}
+                      {renderCellValue(student.m2)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m3 ?? "-"}
+                      {renderCellValue(student.m3)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m4 ?? "-"}
+                      {renderCellValue(student.m4)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m5 ?? "-"}
+                      {renderCellValue(student.m5)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
-                      {student.total || "-"}
+                      {renderCellValue(student.total)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.guide || "-"}
+                      {renderCellValue(student.guide)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.external || "-"}
+                      {renderCellValue(student.external)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center border-r border-gray-200">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
@@ -244,91 +416,91 @@ const MarksTable = ({ students, loading, error, reviewType = "review1", formFiel
                 ) : isReview2 ? (
                   <>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m1 ?? "-"}
+                      {renderCellValue(student.m1)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m2 ?? "-"}
+                      {renderCellValue(student.m2)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m3 ?? "-"}
+                      {renderCellValue(student.m3)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m4 ?? "-"}
+                      {renderCellValue(student.m4)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m5 ?? "-"}
+                      {renderCellValue(student.m5)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m6 ?? "-"}
+                      {renderCellValue(student.m6)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.m7 ?? "-"}
+                      {renderCellValue(student.m7)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
-                      {student.total || "-"}
+                      {renderCellValue(student.total)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.guide_name || "-"}
+                      {renderCellValue(student.guide_name)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.ig || "-"}
+                      {renderCellValue(student.ig)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.external1 || "-"}
+                      {renderCellValue(student.external1)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.external2 || "-"}
+                      {renderCellValue(student.external2)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.ext1_org || "-"}
+                      {renderCellValue(student.ext1_org)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.ext2_org || "-"}
+                      {renderCellValue(student.ext2_org)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900">
-                      {student.date ? new Date(student.date).toLocaleDateString('en-GB') : "-"}
+                      {renderCellValue(student.date ? new Date(student.date).toLocaleDateString('en-GB') : '-')}
                     </td>
                   </>
                 ) : (
                   <>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.A ?? "-"}
+                      {renderCellValue(student.A)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.B ?? "-"}
+                      {renderCellValue(student.B)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.C ?? "-"}
+                      {renderCellValue(student.C)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.D ?? "-"}
+                      {renderCellValue(student.D)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-900 border-r border-gray-200">
-                      {student.E ?? "-"}
+                      {renderCellValue(student.E)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center font-bold text-gray-900 border-r border-gray-200">
-                      {student.total || "-"}
+                      {renderCellValue(student.total)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.guide_name || "-"}
+                      {renderCellValue(student.guide_name)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border-r border-gray-200">
-                      {student.externalname || "-"}
+                      {renderCellValue(student.externalname)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-700 border-r border-gray-200">
-                      {student.crieya || "-"}
+                      {renderCellValue(student.crieya)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-700 border-r border-gray-200">
-                      {student.patent || "-"}
+                      {renderCellValue(student.patent)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-700 border-r border-gray-200">
-                      {student.copyright || "-"}
+                      {renderCellValue(student.copyright)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-700 border-r border-gray-200">
-                      {student.aic || "-"}
+                      {renderCellValue(student.aic)}
                     </td>
                     <td className="px-3 py-3 text-sm text-center text-gray-700">
-                      {student.tech_transfer || "-"}
+                      {renderCellValue(student.tech_transfer)}
                     </td>
                   </>
                 )}

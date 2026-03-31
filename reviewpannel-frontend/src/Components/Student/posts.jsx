@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api";
+import { X, ChevronLeft, ChevronRight, Heart, Clock3 } from "lucide-react";
 
 const StudentPosts = ({ 
   isModalOpen = false, 
@@ -240,9 +241,9 @@ const StudentPosts = ({
   const currentPost = posts[currentPostIndex];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 opacity-90"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-purple-600 to-fuchsia-600 opacity-90"></div>
       
       {/* Message Display */}
       {message && (
@@ -271,23 +272,19 @@ const StudentPosts = ({
       <button
         onClick={prevPost}
         disabled={currentPostIndex === 0 || isTransitioning}
-        className="absolute left-4 md:left-8 z-10 p-4 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 shadow-lg border border-white/30"
+        className="hidden sm:flex absolute left-4 md:left-8 z-10 p-3 md:p-4 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 shadow-lg border border-white/30"
         title="Previous post"
       >
-        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-        </svg>
+        <ChevronLeft className="w-7 h-7 text-white" />
       </button>
 
       <button
         onClick={nextPost}
         disabled={currentPostIndex === posts.length - 1 || isTransitioning}
-        className="absolute right-4 md:right-8 z-10 p-4 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 shadow-lg border border-white/30"
+        className="hidden sm:flex absolute right-4 md:right-8 z-10 p-3 md:p-4 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-110 shadow-lg border border-white/30"
         title="Next post"
       >
-        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-        </svg>
+        <ChevronRight className="w-7 h-7 text-white" />
       </button>
 
       {/* Close Button */}
@@ -295,13 +292,11 @@ const StudentPosts = ({
         onClick={onCloseModal}
         className="absolute top-4 right-4 z-20 p-3 rounded-full bg-white/20 backdrop-blur-md hover:bg-red-500/80 transition-all duration-200 transform hover:scale-110 shadow-lg border border-white/30 group"
       >
-        <svg className="w-6 h-6 text-white group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
+        <X className="w-6 h-6 text-white group-hover:text-white" />
       </button>
 
       {/* Card Container */}
-      <div className="relative w-full max-w-2xl mx-auto">
+      <div className="relative w-full max-w-3xl mx-auto">
         {loading ? (
           <div className="bg-white/95 backdrop-blur-md rounded-3xl p-12 text-center shadow-2xl border border-white/20">
             <div className="w-16 h-16 mx-auto mb-6 relative">
@@ -319,19 +314,19 @@ const StudentPosts = ({
             <p className="text-gray-500 text-lg">Check back later for new events and updates!</p>
           </div>
         ) : currentPost ? (
-          <div className={`bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 overflow-hidden transition-all duration-300 ${
+          <div className={`bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-2xl border border-white/20 overflow-hidden transition-all duration-300 ${
             isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
           }`}>
             {/* Card Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 sm:p-6 text-white">
               <div className="text-center">
-                <h2 className="text-2xl font-bold mb-1 truncate">{currentPost.title}</h2>
-                <p className="text-purple-100">{currentPostIndex + 1} of {posts.length} posts</p>
+                <h2 className="text-lg sm:text-2xl font-bold mb-1 truncate">{currentPost.title}</h2>
+                <p className="text-purple-100 text-xs sm:text-sm">{currentPostIndex + 1} of {posts.length} posts</p>
               </div>
             </div>
 
             {/* Card Content */}
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               {/* Post Image */}
               {getImageUrl(currentPost) && (
                 <div className="mb-8 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 shadow-inner">
@@ -362,7 +357,7 @@ const StudentPosts = ({
               {/* Post Content */}
               <div className="text-center space-y-6">
                 <div className="max-w-none">
-                  <p className="text-gray-700 text-lg leading-relaxed text-justify whitespace-pre-wrap">
+                  <p className="text-gray-700 text-sm sm:text-lg leading-relaxed text-left sm:text-justify whitespace-pre-wrap">
                     {currentPost.description}
                   </p>
                 </div>
@@ -370,13 +365,13 @@ const StudentPosts = ({
             </div>
 
             {/* Card Footer */}
-            <div className="bg-gray-50/80 backdrop-blur-sm p-6 border-t border-gray-200/50">
-              <div className="flex items-center justify-between">
+            <div className="bg-gray-50/80 backdrop-blur-sm p-4 sm:p-6 border-t border-gray-200/50">
+              <div className="flex items-center justify-between gap-3">
                 {/* Like Button - Left */}
                 <button
                   onClick={() => handleLikePost(currentPost._id)}
                   disabled={likingPosts.has(currentPost._id)}
-                  className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 shadow-md ${
+                  className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 shadow-md ${
                     likedPosts.has(currentPost._id)
                       ? "bg-red-500 text-white hover:bg-red-600" 
                       : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 border border-gray-200"
@@ -388,26 +383,37 @@ const StudentPosts = ({
                       <div className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
                     </div>
                   ) : (
-                    <svg 
-                      className={`w-6 h-6 transition-all duration-200 ${likedPosts.has(currentPost._id) ? 'fill-current' : 'fill-none'}`} 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
+                    <Heart className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-200 ${likedPosts.has(currentPost._id) ? 'fill-current' : ''}`} />
                   )}
-                  <span className="font-semibold text-lg">{currentPost.likes || 0}</span>
+                  <span className="font-semibold text-base sm:text-lg">{currentPost.likes || 0}</span>
                 </button>
                 
                 {/* Date - Right */}
-                <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-md border border-gray-200">
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-gray-600 font-medium">
+                <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-xl shadow-md border border-gray-200">
+                  <Clock3 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                  <span className="text-gray-600 text-xs sm:text-sm font-medium">
                     {formatDate(currentPost.createdAt || currentPost.created_at)}
                   </span>
                 </div>
+              </div>
+
+              <div className="sm:hidden mt-4 flex items-center justify-between gap-2">
+                <button
+                  onClick={prevPost}
+                  disabled={currentPostIndex === 0 || isTransitioning}
+                  className="flex items-center justify-center gap-1 w-full py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-40"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Prev
+                </button>
+                <button
+                  onClick={nextPost}
+                  disabled={currentPostIndex === posts.length - 1 || isTransitioning}
+                  className="flex items-center justify-center gap-1 w-full py-2 rounded-lg bg-white border border-gray-200 text-gray-700 disabled:opacity-40"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

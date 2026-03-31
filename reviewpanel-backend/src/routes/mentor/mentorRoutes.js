@@ -45,6 +45,17 @@ router.post('/set-password', passwordResetLimiter, mentorAuthController.setMento
 router.post('/login', loginLimiter, mentorAuthController.mentorLogin);
 
 /**
+ * @route   POST /api/mentors/logout
+ * @desc    Mentor logout (client-side token cleanup)
+ * @access  Private (Mentor)
+ */
+router.post(
+  '/logout',
+  authMiddleware.verifyToken,
+  mentorAuthController.logout
+);
+
+/**
  * @route   GET /api/mentors/groups
  * @desc    Get groups assigned to logged-in mentor
  * @access  Private (Mentor)
@@ -244,6 +255,7 @@ router.get(
 router.get(
   '/evaluations/:group_id',
   authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor', 'industry_mentor']),
   mentorController.getEvaluationMarksByGroup
 );
 

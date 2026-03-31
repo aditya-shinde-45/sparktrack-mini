@@ -24,6 +24,15 @@ const StudentLogin = () => {
   const [otpSent, setOtpSent] = useState(false);
   const navigate = useNavigate();
 
+  const validatePasswordStrength = (pw) => {
+    if (!pw || pw.length < 8) return { valid: false, message: 'Password must be at least 8 characters long.' };
+    if (!/[A-Z]/.test(pw)) return { valid: false, message: 'Password must contain at least one uppercase letter.' };
+    if (!/[a-z]/.test(pw)) return { valid: false, message: 'Password must contain at least one lowercase letter.' };
+    if (!/[0-9]/.test(pw)) return { valid: false, message: 'Password must contain at least one number.' };
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(pw)) return { valid: false, message: 'Password must contain at least one special character.' };
+    return { valid: true };
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -70,13 +79,9 @@ const StudentLogin = () => {
     e.preventDefault();
     setMessage("");
 
-    if (newPassword.length < 6) {
-      setMessage("Password must be at least 6 characters long.");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setMessage("Passwords do not match.");
+    const pwCheck = validatePasswordStrength(newPassword);
+    if (!pwCheck.valid) {
+      setMessage(pwCheck.message);
       return;
     }
 
@@ -171,8 +176,9 @@ const StudentLogin = () => {
     e.preventDefault();
     setMessage("");
 
-    if (forgotNewPassword.length < 6) {
-      setMessage("Password must be at least 6 characters long.");
+    const pwCheck = validatePasswordStrength(forgotNewPassword);
+    if (!pwCheck.valid) {
+      setMessage(pwCheck.message);
       return;
     }
 
@@ -378,7 +384,7 @@ const StudentLogin = () => {
                         value={forgotNewPassword}
                         onChange={(e) => setForgotNewPassword(e.target.value)}
                         required
-                        placeholder="New Password (min 6 characters)"
+                        placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                       />
                     </div>
 
@@ -455,7 +461,7 @@ const StudentLogin = () => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
-                      placeholder="New Password (min 6 characters)"
+                      placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                     />
                   </div>
 

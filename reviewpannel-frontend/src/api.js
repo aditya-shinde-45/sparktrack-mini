@@ -1,8 +1,23 @@
 // src/utils/api.js
-const API_BASE_URL =
+let API_BASE_URL =
   import.meta.env.MODE === "development"
     ? import.meta.env.VITE_API_BASE_URL
     : import.meta.env.VITE_API_BASE_URL_PROD;
+
+if (import.meta.env.MODE === "development") {
+  const fallbackLocal = "http://localhost:5000";
+  API_BASE_URL = API_BASE_URL || fallbackLocal;
+}
+
+if (typeof window !== "undefined") {
+  const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isLikelyProdApi = typeof API_BASE_URL === "string" && (API_BASE_URL.includes("execute-api") || API_BASE_URL.includes("13.201.46.41"));
+
+  if (isLocalHost && import.meta.env.MODE !== "production" && isLikelyProdApi) {
+    console.warn("Detected production API base URL while running on localhost. Forcing local API base URL.");
+    API_BASE_URL = "http://localhost:5000";
+  }
+}
 
 // Import jwtDecode for token validation
 import { jwtDecode } from 'jwt-decode';
@@ -69,7 +84,14 @@ const refreshAccessToken = async () => {
   }
 };
 
-export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false) => {
+export const apiRequest = async (endpoint, method = "GET", body = null, token = null, isFormData = false, timeoutMs = 20000) => {
+  // DEBUG LOGGING
+  console.log(`🔍 API Request Debug:`);
+  console.log(`  Endpoint: ${endpoint}`);
+  console.log(`  Method: ${method}`);
+  console.log(`  Body:`, body);
+  console.log(`  Has Token: ${!!token}`);
+  
   // Skip authentication check for login and public endpoints
   const isAuthEndpoint = endpoint.includes('/login') || endpoint.includes('/register') || endpoint.includes('/forgot-password') || endpoint.includes('/check-status') || endpoint.includes('/set-password');
   const isDashboardEndpoint = endpoint.includes('/dashboard');
@@ -81,9 +103,19 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     headers["Content-Type"] = "application/json";
   }
 
-  // Use token from parameter first, then try localStorage
+  // Use token from parameter first, then try localStorage based on endpoint
   if (!token) {
-    token = localStorage.getItem('token') || localStorage.getItem('student_token');
+    const endpointPath = String(endpoint || '').toLowerCase();
+    const isAdminEndpoint = endpointPath.startsWith('/api/admin') || endpointPath.startsWith('/api/role-access') || endpointPath.startsWith('/api/export');
+    const isMentorEndpoint = endpointPath.startsWith('/api/mentors') || endpointPath.startsWith('/api/industrial-mentors');
+
+    if (isAdminEndpoint) {
+      token = localStorage.getItem('admin_token') || localStorage.getItem('token');
+    } else if (isMentorEndpoint) {
+      token = localStorage.getItem('mentor_token') || localStorage.getItem('token');
+    } else {
+      token = localStorage.getItem('token') || localStorage.getItem('student_token');
+    }
   }
   
   // Don't check token for auth endpoints
@@ -95,6 +127,8 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
         // Perform a full logout
         localStorage.removeItem('token');
         localStorage.removeItem('student_token');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('mentor_token');
         localStorage.removeItem('role');
         localStorage.removeItem('name');
         localStorage.removeItem('id');
@@ -133,9 +167,23 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     // If it's FormData, send it directly without JSON.stringify
     options.body = isFormData ? body : JSON.stringify(body);
   }
+  
+  // DEBUG: Log final fetch options
+  console.log(`📤 Final Fetch Options:`);
+  console.log(`  URL: ${API_BASE_URL}${endpoint}`);
+  console.log(`  Method: ${options.method}`);
+  console.log(`  Headers:`, options.headers);
+  console.log(`  Body:`, options.body);
+
+  // Abort request if backend takes too long; timeout can be overridden per request.
+  const controller = new AbortController();
+  const safeTimeoutMs = Number(timeoutMs) > 0 ? Number(timeoutMs) : 20000;
+  const timeoutId = setTimeout(() => controller.abort(), safeTimeoutMs);
+  options.signal = controller.signal;
 
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    clearTimeout(timeoutId);
 
     let data = null;
     try {
@@ -196,6 +244,8 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
           localStorage.removeItem('token');
           localStorage.removeItem('student_token');
           localStorage.removeItem('student_refresh_token');
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('mentor_token');
           localStorage.removeItem('role');
           localStorage.removeItem('name');
           localStorage.removeItem('id');
@@ -217,6 +267,7 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
         status: res.status,
         message: data?.message || "API request failed",
         error: data?.error || null,
+        existingMentor: data?.existingMentor || null,
       };
     }
 
@@ -244,7 +295,18 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
 
     return data;
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error("API Error:", error.message);
+
+    // Request timed out (Lambda cold-start or network too slow)
+    if (error.name === 'AbortError') {
+      console.warn(`Request timed out after ${safeTimeoutMs}ms:`, endpoint);
+      return {
+        success: false,
+        status: 408,
+        message: `Request timed out after ${Math.round(safeTimeoutMs / 1000)} seconds. Please try again.`,
+      };
+    }
     
     // Network errors (like when the backend is not running)
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {

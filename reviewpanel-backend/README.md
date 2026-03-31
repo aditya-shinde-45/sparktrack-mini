@@ -1,7 +1,7 @@
 # SparkTrack Backend API
 
 ## Overview
-SparkTrack Backend is built using Express.js and follows the MVC (Model-View-Controller) architecture for better organization, maintainability, and scalability.
+SparkTrack Backend is built using Express.js and follows the MVC (Model-View-Controller) architecture for better organization, maintainability,and scalability.
 
 ## Project Structure
 
@@ -35,7 +35,7 @@ reviewpanel-backend/
 │   └── server.js                # Express server setup
 ├── uploads/                     # Uploaded files
 ├── .env                         # Environment variables
-├── .gitignore                   # Git ignore file
+├── .gitignore                   # Git ignore 
 ├── index.js                     # Application entry point
 ├── package.json                 # Dependencies and scripts
 └── README.md                    # Project documentation

@@ -11,6 +11,7 @@ const router = express.Router();
 router.get(
   '/student/group-details/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   async (req, res, next) => {
     try {
       const { enrollment_no } = req.params;

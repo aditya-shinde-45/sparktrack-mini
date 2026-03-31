@@ -5,11 +5,204 @@ import mentorModel from '../../models/mentorModel.js';
 import pblModel from '../../models/pblModel.js';
 import evaluationFormModel from '../../models/evaluationFormModel.js';
 import supabase from '../../config/database.js';
+import emailService from '../../services/emailService.js';
 
 /**
  * Controller for sub-admin role-based table access operations
  */
 class RoleAccessController {
+  isMainAdmin = (user = {}) => {
+    const role = String(user?.role || '').toLowerCase();
+    return role === 'admin' && !Boolean(user?.isRoleBased);
+  };
+
+  assertMainAdmin = (user = {}, message = 'Only main admin can perform this action') => {
+    if (!this.isMainAdmin(user)) {
+      throw ApiError.forbidden(message);
+    }
+  };
+
+  isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+
+  sanitizeTemplateInput = (value, maxLen) => {
+    if (value === undefined || value === null) return '';
+    const normalized = String(value).replace(/\r/g, '').trim();
+    return normalized.slice(0, maxLen);
+  };
+
+  renderTemplate = (template, variables = {}) => {
+    const raw = String(template || '');
+    return raw.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => {
+      const value = variables[key];
+      return value === undefined || value === null ? '' : String(value);
+    });
+  };
+
+  normalizeYearTag = (value) => String(value || '').trim().toUpperCase();
+
+  extractYearTagFromClass = (classValue) => {
+    const normalized = this.normalizeYearTag(classValue);
+    if (!normalized) return '';
+    if (normalized.includes('LY')) return 'LY';
+    if (normalized.includes('TY')) return 'TY';
+    if (normalized.includes('SY')) return 'SY';
+    if (normalized.includes('FY')) return 'FY';
+    return '';
+  };
+
+  buildAllowedYearSet = (allowedYears = []) => {
+    const source = Array.isArray(allowedYears) ? allowedYears : [];
+    return new Set(source.map((item) => this.normalizeYearTag(item)).filter(Boolean));
+  };
+
+  matchesYearScope = (classValue, selectedYear, allowedYearSet) => {
+    const classYear = this.extractYearTagFromClass(classValue);
+
+    if (allowedYearSet && allowedYearSet.size > 0 && (!classYear || !allowedYearSet.has(classYear))) {
+      return false;
+    }
+
+    const normalizedSelectedYear = this.normalizeYearTag(selectedYear);
+    if (!normalizedSelectedYear || normalizedSelectedYear === 'ALL') {
+      return true;
+    }
+
+    return classYear === normalizedSelectedYear;
+  };
+
+  getTeacherSubmissionStatusData = async ({ formId, groupPrefix = '', classFilter = 'ALL' }) => {
+    const normalizedPrefix = String(groupPrefix || '').trim().toLowerCase();
+    const normalizedClassFilter = this.normalizeYearTag(classFilter || 'ALL');
+
+    const evalForm = await evaluationFormModel.getFormById(formId);
+    const allowedYearSet = this.buildAllowedYearSet(evalForm?.allowed_years || []);
+
+    const { data: pblRows, error: pblError } = await supabase
+      .from('pbl')
+      .select('group_id, mentor_code, class')
+      .not('group_id', 'is', null)
+      .not('mentor_code', 'is', null);
+
+    if (pblError) {
+      throw ApiError.internalError(`Failed to fetch mentor-group mapping: ${pblError.message}`);
+    }
+
+    const groupToMentor = new Map();
+    (pblRows || []).forEach((row) => {
+      const groupId = String(row.group_id || '').trim();
+      const mentorCode = String(row.mentor_code || '').trim();
+      if (!groupId || !mentorCode) return;
+      if (normalizedPrefix && !groupId.toLowerCase().startsWith(normalizedPrefix)) return;
+      if (!this.matchesYearScope(row.class, normalizedClassFilter, allowedYearSet)) return;
+      if (!groupToMentor.has(groupId)) {
+        groupToMentor.set(groupId, mentorCode);
+      }
+    });
+
+    const allGroups = [...groupToMentor.keys()];
+    const mentorsMap = new Map();
+
+    if (allGroups.length === 0) {
+      return {
+        summary: {
+          totalTeachers: 0,
+          teachersFullyGiven: 0,
+          teachersPartiallyGiven: 0,
+          teachersWithSubmissions: 0,
+          teachersWithoutSubmissions: 0,
+        },
+        appliedYearFilter: normalizedClassFilter,
+        formAllowedYears: [...allowedYearSet],
+        formMeta: {
+          id: evalForm?.id || formId,
+          title: evalForm?.title || evalForm?.name || `Form ${formId}`,
+        },
+        completeMarks: [],
+        partialMarks: [],
+        gaveMarks: [],
+        notGivenMarks: [],
+      };
+    }
+
+    const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
+    const submittedGroups = new Set(
+      (submissions || [])
+        .map((row) => String(row.group_id || '').trim())
+        .filter((groupId) => groupToMentor.has(groupId))
+    );
+
+    const { data: mentors, error: mentorError } = await supabase
+      .from('mentors')
+      .select('mentor_code, mentor_name');
+
+    if (mentorError) {
+      throw ApiError.internalError(`Failed to fetch mentors: ${mentorError.message}`);
+    }
+
+    (mentors || []).forEach((row) => {
+      const code = String(row.mentor_code || '').trim();
+      if (code) mentorsMap.set(code, String(row.mentor_name || '').trim());
+    });
+
+    const mentorStats = new Map();
+
+    allGroups.forEach((groupId) => {
+      const mentorCode = groupToMentor.get(groupId);
+      if (!mentorCode) return;
+
+      if (!mentorStats.has(mentorCode)) {
+        mentorStats.set(mentorCode, {
+          mentor_code: mentorCode,
+          mentor_name: mentorsMap.get(mentorCode) || mentorCode,
+          total_groups: 0,
+          submitted_groups: 0,
+          pending_groups: 0,
+          group_ids: [],
+          submitted_group_ids: [],
+          pending_group_ids: [],
+        });
+      }
+
+      const stats = mentorStats.get(mentorCode);
+      stats.total_groups += 1;
+      stats.group_ids.push(groupId);
+
+      if (submittedGroups.has(groupId)) {
+        stats.submitted_groups += 1;
+        stats.submitted_group_ids.push(groupId);
+      } else {
+        stats.pending_groups += 1;
+        stats.pending_group_ids.push(groupId);
+      }
+    });
+
+    const teacherRows = [...mentorStats.values()].sort((a, b) => a.mentor_code.localeCompare(b.mentor_code));
+    const completeMarks = teacherRows.filter((row) => row.total_groups > 0 && row.submitted_groups === row.total_groups);
+    const partialMarks = teacherRows.filter((row) => row.submitted_groups > 0 && row.submitted_groups < row.total_groups);
+    const gaveMarks = teacherRows.filter((row) => row.submitted_groups > 0); // Backward-compatible union
+    const notGivenMarks = teacherRows.filter((row) => row.submitted_groups === 0);
+
+    return {
+      summary: {
+        totalTeachers: teacherRows.length,
+        teachersFullyGiven: completeMarks.length,
+        teachersPartiallyGiven: partialMarks.length,
+        teachersWithSubmissions: gaveMarks.length,
+        teachersWithoutSubmissions: notGivenMarks.length,
+      },
+      appliedYearFilter: normalizedClassFilter,
+      formAllowedYears: [...allowedYearSet],
+      formMeta: {
+        id: evalForm?.id || formId,
+        title: evalForm?.title || evalForm?.name || `Form ${formId}`,
+      },
+      completeMarks,
+      partialMarks,
+      gaveMarks,
+      notGivenMarks,
+    };
+  };
+
   /**
    * Helper: Verify if user has permission to access the table
    */
@@ -21,7 +214,11 @@ class RoleAccessController {
       throw ApiError.forbidden('No table permissions found');
     }
     
-    if (!tablePermissions.includes(tableName)) {
+    const hasTableAccess = tablePermissions.includes(tableName)
+      || (tableName === 'students1' && tablePermissions.includes('students'))
+      || (tableName === 'students' && tablePermissions.includes('students1'));
+
+    if (!hasTableAccess) {
       throw ApiError.forbidden(`You don't have permission to access ${tableName} table`);
     }
   };
@@ -31,6 +228,7 @@ class RoleAccessController {
    */
   getModel = (tableName) => {
     const models = {
+      students1: studentModel,
       students: studentModel,
       mentors: mentorModel,
       pbl: pblModel,
@@ -54,6 +252,7 @@ class RoleAccessController {
     let records;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         records = await studentModel.getAllWithProfiles();
         break;
@@ -126,19 +325,39 @@ class RoleAccessController {
         }));
         break;
 
-      case 'evaluation_form_submission':
+      case 'evaluation_form_submission': {
         if (forms === '1') {
           const evalForms = await evaluationFormModel.listForms();
           return ApiResponse.success(res, 'Evaluation forms retrieved successfully', { forms: evalForms || [] });
+        }
+
+        if (req.query.teachersStatus === '1') {
+          if (!formId) {
+            throw ApiError.badRequest('Form ID is required');
+          }
+
+          const { groupPrefix, classFilter } = req.query;
+          const teacherStatus = await this.getTeacherSubmissionStatusData({ formId, groupPrefix, classFilter });
+          return ApiResponse.success(res, 'Teacher submission status retrieved successfully', teacherStatus);
         }
 
         if (!formId) {
           throw ApiError.badRequest('Form ID is required');
         }
 
+        const { groupPrefix } = req.query;
         const evalForm = await evaluationFormModel.getFormById(formId);
-        const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
-        const normalizedSearch = (search || '').toLowerCase();
+        let submissions = await evaluationFormModel.listSubmissionsByForm(formId);
+
+        // Filter by group_id prefix if provided (case-insensitive, leading/trailing whitespace tolerant)
+        if (groupPrefix && groupPrefix.trim() !== '') {
+          const prefix = groupPrefix.trim().toLowerCase();
+          submissions = submissions.filter(sub =>
+            String(sub.group_id || '').toLowerCase().startsWith(prefix)
+          );
+        }
+
+        const normalizedSearch = (search || '').toLowerCase().trim();
         const safeLimit = Number(limit) || 50;
         const safePage = Number(page) || 1;
 
@@ -183,8 +402,12 @@ class RoleAccessController {
             totalRecords,
             limit: safeLimit
           },
-          form: evalForm || null
+          form: evalForm ? {
+            ...evalForm,
+            mentor_edit_enabled_groups: evalForm.mentor_edit_enabled_groups || []
+          } : null
         });
+      }
 
       default:
         throw ApiError.badRequest('Invalid table name');
@@ -193,6 +416,170 @@ class RoleAccessController {
     return ApiResponse.success(res, `${tableName} records retrieved successfully`, { 
       records,
       count: records?.length || 0 
+    });
+  });
+
+  /**
+   * POST: Send reminder emails to teachers with pending marks for an evaluation form
+   */
+  sendTeacherReminderEmails = asyncHandler(async (req, res) => {
+    this.assertMainAdmin(req.user, 'Only main admin can send teacher reminder emails');
+
+    const body = req.body || {};
+    const formId = String(body.formId || '').trim();
+    const groupPrefix = String(body.groupPrefix || '').trim();
+    const classFilter = this.normalizeYearTag(body.classFilter || 'ALL');
+    const requestedMentorCodes = Array.isArray(body.mentor_codes)
+      ? [...new Set(body.mentor_codes.map((code) => String(code || '').trim()).filter(Boolean))]
+      : [];
+
+    if (!formId) {
+      throw ApiError.badRequest('formId is required');
+    }
+
+    const customSubject = this.sanitizeTemplateInput(body.subject, 200);
+    const customMessage = this.sanitizeTemplateInput(body.message, 5000);
+
+    if (customSubject.includes('\n')) {
+      throw ApiError.badRequest('Email subject cannot contain line breaks');
+    }
+
+    const teacherStatus = await this.getTeacherSubmissionStatusData({ formId, groupPrefix, classFilter });
+    const pendingTeachers = [...(teacherStatus.partialMarks || []), ...(teacherStatus.notGivenMarks || [])];
+
+    const targetTeachers = requestedMentorCodes.length > 0
+      ? pendingTeachers.filter((teacher) => requestedMentorCodes.includes(String(teacher.mentor_code || '').trim()))
+      : pendingTeachers;
+
+    if (targetTeachers.length === 0) {
+      return ApiResponse.success(res, 'No pending teachers found for reminder email', {
+        sentCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        sentTeachers: [],
+        failedTeachers: [],
+        skippedTeachers: [],
+      });
+    }
+
+    const mentorCodes = [...new Set(targetTeachers.map((teacher) => String(teacher.mentor_code || '').trim()).filter(Boolean))];
+    const { data: mentorRows, error: mentorError } = await supabase
+      .from('mentors')
+      .select('mentor_code, mentor_name, email')
+      .in('mentor_code', mentorCodes);
+
+    if (mentorError) {
+      throw ApiError.internalError(`Failed to fetch mentor emails: ${mentorError.message}`);
+    }
+
+    const mentorEmailMap = new Map();
+    (mentorRows || []).forEach((row) => {
+      const code = String(row.mentor_code || '').trim();
+      if (!code) return;
+      mentorEmailMap.set(code, {
+        mentor_name: String(row.mentor_name || '').trim() || code,
+        email: String(row.email || '').trim().toLowerCase(),
+      });
+    });
+
+    let sentCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+    const sentTeachers = [];
+    const failedTeachers = [];
+    const skippedTeachers = [];
+
+    const defaultSubjectTemplate = 'Reminder: Please submit pending evaluation marks ({{form_title}})';
+    const defaultBodyTemplate = `Dear {{mentor_name}} ({{mentor_code}}),
+
+This is a reminder to submit evaluation marks for the pending groups in {{form_title}}.
+
+Pending groups:
+{{pending_groups}}
+
+Pending count: {{pending_count}}
+
+Please complete the marks submission at the earliest.
+
+Regards,
+SparkTrack Admin`;
+
+    const processTeacher = async (teacher) => {
+      const mentorCode = String(teacher.mentor_code || '').trim();
+      const mentorEmailInfo = mentorEmailMap.get(mentorCode);
+      const mentorEmail = String(mentorEmailInfo?.email || '').trim();
+      const mentorName = mentorEmailInfo?.mentor_name || String(teacher.mentor_name || mentorCode);
+
+      const pendingGroups = Array.isArray(teacher.pending_group_ids)
+        ? teacher.pending_group_ids.map((groupId) => String(groupId || '').trim()).filter(Boolean)
+        : [];
+
+      if (!mentorEmail || !this.isValidEmail(mentorEmail)) {
+        return {
+          status: 'skipped',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, reason: 'No valid mentor email found' },
+        };
+      }
+
+      if (pendingGroups.length === 0) {
+        return {
+          status: 'skipped',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, reason: 'No pending groups for this teacher' },
+        };
+      }
+
+      const templateVariables = {
+        mentor_name: mentorName,
+        mentor_code: mentorCode,
+        pending_groups: pendingGroups.map((groupId) => `- ${groupId}`).join('\n'),
+        pending_count: pendingGroups.length,
+        form_title: teacherStatus.formMeta?.title || `Form ${formId}`,
+        form_id: formId,
+      };
+
+      const subject = this.renderTemplate(customSubject || defaultSubjectTemplate, templateVariables);
+      const text = this.renderTemplate(customMessage || defaultBodyTemplate, templateVariables);
+      const html = `<p>${String(text).replace(/\n/g, '<br/>')}</p>`;
+
+      try {
+        await emailService.sendMail(mentorEmail, subject, text, html);
+        return {
+          status: 'sent',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, recipients: [mentorEmail], pending_groups: pendingGroups },
+        };
+      } catch (_error) {
+        return {
+          status: 'failed',
+          payload: { mentor_code: mentorCode, mentor_name: mentorName, error: 'Failed to send email' },
+        };
+      }
+    };
+
+    const batchSize = 5;
+    for (let i = 0; i < targetTeachers.length; i += batchSize) {
+      const batch = targetTeachers.slice(i, i + batchSize);
+      const batchResults = await Promise.all(batch.map((teacher) => processTeacher(teacher)));
+      batchResults.forEach((result) => {
+        if (result.status === 'sent') {
+          sentCount += 1;
+          sentTeachers.push(result.payload);
+        } else if (result.status === 'failed') {
+          failedCount += 1;
+          failedTeachers.push(result.payload);
+        } else {
+          skippedCount += 1;
+          skippedTeachers.push(result.payload);
+        }
+      });
+    }
+
+    return ApiResponse.success(res, 'Teacher reminder email process completed', {
+      sentCount,
+      failedCount,
+      skippedCount,
+      sentTeachers,
+      failedTeachers,
+      skippedTeachers,
     });
   });
 
@@ -212,6 +599,7 @@ class RoleAccessController {
     let record;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         record = await studentModel.getByEnrollmentNo(id);
         break;
@@ -267,6 +655,7 @@ class RoleAccessController {
     let newRecord;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Validate required student fields
         const { enrollment_no, name_of_students, email_id, class: studentClass } = recordData;
@@ -282,7 +671,7 @@ class RoleAccessController {
         }
 
         const { data: student, error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .insert([{
             enrollment_no,
             name_of_student: name_of_students,
@@ -366,6 +755,8 @@ class RoleAccessController {
           .insert([{
             mentor_name,
             contact_number: normalizedContact,
+            email: email ? String(email).trim().toLowerCase() : null,
+            designation: designation ? String(designation).trim() : null,
             mentor_code: newMentorCode,
             group_id: null,
           }])
@@ -528,6 +919,7 @@ class RoleAccessController {
     let updatedRecord;
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Use the existing model method if available
         updatedRecord = await studentModel.updateStudent(id, updateData);
@@ -637,6 +1029,7 @@ class RoleAccessController {
     }
 
     switch (tableName) {
+      case 'students1':
       case 'students':
         // Check if student exists
         const student = await studentModel.getByEnrollmentNo(id);
@@ -645,7 +1038,7 @@ class RoleAccessController {
         }
 
         const { error: studentError } = await supabase
-          .from('students')
+          .from('students1')
           .delete()
           .eq('enrollment_no', id);
         
@@ -697,6 +1090,8 @@ class RoleAccessController {
         break;
 
       case 'evaluation_form_submission':
+        this.assertMainAdmin(req.user, 'Only main admin can reset evaluation form submissions');
+
         if (!formId) {
           throw ApiError.badRequest('Form ID is required');
         }

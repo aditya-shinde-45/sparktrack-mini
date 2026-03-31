@@ -24,13 +24,21 @@ router.use(deadlineBlocker('group_creation'));
 router.post("/draft", createDraft);
 
 // Get leader's draft groups
-router.get("/draft/leader/:enrollmentNo", getLeaderDrafts);
+router.get(
+  "/draft/leader/:enrollmentNo",
+  authMiddleware.enforceSelfEnrollment('enrollmentNo'),
+  getLeaderDrafts
+);
 
 // Send invitations to members (Step 2)
 router.post("/invite", sendInvitations);
 
 // Get invitations for a student
-router.get("/invitations/:enrollmentNo", getStudentInvitations);
+router.get(
+  "/invitations/:enrollmentNo",
+  authMiddleware.enforceSelfEnrollment('enrollmentNo'),
+  getStudentInvitations
+);
 
 // Respond to invitation (accept/reject)
 router.post("/respond", respondToInvitation);

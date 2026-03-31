@@ -36,6 +36,7 @@ router.get('/all',
 
 router.get('/enrollment/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   internshipController.getInternshipByEnrollment
 );
 
@@ -47,6 +48,7 @@ router.get('/group/:group_id',
 
 router.get('/download/:enrollment_no',
   authMiddleware.authenticateUser,
+  authMiddleware.enforceSelfEnrollment('enrollment_no'),
   internshipController.downloadInternshipDocument
 );
 

@@ -8,7 +8,6 @@ export const createGroup = async (req, res) => {
   try {
     const {
       teamName,
-      applicantEnrollment,
       member1Enrollment,
       member2Enrollment,
       member3Enrollment,
@@ -18,6 +17,19 @@ export const createGroup = async (req, res) => {
       technologyBucket,
       domain
     } = req.body;
+    let { applicantEnrollment } = req.body;
+
+    const tokenEnrollment = req.user?.enrollment_no || req.user?.student_id;
+    if (req.user?.role === 'student' && tokenEnrollment && applicantEnrollment && applicantEnrollment !== tokenEnrollment) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only create a group for your own enrollment number'
+      });
+    }
+
+    if (req.user?.role === 'student' && tokenEnrollment && !applicantEnrollment) {
+      applicantEnrollment = tokenEnrollment;
+    }
 
     // Validate required fields
     if (!teamName || !applicantEnrollment) {

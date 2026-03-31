@@ -7,6 +7,7 @@ import problemStatementModel from '../../models/problemStatementModel.js';
 import supabase from '../../config/database.js';
 
 const YEAR_OPTIONS = ['SY', 'TY', 'LY'];
+const ROLE_OPTIONS = ['mentor', 'industry_mentor'];
 const EVALUATION_UPLOAD_BUCKET = 'evaluation-forms';
 
 const evaluationUpload = multer({
@@ -26,10 +27,192 @@ const normalizeAllowedYears = (years) => {
   return Array.from(new Set(normalized));
 };
 
+const normalizeFieldType = (field = {}) => {
+  if (field.type) return field.type;
+  return Number(field.max_marks) > 0 ? 'number' : 'boolean';
+};
+
+const coerceBooleanValue = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n', ''].includes(normalized)) return false;
+  }
+  return Boolean(value);
+};
+
+const normalizeRoleList = (roles, fallback = []) => {
+  if (!Array.isArray(roles)) return [...fallback];
+  const normalized = roles
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter((role) => ROLE_OPTIONS.includes(role));
+  return Array.from(new Set(normalized));
+};
+
+const getEnrollmentKey = (row = {}) => String(row?.enrollment_no || row?.enrollement_no || '').trim();
+
+const hasMeaningfulMarkValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'object') {
+    const url = String(value?.url || '').trim();
+    const name = String(value?.name || '').trim();
+    if ('url' in value || 'name' in value || 'type' in value) {
+      return url.length > 0 || name.length > 0;
+    }
+    return Object.keys(value).length > 0;
+  }
+  return true;
+};
+
+const mergeMarksPreservingExisting = (previousMarks = {}, incomingMarks = {}) => {
+  const merged = { ...(previousMarks || {}) };
+
+  for (const [key, value] of Object.entries(incomingMarks || {})) {
+    if (hasMeaningfulMarkValue(value)) {
+      merged[key] = value;
+    } else if (!(key in merged)) {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+};
+
+const mergeEvaluationsWithExisting = (existing = [], incoming = []) => {
+  const existingMap = new Map(
+    (existing || []).map((item) => [getEnrollmentKey(item), item]).filter(([key]) => key)
+  );
+
+  return (incoming || []).map((item) => {
+    const key = getEnrollmentKey(item);
+    const previous = key ? existingMap.get(key) : null;
+
+    if (!previous) return item;
+
+    return {
+      ...previous,
+      ...item,
+      marks: mergeMarksPreservingExisting(previous.marks || {}, item.marks || {})
+    };
+  });
+};
+
 class EvaluationFormController {
+  isAdmin = (user = {}) => String(user?.role || '').toLowerCase() === 'admin';
+
+  isMainAdmin = (user = {}) => this.isAdmin(user) && !Boolean(user?.isRoleBased);
+
+  isRoleBasedAdmin = (user = {}) => this.isAdmin(user) && Boolean(user?.isRoleBased);
+
+  hasEvaluationSubmissionAccess = (user = {}) => {
+    if (!this.isRoleBasedAdmin(user)) return true;
+    const permissions = Array.isArray(user?.tablePermissions)
+      ? user.tablePermissions
+      : (Array.isArray(user?.table_permissions) ? user.table_permissions : []);
+    return permissions.includes('evaluation_form_submission');
+  };
+
+  assertEvaluationSubmissionAccess = (user = {}, action = 'access evaluation submissions') => {
+    if (!this.isAdmin(user)) {
+      throw ApiError.forbidden('Admin access required');
+    }
+
+    if (!this.hasEvaluationSubmissionAccess(user)) {
+      throw ApiError.forbidden(`You do not have permission to ${action}`);
+    }
+  };
+
+  isIndustryMentor = (user = {}) => String(user?.role || '').toLowerCase() === 'industry_mentor';
+
+  getFormRolePermissions = (form = {}) => {
+    const viewRoles = normalizeRoleList(form?.view_roles, ROLE_OPTIONS);
+    const editAfterSubmitRoles = normalizeRoleList(form?.edit_after_submit_roles, []);
+    const submitRoles = normalizeRoleList(form?.submit_roles, ROLE_OPTIONS);
+    return { viewRoles, editAfterSubmitRoles, submitRoles };
+  };
+
+  assertFormAccess = (user = {}, form = {}, action = 'view') => {
+    const role = String(user?.role || '').toLowerCase();
+    if (!['mentor', 'industry_mentor'].includes(role)) return;
+
+    const { viewRoles, editAfterSubmitRoles, submitRoles } = this.getFormRolePermissions(form);
+
+    if (action === 'view' && !viewRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to view this evaluation form');
+    }
+
+    if (action === 'submit' && !submitRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to submit this evaluation form');
+    }
+
+    if (action === 'edit_after_submit' && !editAfterSubmitRoles.includes(role)) {
+      throw ApiError.forbidden('This role is not allowed to edit marks after submission');
+    }
+  };
+
+  getScopedGroupIds = async (user = {}) => {
+    const role = String(user?.role || '').toLowerCase();
+
+    if (role === 'mentor') {
+      const mentorCode = user?.mentor_code || user?.mentor_id || null;
+      if (!mentorCode) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .eq('mentor_code', mentorCode);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    if (role === 'industry_mentor') {
+      const mentorCodes = Array.isArray(user?.mentor_codes) && user.mentor_codes.length > 0
+        ? user.mentor_codes
+        : (user?.mentor_code ? [user.mentor_code] : []);
+
+      if (mentorCodes.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('pbl')
+        .select('group_id')
+        .in('mentor_code', mentorCodes);
+
+      if (error) throw error;
+      return [...new Set((data || []).map((row) => row.group_id).filter(Boolean))];
+    }
+
+    return null;
+  };
+
+  assertGroupAccess = async (user = {}, groupId) => {
+    const role = String(user?.role || '').toLowerCase();
+    if (!['mentor', 'industry_mentor'].includes(role)) return;
+
+    const scopedGroupIds = await this.getScopedGroupIds(user);
+    const allowedSet = new Set(scopedGroupIds || []);
+    if (!allowedSet.has(groupId)) {
+      throw ApiError.forbidden('You can access marks only for your assigned groups');
+    }
+  };
+
   listForms = asyncHandler(async (req, res) => {
     const forms = await evaluationFormModel.listForms();
-    return ApiResponse.success(res, 'Evaluation forms retrieved successfully', forms);
+    const role = String(req.user?.role || '').toLowerCase();
+
+    if (!['mentor', 'industry_mentor'].includes(role)) {
+      return ApiResponse.success(res, 'Evaluation forms retrieved successfully', forms);
+    }
+
+    const filteredForms = (forms || []).filter((form) => {
+      const { viewRoles } = this.getFormRolePermissions(form);
+      return viewRoles.includes(role);
+    });
+
+    return ApiResponse.success(res, 'Evaluation forms retrieved successfully', filteredForms);
   });
 
   getForm = asyncHandler(async (req, res) => {
@@ -37,17 +220,21 @@ class EvaluationFormController {
     if (!formId) throw ApiError.badRequest('Form ID is required');
 
     const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
     return ApiResponse.success(res, 'Evaluation form retrieved successfully', form);
   });
 
   createForm = asyncHandler(async (req, res) => {
-    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles, submit_roles } = req.body;
     if (!name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Name, total marks, and at least one field are required');
     }
 
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
     const normalizedYears = normalizeAllowedYears(allowed_years);
+    const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
+    const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
+    const normalizedSubmitRoles = normalizeRoleList(submit_roles, ROLE_OPTIONS);
 
     const sanitizedFields = fields.map((field, index) => {
       const normalizedType = ['number', 'boolean', 'text', 'select', 'file'].includes(field.type)
@@ -85,7 +272,10 @@ class EvaluationFormController {
       total_marks: Number(total_marks),
       fields: sanitizedFields,
       created_by,
-      allowed_years: normalizedYears
+      allowed_years: normalizedYears,
+      view_roles: normalizedViewRoles,
+      edit_after_submit_roles: normalizedEditRoles,
+      submit_roles: normalizedSubmitRoles
     });
 
     const deadlineKey = `evaluation_form_${form.id}`;
@@ -109,7 +299,7 @@ class EvaluationFormController {
 
   updateForm = asyncHandler(async (req, res) => {
     const { formId } = req.params;
-    const { name, total_marks, fields, allowed_years, sheet_title } = req.body;
+    const { name, total_marks, fields, allowed_years, sheet_title, view_roles, edit_after_submit_roles, submit_roles } = req.body;
 
     if (!formId || !name || !total_marks || !Array.isArray(fields) || fields.length === 0) {
       throw ApiError.badRequest('Form ID, name, total marks, and fields are required');
@@ -146,13 +336,19 @@ class EvaluationFormController {
     });
 
     const normalizedYears = normalizeAllowedYears(allowed_years);
+    const normalizedViewRoles = normalizeRoleList(view_roles, ROLE_OPTIONS);
+    const normalizedEditRoles = normalizeRoleList(edit_after_submit_roles, []);
+    const normalizedSubmitRoles = normalizeRoleList(submit_roles, ROLE_OPTIONS);
 
     const updated = await evaluationFormModel.updateForm(formId, {
       name: name.trim(),
       sheet_title: sheet_title ? String(sheet_title).trim() : null,
       total_marks: Number(total_marks),
       fields: sanitizedFields,
-      allowed_years: normalizedYears
+      allowed_years: normalizedYears,
+      view_roles: normalizedViewRoles,
+      edit_after_submit_roles: normalizedEditRoles,
+      submit_roles: normalizedSubmitRoles
     });
 
     const deadlineKey = `evaluation_form_${formId}`;
@@ -177,8 +373,15 @@ class EvaluationFormController {
   });
 
   getGroupDetails = asyncHandler(async (req, res) => {
-    const { groupId } = req.params;
+    const { formId, groupId } = req.params;
     if (!groupId) throw ApiError.badRequest('Group ID is required');
+
+    if (!formId) throw ApiError.badRequest('Form ID is required');
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
 
     const { data, error } = await supabase
       .from('pbl')
@@ -209,12 +412,50 @@ class EvaluationFormController {
       throw ApiError.badRequest('Form ID, group ID and evaluations are required');
     }
 
+    await this.assertGroupAccess(req.user, group_id);
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+    this.assertFormAccess(req.user, form, 'submit');
+
     const created_by = req.user?.id || req.user?.admin_id || req.user?.email || null;
 
     const normalizedEvaluations = evaluations.map((student) => ({
       ...student,
       enrollement_no: student.enrollement_no || student.enrollment_no
     }));
+
+    const existingSubmission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, group_id);
+
+    if (existingSubmission) {
+      const isMentorRole = ['mentor', 'industry_mentor'].includes(String(req.user?.role || '').toLowerCase());
+      const isMentorEditEnabled = isMentorRole
+        ? await evaluationFormModel.isMentorEditEnabledForGroup(formId, group_id)
+        : false;
+
+      // For mentors: Check if mentor edit is enabled
+      if (isMentorRole && !isMentorEditEnabled) {
+        throw ApiError.forbidden('Mentor editing is not enabled for this group. Ask admin to enable it.');
+      }
+
+      // For non-mentors: Check edit_after_submit_roles
+      if (!isMentorRole && !this.isAdmin(req.user)) {
+        this.assertFormAccess(req.user, form, 'edit_after_submit');
+      }
+
+      const mergedEvaluations = mergeEvaluationsWithExisting(
+        Array.isArray(existingSubmission.evaluations) ? existingSubmission.evaluations : [],
+        normalizedEvaluations
+      );
+
+      const updatedSubmission = await evaluationFormModel.updateSubmission(existingSubmission.id, formId, {
+        external_name: external_name || null,
+        feedback: feedback || null,
+        evaluations: mergedEvaluations
+      });
+
+      return ApiResponse.success(res, 'Evaluation updated successfully', updatedSubmission);
+    }
 
     const submission = await evaluationFormModel.createSubmission({
       form_id: formId,
@@ -240,7 +481,23 @@ class EvaluationFormController {
       throw ApiError.badRequest('File is required');
     }
 
+    if (!group_id) {
+      throw ApiError.badRequest('Group ID is required');
+    }
+
+    if (!field_key) {
+      throw ApiError.badRequest('Field key is required');
+    }
+
     const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, group_id);
+
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
     const fields = Array.isArray(form?.fields) ? form.fields : [];
     const targetField = fields.find((field) => field.key === field_key);
 
@@ -265,43 +522,54 @@ class EvaluationFormController {
     if (allowedType !== 'all') {
       const allowed = allowedMap[allowedType] || [];
       if (!allowed.includes(req.file.mimetype)) {
-        throw ApiError.badRequest('Unsupported file type for this field');
+        throw ApiError.badRequest(`Unsupported file type for this field. Allowed types: ${allowedType}`);
       }
     }
 
     const maxSizeMb = Number(targetField.max_size_mb) || null;
     if (maxSizeMb && req.file.size > maxSizeMb * 1024 * 1024) {
-      throw ApiError.badRequest('File exceeds the configured size limit');
+      throw ApiError.badRequest(`File exceeds the configured size limit of ${maxSizeMb}MB`);
     }
 
-    const safeGroupId = String(group_id || 'group').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeFieldKey = String(field_key || 'field').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeEnrollment = enrollment_no ? String(enrollment_no).replace(/[^a-zA-Z0-9_-]/g, '_') : 'common';
-    const extension = req.file.originalname.split('.').pop();
-    const uniqueName = `${safeFieldKey}_${safeEnrollment}_${uuidv4()}.${extension}`;
-    const filePath = `files/${formId}/${safeGroupId}/${uniqueName}`;
+    try {
+      const safeGroupId = String(group_id || 'group').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeFieldKey = String(field_key || 'field').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeEnrollment = enrollment_no ? String(enrollment_no).replace(/[^a-zA-Z0-9_-]/g, '_') : 'common';
+      const extension = req.file.originalname.split('.').pop();
+      const uniqueName = `${safeFieldKey}_${safeEnrollment}_${uuidv4()}.${extension}`;
+      const filePath = `files/${formId}/${safeGroupId}/${uniqueName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from(EVALUATION_UPLOAD_BUCKET)
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false
+      const { error: uploadError } = await supabase.storage
+        .from(EVALUATION_UPLOAD_BUCKET)
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
+        throw ApiError.internalError(`Failed to upload evaluation file: ${uploadError.message}`);
+      }
+
+      const { data: urlData } = supabase.storage
+        .from(EVALUATION_UPLOAD_BUCKET)
+        .getPublicUrl(filePath);
+
+      if (!urlData || !urlData.publicUrl) {
+        throw ApiError.internalError('Failed to generate public URL for uploaded file');
+      }
+
+      return ApiResponse.success(res, 'Evaluation file uploaded successfully', {
+        file_url: urlData.publicUrl,
+        file_name: req.file.originalname,
+        file_type: req.file.mimetype,
+        scope: scope === 'individual' ? 'individual' : 'common'
       });
-
-    if (uploadError) {
-      throw ApiError.internalError(`Failed to upload evaluation file: ${uploadError.message}`);
+    } catch (error) {
+      console.error('Upload evaluation file error:', error);
+      if (error instanceof ApiError) throw error;
+      throw ApiError.internalError(`Failed to process file upload: ${error.message}`);
     }
-
-    const { data: urlData } = supabase.storage
-      .from(EVALUATION_UPLOAD_BUCKET)
-      .getPublicUrl(filePath);
-
-    return ApiResponse.success(res, 'Evaluation file uploaded successfully', {
-      file_url: urlData.publicUrl,
-      file_name: req.file.originalname,
-      file_type: req.file.mimetype,
-      scope: scope === 'individual' ? 'individual' : 'common'
-    });
   });
 
   getFormSubmissions = asyncHandler(async (req, res) => {
@@ -309,14 +577,30 @@ class EvaluationFormController {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 50;
     const search = (req.query.search || '').toLowerCase();
+    const groupIdFilter = String(req.query.groupId || '').trim();
 
     if (!formId) {
       throw ApiError.badRequest('Form ID is required');
     }
 
+    this.assertEvaluationSubmissionAccess(req.user, 'view evaluation submissions');
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    const scopedGroupIds = await this.getScopedGroupIds(req.user || {});
+    const scopedGroupSet = Array.isArray(scopedGroupIds) ? new Set(scopedGroupIds) : null;
+
     const submissions = await evaluationFormModel.listSubmissionsByForm(formId);
 
-    const flattened = submissions.flatMap((submission) => {
+    const scopedSubmissions = submissions.filter((submission) => {
+      const currentGroupId = String(submission?.group_id || '');
+      if (groupIdFilter && currentGroupId !== groupIdFilter) return false;
+      if (scopedGroupSet && !scopedGroupSet.has(currentGroupId)) return false;
+      return true;
+    });
+
+    const flattened = scopedSubmissions.flatMap((submission) => {
       const evaluations = Array.isArray(submission.evaluations) ? submission.evaluations : [];
       return evaluations.map((evaluation) => ({
         submission_id: submission.id, // Include submission ID for delete/reset operations
@@ -365,6 +649,11 @@ class EvaluationFormController {
       throw ApiError.badRequest('Form ID and Group ID are required');
     }
 
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
+
     const submission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, groupId);
 
     if (!submission) {
@@ -374,8 +663,48 @@ class EvaluationFormController {
     return ApiResponse.success(res, 'Evaluation submission retrieved successfully', submission);
   });
 
+  approveSubmissionByGroup = asyncHandler(async (req, res) => {
+    const { formId, groupId } = req.params;
+
+    if (!formId || !groupId) {
+      throw ApiError.badRequest('Form ID and Group ID are required');
+    }
+
+    if (!this.isIndustryMentor(req.user)) {
+      throw ApiError.forbidden('Only industry mentors can approve evaluation submissions');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    this.assertFormAccess(req.user, form, 'view');
+
+    await this.assertGroupAccess(req.user, groupId);
+
+    const submission = await evaluationFormModel.getSubmissionByFormAndGroup(formId, groupId);
+
+    if (!submission) {
+      throw ApiError.notFound('No submission found for this group');
+    }
+
+    if (submission.is_approved) {
+      return ApiResponse.success(res, 'Evaluation already approved', submission);
+    }
+
+    const approverIdentity = req.user?.id || req.user?.industrial_mentor_code || req.user?.email || null;
+    const approvedSubmission = await evaluationFormModel.updateSubmission(submission.id, formId, {
+      is_approved: true,
+      approved_at: new Date().toISOString(),
+      approved_by: approverIdentity
+    });
+
+    return ApiResponse.success(res, 'Evaluation approved successfully', approvedSubmission);
+  });
+
   deleteSubmission = asyncHandler(async (req, res) => {
     const { formId, submissionId } = req.params;
+
+    if (!this.isMainAdmin(req.user)) {
+      throw ApiError.forbidden('Only main admin can delete evaluation submissions');
+    }
 
     if (!formId || !submissionId) {
       throw ApiError.badRequest('Form ID and Submission ID are required');
@@ -388,6 +717,313 @@ class EvaluationFormController {
     }
 
     return ApiResponse.success(res, 'Evaluation submission deleted successfully', null);
+  });
+
+  updateSubmissionStudentMarks = asyncHandler(async (req, res) => {
+    const { formId, submissionId, enrollmentNo } = req.params;
+    const { marks } = req.body || {};
+
+    this.assertEvaluationSubmissionAccess(req.user, 'edit submitted student marks');
+
+    if (!formId || !submissionId || !enrollmentNo) {
+      throw ApiError.badRequest('Form ID, submission ID and enrollment number are required');
+    }
+
+    if (!marks || typeof marks !== 'object' || Array.isArray(marks)) {
+      throw ApiError.badRequest('Marks object is required');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    const fields = Array.isArray(form.fields) ? form.fields : [];
+    const fieldMap = new Map(fields.map((field) => [field.key, field]));
+
+    const submission = await evaluationFormModel.getSubmissionById(submissionId, formId);
+    if (!submission) {
+      throw ApiError.notFound('Submission not found');
+    }
+
+    const normalizedEnrollment = String(enrollmentNo).trim();
+    const evaluations = Array.isArray(submission.evaluations) ? [...submission.evaluations] : [];
+
+    const studentIndex = evaluations.findIndex((item) => {
+      const itemEnrollment = String(item?.enrollment_no || item?.enrollement_no || '').trim();
+      return itemEnrollment === normalizedEnrollment;
+    });
+
+    if (studentIndex === -1) {
+      throw ApiError.notFound('Student evaluation not found in this submission');
+    }
+
+    const currentEvaluation = evaluations[studentIndex] || {};
+    const mergedMarks = { ...(currentEvaluation.marks || {}) };
+
+    for (const [key, rawValue] of Object.entries(marks)) {
+      const field = fieldMap.get(key);
+      if (!field) {
+        throw ApiError.badRequest(`Invalid mark field: ${key}`);
+      }
+
+      const fieldType = normalizeFieldType(field);
+
+      if (fieldType === 'number') {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          mergedMarks[key] = 0;
+          continue;
+        }
+
+        const numericValue = Number(rawValue);
+        if (Number.isNaN(numericValue)) {
+          throw ApiError.badRequest(`Invalid numeric value for field: ${key}`);
+        }
+
+        const minMarks = 0;
+        const maxMarks = Number(field.max_marks) || 0;
+        if (numericValue < minMarks || numericValue > maxMarks) {
+          throw ApiError.badRequest(`Field ${key} must be between ${minMarks} and ${maxMarks}`);
+        }
+
+        mergedMarks[key] = numericValue;
+        continue;
+      }
+
+      if (fieldType === 'boolean') {
+        mergedMarks[key] = coerceBooleanValue(rawValue);
+        continue;
+      }
+
+      mergedMarks[key] = rawValue ?? '';
+    }
+
+    const total = fields.reduce((sum, field) => {
+      if (normalizeFieldType(field) !== 'number') return sum;
+      return sum + (Number(mergedMarks[field.key]) || 0);
+    }, 0);
+
+    const updatedEvaluation = {
+      ...currentEvaluation,
+      marks: mergedMarks,
+      total
+    };
+
+    evaluations[studentIndex] = updatedEvaluation;
+
+    const updatedSubmission = await evaluationFormModel.updateSubmission(submissionId, formId, {
+      evaluations
+    });
+
+    return ApiResponse.success(res, 'Student marks updated successfully', {
+      submission_id: updatedSubmission.id,
+      group_id: updatedSubmission.group_id,
+      external_name: updatedSubmission.external_name,
+      feedback: updatedSubmission.feedback,
+      created_at: updatedSubmission.created_at,
+      enrollment_no: updatedEvaluation.enrollment_no || updatedEvaluation.enrollement_no,
+      student_name: updatedEvaluation.student_name || updatedEvaluation.name_of_student,
+      marks: updatedEvaluation.marks || {},
+      total: updatedEvaluation.total ?? 0,
+      absent: updatedEvaluation.absent || false
+    });
+  });
+
+  toggleMentorEditEnabled = asyncHandler(async (req, res) => {
+    const { formId } = req.params;
+    const { groupId, enabled } = req.body;
+
+    this.assertEvaluationSubmissionAccess(req.user, 'toggle mentor edit permission');
+
+    if (!formId) {
+      throw ApiError.badRequest('Form ID is required');
+    }
+
+    if (!groupId || typeof groupId !== 'string') {
+      throw ApiError.badRequest('Group ID is required and must be a string');
+    }
+
+    if (typeof enabled !== 'boolean') {
+      throw ApiError.badRequest('Enabled must be a boolean value');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    let updatedForm;
+    try {
+      updatedForm = await evaluationFormModel.toggleMentorEditForGroup(formId, groupId, enabled);
+    } catch (error) {
+      if (error?.code === 'MISSING_MENTOR_EDIT_COLUMN') {
+        throw ApiError.badRequest(error.message);
+      }
+      throw error;
+    }
+
+    return ApiResponse.success(res, `Mentor edit ${enabled ? 'enabled' : 'disabled'} for group ${groupId}`, {
+      id: updatedForm.id,
+      name: updatedForm.name,
+      group_id: groupId,
+      enabled: enabled,
+      mentor_edit_enabled_groups: updatedForm.mentor_edit_enabled_groups
+    });
+  });
+
+  setMentorEditGroups = asyncHandler(async (req, res) => {
+    const { formId } = req.params;
+    const { groupIds } = req.body;
+
+    this.assertEvaluationSubmissionAccess(req.user, 'set mentor edit groups');
+
+    if (!formId) {
+      throw ApiError.badRequest('Form ID is required');
+    }
+
+    if (!Array.isArray(groupIds)) {
+      throw ApiError.badRequest('groupIds must be an array');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    let updatedForm;
+    try {
+      updatedForm = await evaluationFormModel.setMentorEditGroups(formId, groupIds);
+    } catch (error) {
+      if (error?.code === 'MISSING_MENTOR_EDIT_COLUMN') {
+        throw ApiError.badRequest(error.message);
+      }
+      throw error;
+    }
+
+    return ApiResponse.success(res, 'Mentor edit groups updated successfully', {
+      id: updatedForm.id,
+      name: updatedForm.name,
+      mentor_edit_enabled_groups: updatedForm.mentor_edit_enabled_groups
+    });
+  });
+
+  updateSubmissionStudentMarksByMentor = asyncHandler(async (req, res) => {
+    const { formId, submissionId, enrollmentNo } = req.params;
+    const { marks } = req.body || {};
+
+    if (!formId || !submissionId || !enrollmentNo) {
+      throw ApiError.badRequest('Form ID, submission ID and enrollment number are required');
+    }
+
+    if (!marks || typeof marks !== 'object' || Array.isArray(marks)) {
+      throw ApiError.badRequest('Marks object is required');
+    }
+
+    const form = await evaluationFormModel.getFormById(formId);
+    if (!form) {
+      throw ApiError.notFound('Evaluation form not found');
+    }
+
+    this.assertFormAccess(req.user, form, 'view');
+
+    const submission = await evaluationFormModel.getSubmissionById(submissionId, formId);
+    if (!submission) {
+      throw ApiError.notFound('Submission not found');
+    }
+
+    // Check if mentor edit is enabled for this specific group
+    const isEditEnabled = await evaluationFormModel.isMentorEditEnabledForGroup(formId, submission.group_id);
+    if (!isEditEnabled) {
+      throw ApiError.forbidden(`Mentor editing is not enabled for group ${submission.group_id}`);
+    }
+
+    // Check if mentor has access to this group
+    await this.assertGroupAccess(req.user, submission.group_id);
+
+    const fields = Array.isArray(form.fields) ? form.fields : [];
+    const fieldMap = new Map(fields.map((field) => [field.key, field]));
+
+    const normalizedEnrollment = String(enrollmentNo).trim();
+    const evaluations = Array.isArray(submission.evaluations) ? [...submission.evaluations] : [];
+
+    const studentIndex = evaluations.findIndex((item) => {
+      const itemEnrollment = String(item?.enrollment_no || item?.enrollement_no || '').trim();
+      return itemEnrollment === normalizedEnrollment;
+    });
+
+    if (studentIndex === -1) {
+      throw ApiError.notFound('Student evaluation not found in this submission');
+    }
+
+    const currentEvaluation = evaluations[studentIndex] || {};
+    const mergedMarks = { ...(currentEvaluation.marks || {}) };
+
+    for (const [key, rawValue] of Object.entries(marks)) {
+      const field = fieldMap.get(key);
+      if (!field) {
+        throw ApiError.badRequest(`Invalid mark field: ${key}`);
+      }
+
+      const fieldType = normalizeFieldType(field);
+
+      if (fieldType === 'number') {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          mergedMarks[key] = 0;
+          continue;
+        }
+
+        const numericValue = Number(rawValue);
+        if (Number.isNaN(numericValue)) {
+          throw ApiError.badRequest(`Invalid numeric value for field: ${key}`);
+        }
+
+        const minMarks = 0;
+        const maxMarks = Number(field.max_marks) || 0;
+        if (numericValue < minMarks || numericValue > maxMarks) {
+          throw ApiError.badRequest(`Field ${key} must be between ${minMarks} and ${maxMarks}`);
+        }
+
+        mergedMarks[key] = numericValue;
+        continue;
+      }
+
+      if (fieldType === 'boolean') {
+        mergedMarks[key] = coerceBooleanValue(rawValue);
+        continue;
+      }
+
+      mergedMarks[key] = rawValue ?? '';
+    }
+
+    const total = fields.reduce((sum, field) => {
+      if (normalizeFieldType(field) !== 'number') return sum;
+      return sum + (Number(mergedMarks[field.key]) || 0);
+    }, 0);
+
+    const updatedEvaluation = {
+      ...currentEvaluation,
+      marks: mergedMarks,
+      total
+    };
+
+    evaluations[studentIndex] = updatedEvaluation;
+
+    const updatedSubmission = await evaluationFormModel.updateSubmission(submissionId, formId, {
+      evaluations
+    });
+
+    return ApiResponse.success(res, 'Student marks updated successfully', {
+      submission_id: updatedSubmission.id,
+      group_id: updatedSubmission.group_id,
+      external_name: updatedSubmission.external_name,
+      feedback: updatedSubmission.feedback,
+      created_at: updatedSubmission.created_at,
+      enrollment_no: updatedEvaluation.enrollment_no || updatedEvaluation.enrollement_no,
+      student_name: updatedEvaluation.student_name || updatedEvaluation.name_of_student,
+      marks: updatedEvaluation.marks || {},
+      total: updatedEvaluation.total ?? 0,
+      absent: updatedEvaluation.absent || false
+    });
   });
 }
 

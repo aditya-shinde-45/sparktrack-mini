@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import config from './src/config/index.js';
 import { databaseConfig as dbConfig } from './src/config/database.js';
 import logger from './src/utils/logger.js';
+import userModel from './src/models/userModel.js';
 
 // Import middleware
 
@@ -40,6 +41,7 @@ import internshipRoutes from "./src/routes/students/internshipRoutes.js";
 import documentRoutes from "./src/routes/students/documentRoutes.js";
 import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
+import exportRoutes from "./src/routes/admin/exportRoutes.js";
 import testRoutes from "./src/routes/testRoutes.js";
 
 // Error handler middleware
@@ -51,6 +53,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = config.server.port;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // CORS configuration - Allow all origins for serverless
 app.use(cors({
@@ -60,6 +63,13 @@ app.use(cors({
   credentials: false,
 }));
 
+// Explicit OPTIONS handler for Lambda preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
 
 // Basic middleware
 app.use(express.json());
@@ -91,6 +101,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reviews", pblReviewRoutes);
 app.use("/api/roles", rolesRoutes); // Role management routes
 app.use("/api/role-access", roleAccessRoutes); // Role-based table access for sub-admins
+app.use("/api/export", exportRoutes); // CSV export for evaluation submissions
 app.use("/api/admin", evaluationFormRoutes); // Admin evaluation form routes
 
 // Newly migrated routes
@@ -98,7 +109,9 @@ app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/student/documents", documentRoutes); // Student document upload/management
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
-app.use("/api", testRoutes); // Test routes for CI/CD
+if (!isProduction) {
+  app.use("/api", testRoutes); // Test routes for non-production environments only
+}
 
 // Basic route
 app.get("/", (req, res) => {
@@ -110,20 +123,22 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Database connection test route
-app.get("/db-test", async (req, res) => {
-  try {
-    const result = await dbConfig.testConnection();
-    res.json({
-      success: true,
-      message: "Database connected successfully!",
-      sampleData: result.data,
-      supabaseUrl: process.env.SUPABASE_URL,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+// Database connection test route (non-production only)
+if (!isProduction) {
+  app.get("/db-test", async (req, res) => {
+    try {
+      const result = await dbConfig.testConnection();
+      res.json({
+        success: true,
+        message: "Database connected successfully!",
+        sampleData: result.data,
+        supabaseUrl: process.env.SUPABASE_URL,
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+}
 
 // Global error handling middleware
 app.use(errorHandler);
@@ -139,8 +154,7 @@ app.use('*', (req, res) => {
       'GET /',
       'GET /health',
       'POST /api/mentors/login',
-      'POST /api/auth/login',
-      'GET /api/test'
+      'POST /api/auth/login'
     ]
   });
 });
@@ -160,6 +174,16 @@ if (process.env.NODE_ENV !== 'lambda') {
   app.listen(PORT, () => {
     logger.serverStarted(PORT, config.server.env);
     testConnection();
+    if (!isProduction) {
+      userModel.getAll()
+        .then((users) => {
+          const summary = users.map(user => `${user.username}(${user.role})`).join(', ') || 'none';
+          logger.info(`Loaded admin users: ${summary}`);
+        })
+        .catch((error) => {
+          logger.warn(`Failed to load admin users: ${error?.message || 'unknown error'}`);
+        });
+    }
   });
 }
 

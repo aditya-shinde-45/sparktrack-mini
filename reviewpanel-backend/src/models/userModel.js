@@ -10,7 +10,16 @@ const buildUserRecord = (rawUser, index) => {
     throw new Error('Each admin user must include a username');
   }
 
-  const passwordHash = rawUser.passwordHash || (rawUser.password ? bcrypt.hashSync(rawUser.password, 12) : null);
+  let passwordHash;
+  if (rawUser.passwordHash) {
+    passwordHash = rawUser.passwordHash;
+  } else if (rawUser.password) {
+    // Check if password is already a bcrypt hash (starts with $2a$, $2b$, or $2y$)
+    const isBcryptHash = /^\$2[aby]\$\d{2}\$/.test(rawUser.password);
+    passwordHash = isBcryptHash ? rawUser.password : bcrypt.hashSync(rawUser.password, 12);
+  } else {
+    passwordHash = null;
+  }
 
   if (!passwordHash) {
     throw new Error(`Admin user ${rawUser.username} must include either password or passwordHash`);

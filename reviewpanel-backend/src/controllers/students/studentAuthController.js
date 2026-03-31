@@ -79,14 +79,14 @@ class StudentAuthController {
     if (!targetEmail) {
       throw ApiError.badRequest('Student email is required for OTP verification.');
     }
-    const otpData = studentAuthModel.getValidOtpEntry(targetEmail, otp);
+    const otpData = await studentAuthModel.getValidOtpEntry(targetEmail, otp);
 
     if (!otpData) {
       throw ApiError.badRequest('Invalid or expired OTP.');
     }
 
     await studentAuthModel.setPassword(enrollment_no, newPassword);
-    studentAuthModel.clearOtp(targetEmail);
+    await studentAuthModel.clearOtp(targetEmail);
 
     return ApiResponse.success(res, 'Password set successfully. You can now login.');
   });

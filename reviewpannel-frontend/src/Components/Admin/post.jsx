@@ -194,7 +194,7 @@ const AdminPost = () => {
         setMessage("Session expired. Please login again.");
         // Optionally redirect to login page
         setTimeout(() => {
-          window.location.href = "/admin/login";
+          window.location.href = "/pblmanagementfacultydashboardlogin";
         }, 2000);
         return;
       }
@@ -242,7 +242,7 @@ const AdminPost = () => {
       if (data.needsLogin) {
         setMessage("Session expired. Please login again.");
         setTimeout(() => {
-          window.location.href = "/admin/login";
+          window.location.href = "/pblmanagementfacultydashboardlogin";
         }, 2000);
         return;
       }

@@ -123,25 +123,32 @@ class AuthMiddleware {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        if (decoded.role !== 'admin') {
+        if (String(decoded.role || '').toLowerCase() !== 'admin') {
           throw ApiError.forbidden('Admin access required');
         }
         
         const isProduction = process.env.NODE_ENV === 'production';
 
-        const admin = await userModel.findById(decoded.id);
-        
-        if (!admin) {
-          if (isProduction) {
-            throw ApiError.unauthorized('Admin user not found');
-          }
-          // Development fallback only
-          req.user = { ...decoded, role: 'admin' };
+        // Role-based sub-admins exist in the DB roles table, not in userModel (env-var store).
+        // Their token already carries all needed info (user_id, tablePermissions, etc.)
+        if (decoded.isRoleBased) {
+          req.user = { ...decoded };
         } else {
-          if (admin.role.toLowerCase() !== 'admin') {
-            throw ApiError.forbidden('Admin access required');
+          const admin = await userModel.findById(decoded.id);
+          
+          if (!admin) {
+            if (isProduction) {
+              throw ApiError.unauthorized('Admin user not found');
+            }
+            // Development fallback only
+            req.user = { ...decoded, role: 'admin' };
+          } else {
+            if (admin.role.toLowerCase() !== 'admin') {
+              throw ApiError.forbidden('Admin access required');
+            }
+            const { passwordHash, ...safeAdmin } = admin;
+            req.user = { ...decoded, ...safeAdmin };
           }
-          req.user = { ...decoded, ...admin };
         }
         
         next();
@@ -224,14 +231,8 @@ class AuthMiddleware {
         if (decoded.role === 'external') {
           req.user = { ...decoded };
         } else {
-          // Mentor
-          const mentor = await userModel.findById(decoded.id);
-          
-          if (!mentor || mentor.role !== 'mentor') {
-            throw ApiError.unauthorized('Invalid mentor authentication');
-          }
-          
-          req.user = { ...decoded, ...mentor };
+          // Mentor — token carries all needed info (mentor_id, mentor_name, contact_number)
+          req.user = { ...decoded };
         }
         
         next();
@@ -285,15 +286,56 @@ class AuthMiddleware {
   };
 
   /**
+   * Enforce student self-access for enrollment-based routes
+   */
+  enforceSelfEnrollment = (paramName = 'enrollment_no') => {
+    return (req, res, next) => {
+      try {
+        if (!req.user) {
+          throw ApiError.unauthorized('Authentication required');
+        }
+
+        if (req.user.role !== 'student') {
+          return next();
+        }
+
+        const tokenEnrollment = req.user?.enrollment_no || req.user?.student_id;
+        if (!tokenEnrollment) {
+          throw ApiError.unauthorized('Student enrollment number missing in token');
+        }
+
+        const targetEnrollment = req.params?.[paramName] ?? req.body?.[paramName];
+        if (!targetEnrollment) {
+          throw ApiError.badRequest('Enrollment number is required');
+        }
+
+        if (String(targetEnrollment) !== String(tokenEnrollment)) {
+          throw ApiError.forbidden('You can only access your own data');
+        }
+
+        next();
+      } catch (error) {
+        next(error);
+      }
+    };
+  };
+
+  /**
    * Extract token from request headers
    */
   extractToken = (req) => {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.split(' ')[1];
     }
-    
+
+    // Support token via query param for file-download endpoints
+    // (e.g. /api/export?token=<jwt>) where setting headers isn't possible
+    if (req.query && req.query.token) {
+      return req.query.token;
+    }
+
     return null;
   };
 }

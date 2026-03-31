@@ -1,11 +1,36 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { apiRequest, uploadFile } from "../../api";
 import MentorHeader from "../../Components/Mentor/MentorHeader";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
+import IndustryMentorSidebar from "../../Components/Mentor/IndustryMentorSidebar";
 import ProblemStatementModal from "../../Components/Mentor/ProblemStatementModal";
 import mitLogo from "../../assets/mitlogo2.png";
 
 const YEAR_OPTIONS = ["SY", "TY", "LY"];
+const ROLE_OPTIONS = ["mentor", "industry_mentor"];
+
+const normalizeRole = (role = "") => String(role).trim().toLowerCase().replace(/\s+/g, "_");
+const normalizeGroupId = (groupId = "") => String(groupId).trim().toUpperCase();
+
+const normalizeRoleList = (roles = []) => {
+  if (!Array.isArray(roles)) return [];
+  const normalized = roles
+    .map((role) => normalizeRole(role))
+    .filter((role) => ROLE_OPTIONS.includes(role));
+  return Array.from(new Set(normalized));
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "object") {
+    const url = String(value?.url || "").trim();
+    const name = String(value?.name || "").trim();
+    return url.length > 0 || name.length > 0;
+  }
+  return true;
+};
 
 const normalizeAllowedYears = (years = []) => {
   if (!Array.isArray(years)) return [];
@@ -36,6 +61,7 @@ const FILE_ACCEPT_MAP = {
 };
 
 const MentorEvaluation = () => {
+  const location = useLocation();
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [formName, setFormName] = useState("");
@@ -43,6 +69,9 @@ const MentorEvaluation = () => {
   const [fields, setFields] = useState([]);
   const [totalMarks, setTotalMarks] = useState(0);
   const [allowedYears, setAllowedYears] = useState([]);
+  const [editAfterSubmitRoles, setEditAfterSubmitRoles] = useState([]);
+  const [submitRoles, setSubmitRoles] = useState([]);
+  const [mentorEditEnabledGroups, setMentorEditEnabledGroups] = useState([]);
 
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState("");
@@ -53,15 +82,37 @@ const MentorEvaluation = () => {
   const [feedback, setFeedback] = useState("");
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [groupBooleans, setGroupBooleans] = useState({});
+  const [hasSubmission, setHasSubmission] = useState(false);
+  const [isApproved, setIsApproved] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  const token = localStorage.getItem("mentor_token");
+  const roleFromStorage = normalizeRole(localStorage.getItem("role") || "mentor");
+  const isIndustryMentorPath = String(location?.pathname || "").startsWith("/industry-mentor");
+  const industryMentorToken = localStorage.getItem("industry_mentor_token") || "";
+  const isIndustryMentorUser = isIndustryMentorPath || roleFromStorage === "industry_mentor";
+  const isIndustryMentorLoggedIn = Boolean(industryMentorToken) && (isIndustryMentorPath || roleFromStorage === "industry_mentor");
+  const token = isIndustryMentorUser
+    ? (industryMentorToken || localStorage.getItem("token"))
+    : (localStorage.getItem("mentor_token") || localStorage.getItem("token"));
   const mentorName = localStorage.getItem("mentor_name") || localStorage.getItem("name") || "";
-  const mentorId = localStorage.getItem("mentor_id") || localStorage.getItem("id") || "";
+  const mentorId = isIndustryMentorUser
+    ? (localStorage.getItem("industry_mentor_code") || localStorage.getItem("mentor_code") || localStorage.getItem("id") || "")
+    : (localStorage.getItem("mentor_id") || localStorage.getItem("id") || "");
+  const currentUserRole = isIndustryMentorUser ? "industry_mentor" : "mentor";
   const isFormSelected = Boolean(selectedFormId);
+  const isMentorEditEnabledForGroup = useMemo(() => {
+    const normalizedSelected = normalizeGroupId(selectedGroupId);
+    const normalizedEnabled = Array.isArray(mentorEditEnabledGroups)
+      ? mentorEditEnabledGroups.map((id) => normalizeGroupId(id)).filter(Boolean)
+      : [];
+    return Boolean(normalizedSelected) && normalizedEnabled.includes(normalizedSelected);
+  }, [mentorEditEnabledGroups, selectedGroupId]);
+  const canSubmitForm = submitRoles.includes(currentUserRole);
+  const canUpdateSubmission = hasSubmission && isMentorEditEnabledForGroup && !isReadOnly;
 
   const computedTotal = useMemo(() => {
     return fields.reduce((sum, field) => {
@@ -108,7 +159,10 @@ const MentorEvaluation = () => {
   };
 
   const loadGroups = async () => {
-    const response = await apiRequest("/api/mentors/groups-by-mentor-code", "GET", null, token);
+    const groupsUrl = isIndustryMentorUser
+      ? "/api/industrial-mentors/groups"
+      : "/api/mentors/groups-by-mentor-code";
+    const response = await apiRequest(groupsUrl, "GET", null, token);
     const groupIds = response?.data?.groups || response?.groups || [];
     setGroups(groupIds);
   };
@@ -143,6 +197,10 @@ const MentorEvaluation = () => {
       setFields([]);
       setTotalMarks(0);
       setAllowedYears([]);
+      setEditAfterSubmitRoles([]);
+      setSubmitRoles([]);
+      setHasSubmission(false);
+      setIsApproved(false);
       return;
     }
 
@@ -164,6 +222,9 @@ const MentorEvaluation = () => {
       const sortedFields = [...normalizedFields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setFields(sortedFields);
       setAllowedYears(normalizeAllowedYears(form?.allowed_years || []));
+      setEditAfterSubmitRoles(normalizeRoleList(form?.edit_after_submit_roles || []));
+      setSubmitRoles(normalizeRoleList(form?.submit_roles || []));
+      setMentorEditEnabledGroups(Array.isArray(form?.mentor_edit_enabled_groups) ? form.mentor_edit_enabled_groups : []);
     }
   };
 
@@ -173,6 +234,27 @@ const MentorEvaluation = () => {
     setIsLoading(true);
     setStatusMessage("");
     setIsReadOnly(false);
+    setHasSubmission(false);
+    setIsApproved(false);
+    
+    console.log('🔍 === LOADING GROUP DEBUG ===');
+    console.log('📋 Form ID:', selectedFormId);
+    console.log('👥 Group ID:', groupId);
+    
+    // Refresh form data to get latest mentor_edit_enabled_groups
+    const formResponse = await apiRequest(`/api/mentors/evaluation-forms/${selectedFormId}`, "GET", null, token);
+    
+    console.log('📡 Form Response:', formResponse);
+    
+    if (formResponse?.success) {
+      const form = formResponse.data;
+      const enabledGroups = Array.isArray(form?.mentor_edit_enabled_groups) ? form.mentor_edit_enabled_groups : [];
+      console.log('✅ Enabled Groups from API:', enabledGroups);
+      setMentorEditEnabledGroups(enabledGroups);
+    } else {
+      console.log('❌ Failed to fetch form data');
+    }
+    
     const response = await apiRequest(
       `/api/mentors/evaluation-forms/${selectedFormId}/group/${groupId}`,
       "GET",
@@ -225,10 +307,18 @@ const MentorEvaluation = () => {
 
     if (submissionResponse?.success && submissionResponse.data) {
       const submission = submissionResponse.data;
+      setHasSubmission(true);
+      setIsApproved(Boolean(submission.is_approved));
+      
+      console.log('📝 Submission found:', {
+        group_id: submission.group_id,
+        is_approved: submission.is_approved
+      });
+      
       const evaluationRows = Array.isArray(submission.evaluations) ? submission.evaluations : [];
       const mapped = freshStudents.map((student) => {
         const existing = evaluationRows.find(
-          (row) => (row.enrollment_no || row.enrollement_no) === student.enrollment_no
+          (row) => String(row.enrollment_no || row.enrollement_no || "").trim() === String(student.enrollment_no || "").trim()
         );
 
         if (!existing) return student;
@@ -247,7 +337,29 @@ const MentorEvaluation = () => {
         };
       });
 
-      setStudents(mapped);
+      const commonFieldKeys = [
+        ...orderedFields.textFields,
+        ...orderedFields.commonSelectFields,
+        ...orderedFields.commonFileFields
+      ].map((field) => field.key);
+
+      const commonMarks = commonFieldKeys.reduce((acc, key) => {
+        const sourceRow = evaluationRows.find((row) => hasMeaningfulValue(row?.marks?.[key]));
+        if (sourceRow && hasMeaningfulValue(sourceRow?.marks?.[key])) {
+          acc[key] = sourceRow.marks[key];
+        }
+        return acc;
+      }, {});
+
+      const mappedWithCommon = mapped.map((student) => ({
+        ...student,
+        marks: {
+          ...student.marks,
+          ...commonMarks
+        }
+      }));
+
+      setStudents(mappedWithCommon);
       const fromSubmission = orderedFields.booleanFields.reduce((acc, field) => {
         const firstRow = evaluationRows[0];
         acc[field.key] = Boolean(firstRow?.marks?.[field.key]);
@@ -256,10 +368,52 @@ const MentorEvaluation = () => {
       setGroupBooleans(fromSubmission);
       setExternalName(submission.external_name || "");
       setFeedback(submission.feedback || "");
-      setIsReadOnly(true);
-      setStatusMessage("Evaluation already submitted. Editing is disabled.");
+      
+      // Get fresh mentor edit enabled groups from the form we just fetched
+      const latestEnabledGroups = formResponse?.success && Array.isArray(formResponse.data?.mentor_edit_enabled_groups)
+        ? formResponse.data.mentor_edit_enabled_groups
+        : [];
+      
+      const normalizedGroupId = normalizeGroupId(groupId);
+      const normalizedEnabledGroups = latestEnabledGroups.map((id) => normalizeGroupId(id)).filter(Boolean);
+      const isEditEnabledForThisGroup = normalizedEnabledGroups.includes(normalizedGroupId);
+      
+      console.log('🔑 Permission Check:');
+      console.log('  - Raw Group ID:', groupId);
+      console.log('  - Normalized Group ID:', normalizedGroupId);
+      console.log('  - Raw Enabled Groups:', latestEnabledGroups);
+      console.log('  - Normalized Enabled Groups:', normalizedEnabledGroups);
+      console.log('  - Is Edit Enabled?', isEditEnabledForThisGroup);
+      console.log('  - Is Approved?', submission.is_approved);
+      
+      if (isEditEnabledForThisGroup) {
+        // Mentor edit is ENABLED - allow editing even if approved
+        setIsReadOnly(false);
+        if (submission.is_approved) {
+          setStatusMessage("✓ Mentor edit enabled (overrides approval). You can update marks.");
+          console.log('✅ RESULT: Editing ENABLED (overrides approval)');
+        } else {
+          setStatusMessage("✓ Mentor edit enabled. You can update marks.");
+          console.log('✅ RESULT: Editing ENABLED');
+        }
+      } else {
+        // Mentor edit is NOT enabled - disable editing
+        setIsReadOnly(true);
+        if (submission.is_approved) {
+          setStatusMessage("✗ Evaluation approved. Editing disabled.");
+          console.log('❌ RESULT: Editing DISABLED (approved)');
+        } else {
+          setStatusMessage("✗ Editing disabled. Ask admin to enable mentor edit.");
+          console.log('❌ RESULT: Editing DISABLED (not enabled)');
+        }
+      }
+    } else {
+      setHasSubmission(false);
+      setIsApproved(false);
+      console.log('ℹ️ No submission found for this group');
     }
-
+    
+    console.log('🏁 === END DEBUG ===\n');
     setIsLoading(false);
   };
 
@@ -379,7 +533,19 @@ const MentorEvaluation = () => {
   };
 
   const handleSubmit = async () => {
-    if (!selectedFormId || !selectedGroupId || students.length === 0 || isReadOnly) return;
+    if (!selectedFormId || !selectedGroupId || students.length === 0 || !isFormSelected) {
+      return;
+    }
+
+    if (hasSubmission && !isMentorEditEnabledForGroup) {
+      setStatusMessage("✗ Editing is disabled. Cannot update marks.");
+      return;
+    }
+
+    if (!canSubmitForm) {
+      setStatusMessage("✗ Your role is not allowed to submit this form.");
+      return;
+    }
 
     setIsSubmitting(true);
     const payload = {
@@ -403,20 +569,65 @@ const MentorEvaluation = () => {
     );
 
     if (response?.success) {
-      setStatusMessage("Evaluation submitted successfully.");
-      setIsReadOnly(true);
+      setHasSubmission(true);
+      
+      // Refresh form to get latest mentor_edit_enabled_groups configured by admin
+      const formResponse = await apiRequest(`/api/mentors/evaluation-forms/${selectedFormId}`, "GET", null, token);
+      if (formResponse?.success) {
+        const updatedEnabledGroups = Array.isArray(formResponse.data?.mentor_edit_enabled_groups) 
+          ? formResponse.data.mentor_edit_enabled_groups 
+          : [];
+        setMentorEditEnabledGroups(updatedEnabledGroups);
+        
+        const normalizedGroupId = normalizeGroupId(selectedGroupId);
+        const normalizedEnabledGroups = updatedEnabledGroups.map((id) => normalizeGroupId(id)).filter(Boolean);
+        const stillEnabled = normalizedEnabledGroups.includes(normalizedGroupId);
+        
+        if (stillEnabled) {
+          setIsReadOnly(false);
+          setStatusMessage("✓ Evaluation updated. Mentor edit is enabled by admin.");
+        } else {
+          setIsReadOnly(true);
+          setStatusMessage("✓ Evaluation updated. Editing is disabled until admin enables mentor edit.");
+        }
+      } else {
+        setIsReadOnly(true);
+        setStatusMessage("✓ Evaluation updated. Editing is disabled until admin enables mentor edit.");
+      }
     } else {
-      setStatusMessage(response?.message || "Failed to submit evaluation.");
+      setStatusMessage(response?.message || "✗ Failed to submit evaluation.");
     }
 
     setIsSubmitting(false);
+  };
+
+  const handleApprove = async () => {
+    if (!isIndustryMentorLoggedIn || !selectedFormId || !selectedGroupId || !hasSubmission || isApproved) return;
+
+    setIsApproving(true);
+    const response = await apiRequest(
+      `/api/mentors/evaluation-forms/${selectedFormId}/group/${selectedGroupId}/approve`,
+      "POST",
+      null,
+      token
+    );
+
+    if (response?.success) {
+      setIsApproved(true);
+      setIsReadOnly(true);
+      setStatusMessage("Evaluation approved successfully.");
+    } else {
+      setStatusMessage(response?.message || "Failed to approve evaluation.");
+    }
+
+    setIsApproving(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f7f5ff] via-white to-[#eef2ff]">
       <MentorHeader name={mentorName} id={mentorId} />
       <div className="flex pt-24 lg:pt-28 px-2 lg:px-8">
-        <MentorSidebar />
+        {isIndustryMentorUser ? <IndustryMentorSidebar /> : <MentorSidebar />}
         <main className="flex-1 p-2 sm:p-3 bg-white/95 backdrop-blur m-4 lg:ml-72 rounded-2xl shadow-xl ring-1 ring-purple-100 space-y-2 mt-0 sm:mt-1 lg:mt-2 text-gray-900">
           <div className="flex flex-col gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -464,6 +675,11 @@ const MentorEvaluation = () => {
             {isFormSelected && allowedYears.length > 0 && (
               <p className="text-xs text-purple-600">
                 Showing groups for: {allowedYears.join(", ")}
+              </p>
+            )}
+            {isFormSelected && !canSubmitForm && (
+              <p className="text-xs text-amber-600">
+                Submit is disabled for your role on this form.
               </p>
             )}
             {statusMessage && (
@@ -799,13 +1015,32 @@ const MentorEvaluation = () => {
           </section>
 
           <div className="pt-4 flex flex-col items-center gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || students.length === 0 || isReadOnly || !isFormSelected}
-              className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isSubmitting ? "Submitting Evaluation..." : isReadOnly ? "Evaluation Submitted" : "Submit Evaluation"}
-            </button>
+            {isIndustryMentorLoggedIn && isFormSelected && Boolean(selectedGroupId) && (
+              <button
+                onClick={handleApprove}
+                disabled={isApproving || !hasSubmission || isApproved}
+                className="bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-emerald-700 transition flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isApproving ? "Approving..." : isApproved ? "Evaluation Approved" : !hasSubmission ? "No Submission To Approve" : "Approve Evaluation"}
+              </button>
+            )}
+            {canSubmitForm && (
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting || students.length === 0 || !isFormSelected || (hasSubmission && !isMentorEditEnabledForGroup)}
+                className="loginbutton text-white px-6 py-3 rounded-lg shadow-md hover:opacity-90 transition transform hover:scale-105 flex items-center justify-center gap-2 w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isSubmitting
+                  ? "Submitting..."
+                  : hasSubmission && isMentorEditEnabledForGroup
+                    ? "Update Evaluation"
+                    : isApproved
+                      ? "Approved (Locked)"
+                      : hasSubmission
+                        ? "Submitted (Locked)"
+                        : "Submit Evaluation"}
+              </button>
+            )}
             <p className="text-sm text-gray-500 text-center mt-2">
               Select a form and group, fill marks, then submit the evaluation.
             </p>

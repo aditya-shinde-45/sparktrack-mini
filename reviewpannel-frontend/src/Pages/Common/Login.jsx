@@ -43,6 +43,29 @@ const Login = () => {
 
   // External login removed
 
+  const validatePasswordStrength = (pw) => {
+    if (!pw || pw.length < 8) return { valid: false, message: 'Password must be at least 8 characters long.' };
+    if (!/[A-Z]/.test(pw)) return { valid: false, message: 'Password must contain at least one uppercase letter.' };
+    if (!/[a-z]/.test(pw)) return { valid: false, message: 'Password must contain at least one lowercase letter.' };
+    if (!/[0-9]/.test(pw)) return { valid: false, message: 'Password must contain at least one number.' };
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(pw)) return { valid: false, message: 'Password must contain at least one special character.' };
+    return { valid: true };
+  };
+
+  const toErrorText = (value, fallback = "An unexpected error occurred") => {
+    if (!value) return fallback;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      if (typeof value.message === "string") return value.message;
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return fallback;
+      }
+    }
+    return String(value);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -63,6 +86,13 @@ const Login = () => {
       
       // Handle Admin login with role-based authentication first
       if (role === "Admin") {
+        const isMainAdminAccount = username === "8698078603";
+
+        // Main admin must use the regular admin login flow to receive a non-role-based token.
+        if (isMainAdminAccount) {
+          endpoint = "/api/auth/login";
+          payload = { username, password, role: apiRole };
+        } else {
         // Try role login first for all admin logins
         console.log("Attempting role login for username:", username);
         try {
@@ -87,6 +117,8 @@ const Login = () => {
             }
             
             localStorage.setItem("token", token);
+            localStorage.setItem("admin_token", token);
+            localStorage.setItem("admin_token", token);
             localStorage.setItem("role", "admin");
             localStorage.setItem("user_id", username);
             localStorage.setItem("name", username);
@@ -111,7 +143,7 @@ const Login = () => {
             } else {
               // 401/403 → user exists but wrong password or disabled — stop here
               console.log("Role login failed:", roleLoginResponse.message);
-              setErrorMsg(roleLoginResponse.message || "Invalid credentials");
+              setErrorMsg(toErrorText(roleLoginResponse.message, "Invalid credentials"));
               return;
             }
           }
@@ -135,6 +167,7 @@ const Login = () => {
         console.log("Attempting regular admin login for username:", username);
         endpoint = "/api/auth/login";
         payload = { username, password, role: apiRole };
+        }
       } else if (role === "Mentor") {
         // For mentor login, send credentials directly
         // Backend will handle first-time login with default password 'ideabliss2305'
@@ -152,7 +185,7 @@ const Login = () => {
       
       // Check for success flag to determine if request was successful
       if (!data || data.success === false) {
-        setErrorMsg(data?.message || "Login failed. Invalid credentials.");
+        setErrorMsg(toErrorText(data?.message, "Login failed. Invalid credentials."));
         return;
       }
 
@@ -258,7 +291,7 @@ const Login = () => {
         console.log("Regular admin login response:", data);
         
         if (!data || data.success === false) {
-          setErrorMsg(data?.message || "Login failed. Invalid credentials.");
+          setErrorMsg(toErrorText(data?.message, "Login failed. Invalid credentials."));
           return;
         }
 
@@ -288,7 +321,7 @@ const Login = () => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setErrorMsg(error.message || "An unexpected error occurred");
+      setErrorMsg(toErrorText(error?.message || error, "An unexpected error occurred"));
     } finally {
       setLoading(false);
     }
@@ -355,8 +388,9 @@ const Login = () => {
       setOtpError('Passwords do not match.');
       return;
     }
-    if (mentorPassword.length < 6) {
-      setOtpError('Password must be at least 6 characters long.');
+    const pwCheck = validatePasswordStrength(mentorPassword);
+    if (!pwCheck.valid) {
+      setOtpError(pwCheck.message);
       return;
     }
 
@@ -409,7 +443,10 @@ const Login = () => {
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      const requestOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/request-otp'
+        : '/api/mentors/request-otp';
+      const res = await apiRequest(requestOtpEndpoint, 'POST', { contact_number: fpContact });
       if (res && res.success) {
         setFpSessionToken(res.data.session_token);
         setFpMaskedEmail(res.data.email);
@@ -430,7 +467,10 @@ const Login = () => {
     setFpOtp('');
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/request-otp', 'POST', { contact_number: fpContact });
+      const requestOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/request-otp'
+        : '/api/mentors/request-otp';
+      const res = await apiRequest(requestOtpEndpoint, 'POST', { contact_number: fpContact });
       if (res && res.success) {
         setFpSessionToken(res.data.session_token);
         setFpMaskedEmail(res.data.email);
@@ -454,7 +494,10 @@ const Login = () => {
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/verify-otp', 'POST', {
+      const verifyOtpEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/verify-otp'
+        : '/api/mentors/verify-otp';
+      const res = await apiRequest(verifyOtpEndpoint, 'POST', {
         session_token: fpSessionToken,
         otp: fpOtp,
       });
@@ -482,13 +525,17 @@ const Login = () => {
       setFpError('Passwords do not match.');
       return;
     }
-    if (fpPassword.length < 6) {
-      setFpError('Password must be at least 6 characters long.');
+    const pwCheck = validatePasswordStrength(fpPassword);
+    if (!pwCheck.valid) {
+      setFpError(pwCheck.message);
       return;
     }
     try {
       setFpLoading(true);
-      const res = await apiRequest('/api/mentors/set-password', 'POST', {
+      const setPasswordEndpoint = role === 'Industry Mentor'
+        ? '/api/industrial-mentors/set-password'
+        : '/api/mentors/set-password';
+      const res = await apiRequest(setPasswordEndpoint, 'POST', {
         contact_number: fpContact,
         session_token: fpSessionToken,
         password: fpPassword,
@@ -655,8 +702,8 @@ const Login = () => {
                 )}
               </button>
 
-              {/* Forgot Password – only for mentors */}
-              {role === 'Mentor' && (
+              {/* Forgot Password – for Mentor and Industry Mentor */}
+              {(role === 'Mentor' || role === 'Industry Mentor') && (
                 <p className="text-center text-white/70 text-sm">
                   Forgot your password?{' '}
                   <button
@@ -787,11 +834,11 @@ const Login = () => {
                     className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
                              text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
                              focus:border-white/60 transition-all duration-300 shadow-lg"
-                    placeholder="New Password (min 6 characters)"
+                    placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                     value={mentorPassword}
                     onChange={(e) => setMentorPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={otpModalLoading}
                   />
                   <input
@@ -987,11 +1034,11 @@ const Login = () => {
                     className="w-full px-6 py-4 bg-white/20 backdrop-blur-md border-2 border-white/30 rounded-xl
                              text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50
                              focus:border-white/60 transition-all duration-300 shadow-lg"
-                    placeholder="New Password (min 6 characters)"
+                    placeholder="New Password (min 8 chars, A-Z, 0-9, symbol)"
                     value={fpPassword}
                     onChange={(e) => setFpPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                     disabled={fpLoading}
                   />
                   <input

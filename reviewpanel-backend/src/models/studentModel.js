@@ -5,7 +5,7 @@ import supabase from '../config/database.js';
  */
 class StudentModel {
   constructor() {
-    this.studentsTable = 'students';
+    this.studentsTable = 'students1';
     this.profileTable = 'student_profiles';
     this.pblTable = 'pbl';
     this.announcementsTable = 'announcements';

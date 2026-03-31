@@ -9,7 +9,7 @@ const PROFILE_BUCKET = 'student-files';
 class StudentProfileModel {
   constructor() {
     this.profileTable = 'student_profiles';
-    this.studentsTable = 'students';
+    this.studentsTable = 'students1';
   }
 
   /**
