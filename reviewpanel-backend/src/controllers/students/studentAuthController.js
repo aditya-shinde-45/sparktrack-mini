@@ -37,6 +37,7 @@ class StudentAuthController {
       student_id: student.student_id,
       enrollment_no: student.enrollment_no,
       email: student.email,
+      name: student.name,
       role: student.role,
     });
 

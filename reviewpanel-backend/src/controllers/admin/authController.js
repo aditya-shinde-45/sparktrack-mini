@@ -80,12 +80,15 @@ class AuthController {
           };
         }
       } else if (decoded.role === 'student') {
-        // Student token should have student_id, name, role
-        if (decoded.student_id && decoded.name && decoded.role) {
+        // Student token should have student_id and role; name may be absent in legacy tokens.
+        if (decoded.student_id && decoded.role) {
+          const resolvedName = decoded.name || decoded.enrollment_no || decoded.email || decoded.student_id;
           isValid = true;
           userInfo = {
             student_id: decoded.student_id,
-            name: decoded.name,
+            enrollment_no: decoded.enrollment_no || decoded.student_id,
+            email: decoded.email,
+            name: resolvedName,
             role: decoded.role
           };
         }
