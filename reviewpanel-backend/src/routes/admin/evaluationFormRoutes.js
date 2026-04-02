@@ -133,7 +133,7 @@ router.put(
 router.patch(
   '/evaluation-forms/:formId/toggle-mentor-edit',
   authMiddleware.verifyToken,
-  authMiddleware.authenticateAdmin,
+  authMiddleware.authenticateUser,
   evaluationFormController.toggleMentorEditEnabled
 );
 
@@ -145,7 +145,7 @@ router.patch(
 router.put(
   '/evaluation-forms/:formId/mentor-edit-groups',
   authMiddleware.verifyToken,
-  authMiddleware.authenticateAdmin,
+  authMiddleware.authenticateUser,
   evaluationFormController.setMentorEditGroups
 );
 

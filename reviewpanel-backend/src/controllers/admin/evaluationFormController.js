@@ -108,20 +108,18 @@ class EvaluationFormController {
   isRoleBasedAdmin = (user = {}) => this.isAdmin(user) && Boolean(user?.isRoleBased);
 
   hasEvaluationSubmissionAccess = (user = {}) => {
-    if (!this.isRoleBasedAdmin(user)) return true;
     const permissions = Array.isArray(user?.tablePermissions)
       ? user.tablePermissions
       : (Array.isArray(user?.table_permissions) ? user.table_permissions : []);
+
+    if (!this.isRoleBasedAdmin(user)) return true;
+
     return permissions.includes('evaluation_form_submission');
   };
 
   assertEvaluationSubmissionAccess = (user = {}, action = 'access evaluation submissions') => {
-    if (!this.isAdmin(user)) {
-      throw ApiError.forbidden('Admin access required');
-    }
-
     if (!this.hasEvaluationSubmissionAccess(user)) {
-      throw ApiError.forbidden(`You do not have permission to ${action}`);
+      throw ApiError.forbidden('Admin access required');
     }
   };
 
