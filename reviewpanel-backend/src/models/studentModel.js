@@ -155,9 +155,25 @@ class StudentModel {
       profiles = profileRows || [];
     }
 
+    let studentCoreRows = [];
+    if (enrollmentNumbers.length) {
+      const { data: studentRows, error: studentRowsError } = await supabase
+        .from(this.studentsTable)
+        .select('enrollment_no, student_contact_no, student_email_id, class_division')
+        .in('enrollment_no', enrollmentNumbers);
+
+      if (studentRowsError) throw studentRowsError;
+      studentCoreRows = studentRows || [];
+    }
+
     const profileMap = new Map();
     profiles.forEach(profile => {
       profileMap.set(profile.enrollment_no, profile.profile_picture_url);
+    });
+
+    const studentCoreMap = new Map();
+    studentCoreRows.forEach(row => {
+      studentCoreMap.set(row.enrollment_no, row);
     });
 
     let mentorName = null;
@@ -180,9 +196,18 @@ class StudentModel {
       mentor_code: mentorCode,
       mentor_name: mentorName,
       members: members.map(member => ({
+        ...(studentCoreMap.get(member.enrollment_no) || {}),
         enrollement_no: member.enrollment_no,
         name_of_student: member.student_name,
         is_leader: member.is_leader || false,
+        class: studentCoreMap.get(member.enrollment_no)?.class_division || null,
+        class_division: studentCoreMap.get(member.enrollment_no)?.class_division || null,
+        contact: studentCoreMap.get(member.enrollment_no)?.student_contact_no || null,
+        phone: studentCoreMap.get(member.enrollment_no)?.student_contact_no || null,
+        student_contact_no: studentCoreMap.get(member.enrollment_no)?.student_contact_no || null,
+        email: studentCoreMap.get(member.enrollment_no)?.student_email_id || null,
+        email_id: studentCoreMap.get(member.enrollment_no)?.student_email_id || null,
+        student_email_id: studentCoreMap.get(member.enrollment_no)?.student_email_id || null,
         profile_picture_url: profileMap.get(member.enrollment_no) || null,
       })),
     };

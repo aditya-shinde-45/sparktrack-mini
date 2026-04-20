@@ -8,7 +8,7 @@ import InfoDrawer from "../../Components/Student/InfoDrawer";
 import { DashboardCards } from "../../Components/Student/DashboardCards";
 import StudentPosts from "../../Components/Student/posts";
 import Loading from "../../Components/Common/loading";
-import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus, CheckCircle, XCircle, Clock, AlertCircle, Users, ClipboardCheck, BellRing, Sparkles, ChevronRight } from "lucide-react";
+import { Download, FileText, Image, File, ExternalLink, Megaphone, Calendar, Paperclip, Lightbulb, Target, Code, Globe, BookOpen, Plus, CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -161,7 +161,6 @@ const StudentDashboard = () => {
     try {
       let title = "";
       let message = "";
-      const token = localStorage.getItem("student_token");
 
       switch (type) {
         case "Announcements":
@@ -318,23 +317,7 @@ const StudentDashboard = () => {
   if (!student)
     return <Loading message="Loading your dashboard" />;
 
-  const evaluatedForms = evaluationMarks.filter((entry) => !!entry.evaluation).length;
-  const totalEvaluations = evaluationMarks.length;
-  const pendingEvaluations = Math.max(totalEvaluations - evaluatedForms, 0);
-  const totalAnnouncements = announcements.length;
   const hasGroup = !!groupSnapshot?.group_id;
-  const teamSize = Array.isArray(groupSnapshot?.members)
-    ? groupSnapshot.members.length
-    : Array.isArray(groupSnapshot?.students)
-    ? groupSnapshot.students.length
-    : Array.isArray(groupSnapshot?.group_members)
-    ? groupSnapshot.group_members.length
-    : hasGroup
-    ? 1
-    : 0;
-
-  const approvedProblem = problem?.status === "APPROVED";
-  const pendingProblem = problem?.status && problem?.status !== "APPROVED" && problem?.status !== "REJECTED";
 
   const problemStatusClasses = problem?.status === "APPROVED"
     ? "bg-green-100 text-green-700"
@@ -342,124 +325,24 @@ const StudentDashboard = () => {
     ? "bg-red-100 text-red-700"
     : "bg-yellow-100 text-yellow-700";
 
-  const topStats = [
-    {
-      label: "Team Members",
-      value: teamSize,
-      icon: Users,
-      from: "from-purple-500",
-      to: "to-purple-700",
-      light: "text-purple-100",
-      hint: hasGroup ? "Active team" : "No finalized group",
-    },
-    {
-      label: "Evaluated Forms",
-      value: evaluatedForms,
-      icon: ClipboardCheck,
-      from: "from-violet-500",
-      to: "to-violet-700",
-      light: "text-violet-100",
-      hint: `${pendingEvaluations} pending`,
-    },
-    {
-      label: "Announcements",
-      value: totalAnnouncements,
-      icon: BellRing,
-      from: "from-indigo-500",
-      to: "to-indigo-700",
-      light: "text-indigo-100",
-      hint: "Latest updates",
-    },
-    {
-      label: "Problem Status",
-      value: problem?.status ? 1 : 0,
-      icon: Sparkles,
-      from: "from-fuchsia-500",
-      to: "to-indigo-600",
-      light: "text-fuchsia-100",
-      hint: problem?.status || "Not submitted",
-    },
-  ];
-
   return (
-    <div className="font-[Poppins] bg-white flex flex-col min-h-screen">
+    <div className="font-[Poppins] bg-purple-50/40 flex flex-col min-h-screen overflow-x-hidden">
       <Header
         name={student?.name_of_student || student?.name_of_students || student?.name || "Student"}
         id={student?.enrollment_no || "----"}
       />
       <div className="flex flex-1 flex-col lg:flex-row mt-[72px]">
         <Sidebar />
-        <main className="flex-1 px-3 py-5 sm:px-5 md:px-8 bg-white lg:ml-72 mb-24 lg:mb-0">
-          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-7">
-            <div
-              className="rounded-2xl p-5 sm:p-7 text-white shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-              style={{ background: "linear-gradient(120deg,#6d58f0 0%,#4e38c7 55%,#3b2aad 100%)" }}
-            >
-              <div>
-                <p className="text-purple-200 text-xs sm:text-sm font-medium uppercase tracking-wider mb-1">
-                  Student Dashboard
-                </p>
-                <h1 className="text-[clamp(1.75rem,7.5vw,2.25rem)] font-bold leading-tight break-words">
-                  Welcome, {student?.name_of_student || student?.name_of_students || student?.name || "Student"}
-                </h1>
-                <p className="text-purple-200 text-sm mt-1">
-                  Track your team, evaluations, and project statement from one place.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
-                <div className="bg-white/10 border border-white/20 rounded-xl px-3 sm:px-4 py-3 w-full sm:min-w-[130px]">
-                  <p className="text-xs text-purple-200 font-medium">Enrollment</p>
-                  <p className="text-white font-bold text-base truncate">{student?.enrollment_no || "----"}</p>
-                </div>
-                <div className="bg-white/10 border border-white/20 rounded-xl px-3 sm:px-4 py-3 w-full sm:min-w-[130px]">
-                  <p className="text-xs text-purple-200 font-medium">Evaluated Forms</p>
-                  <p className="text-white font-bold text-base">{evaluatedForms}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
-              {topStats.map(({ label, value, icon: Icon, from, to, light, hint }) => (
-                <div
-                  key={label}
-                  className={`bg-gradient-to-br ${from} ${to} rounded-2xl p-4 sm:p-5 text-white shadow-md hover:shadow-xl transition-all`}
-                >
-                  <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
-                    <div className="p-2 bg-white/20 rounded-xl">
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <span className="text-2xl sm:text-4xl font-extrabold leading-none">{value}</span>
-                  </div>
-                  <p className={`${light} text-xs sm:text-sm font-semibold leading-tight`}>{label}</p>
-                  <p className="text-[11px] sm:text-xs text-white/80 mt-1 truncate">{hint}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-purple-800">Quick Actions</h2>
-                  <p className="text-xs sm:text-sm text-gray-500">Fast access to announcements, posts, documents, and collaboration tools.</p>
-                </div>
-                <button
-                  onClick={() => handleCardClick("Announcements")}
-                  className="inline-flex items-center gap-1.5 text-sm text-purple-600 hover:text-purple-800 font-semibold"
-                >
-                  Open announcements
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="mt-4">
-                <DashboardCards onCardClick={handleCardClick} />
-              </div>
+        <main className="flex-1 lg:flex-none lg:w-[calc(100%-272px)] px-3 sm:px-4 md:px-6 py-5 bg-purple-50/40 lg:ml-[272px] mb-24 lg:mb-0 overflow-x-hidden">
+          <div className="w-full space-y-6 sm:space-y-7">
+            <div className="bg-white rounded-2xl shadow-sm border border-purple-200 p-4 sm:p-5">
+              <DashboardCards onCardClick={handleCardClick} />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8">
               <div className="xl:col-span-8">
                 <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-purple-800">Team Workspace</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-purple-900">Team Workspace</h2>
                   {hasGroup && (
                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">
                       Group: {groupSnapshot?.group_id}
@@ -469,9 +352,9 @@ const StudentDashboard = () => {
               <GroupDetails enrollmentNo={student.enrollment_no} />
 
               {/* Evaluation Marks */}
-                <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-purple-100 mt-6 sm:mt-8 flex flex-col">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-purple-200 mt-6 sm:mt-8 flex flex-col">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                    <h2 className="text-xl font-bold text-purple-800">Evaluation Marks</h2>
+                    <h2 className="text-xl font-bold text-purple-900">Evaluation Marks</h2>
                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-100 text-purple-700">
                       {evaluationMarks.length} total
                     </span>
@@ -528,7 +411,7 @@ const StudentDashboard = () => {
               </div>
             </div>
 
-              <div className="xl:col-span-4 bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden h-fit xl:sticky xl:top-24">
+              <div className="xl:col-span-4 bg-white rounded-2xl shadow-sm border border-purple-200 overflow-hidden h-fit xl:sticky xl:top-24">
               {/* Header */}
                 <div className="px-5 sm:px-6 py-5 border-b border-purple-100 bg-gradient-to-r from-purple-600 to-purple-700">
                 <div className="flex items-center gap-3">
@@ -681,7 +564,7 @@ const StudentDashboard = () => {
                     </p>
                     <a
                       href="/student/problem-statement"
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-sm hover:from-purple-700 hover:to-purple-800 transition-all"
                     >
                       <Plus className="w-5 h-5" />
                       Add Problem Statement
@@ -691,21 +574,6 @@ const StudentDashboard = () => {
               </div>
             </div>
             </div>
-
-            {problem?.status && (
-              <div className="rounded-2xl border border-purple-100 bg-white p-4 sm:p-5 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-purple-700">Project Statement Status</p>
-                    <p className="text-xs text-gray-500">Keep your problem statement updated for faster mentor review.</p>
-                  </div>
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold w-fit ${problemStatusClasses}`}>
-                    {approvedProblem ? <CheckCircle className="w-4 h-4" /> : pendingProblem ? <Clock className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                    {problem.status}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </main>
       </div>

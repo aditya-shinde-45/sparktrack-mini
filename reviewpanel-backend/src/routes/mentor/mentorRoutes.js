@@ -4,6 +4,14 @@ import mentorAuthController from '../../controllers/mentor/mentorAuthController.
 import zerothReviewController from '../../controllers/mentor/zerothReviewController.js';
 import mentorDocumentController from '../../controllers/mentor/mentorDocumentController.js';
 import problemStatementReviewController from '../../controllers/mentor/problemStatementReviewController.js';
+import {
+  getMentorNocProgressList,
+  getMentorTrackerProgressList,
+  getMentorNocByGroup,
+  getMentorTrackerByGroup,
+  reviewMentorNocByGroup,
+  reviewMentorTrackerByGroup,
+} from '../../controllers/mentor/mentorFormReviewController.js';
 import authMiddleware from '../../middleware/authMiddleware.js';
 import { loginLimiter, passwordResetLimiter } from '../../middleware/rateLimiter.js';
 
@@ -257,6 +265,78 @@ router.get(
   authMiddleware.verifyToken,
   authMiddleware.authorize(['mentor', 'industry_mentor']),
   mentorController.getEvaluationMarksByGroup
+);
+
+/**
+ * @route   GET /api/mentors/forms/noc
+ * @desc    Get NOC progress for all mentor groups
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/forms/noc',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  getMentorNocProgressList
+);
+
+/**
+ * @route   GET /api/mentors/forms/noc/:groupId
+ * @desc    Get NOC form details for a specific mentor group
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/forms/noc/:groupId',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  getMentorNocByGroup
+);
+
+/**
+ * @route   PUT /api/mentors/forms/noc/:groupId/review
+ * @desc    Approve or reject NOC form for a mentor group
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/forms/noc/:groupId/review',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  reviewMentorNocByGroup
+);
+
+/**
+ * @route   GET /api/mentors/forms/tracker-sheet
+ * @desc    Get tracker sheet progress for all mentor groups
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/forms/tracker-sheet',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  getMentorTrackerProgressList
+);
+
+/**
+ * @route   GET /api/mentors/forms/tracker-sheet/:groupId
+ * @desc    Get tracker sheet details for a specific mentor group
+ * @access  Private (Mentor)
+ */
+router.get(
+  '/forms/tracker-sheet/:groupId',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  getMentorTrackerByGroup
+);
+
+/**
+ * @route   PUT /api/mentors/forms/tracker-sheet/:groupId/review
+ * @desc    Approve or reject tracker sheet for a mentor group
+ * @access  Private (Mentor)
+ */
+router.put(
+  '/forms/tracker-sheet/:groupId/review',
+  authMiddleware.verifyToken,
+  authMiddleware.authorize(['mentor']),
+  reviewMentorTrackerByGroup
 );
 
 export default router;

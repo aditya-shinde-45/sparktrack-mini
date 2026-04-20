@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import mitlogo from "../../assets/mitlogo.png";
 import { apiRequest } from "../../api.js";
-import { User, ChevronDown, KeyRound, LogOut, Eye, EyeOff, CheckCircle2, XCircle, GraduationCap, ArrowLeft } from "lucide-react";
+import { User, ChevronDown, KeyRound, LogOut, Eye, EyeOff, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 
 const Header = ({ name, id }) => {
   const navigate = useNavigate();
@@ -226,19 +226,13 @@ const Header = ({ name, id }) => {
       <header
         className="fixed top-0 left-0 w-full z-50 h-[72px] flex items-center px-4 sm:px-6"
         style={{
-          background: "linear-gradient(100deg, rgba(109,88,240,0.82) 0%, rgba(78,56,199,0.88) 55%, rgba(59,42,173,0.90) 100%)",
-          backdropFilter: "blur(18px)",
-          WebkitBackdropFilter: "blur(18px)",
-          borderBottom: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 4px 24px rgba(78,56,199,0.25), inset 0 1px 0 rgba(255,255,255,0.15)",
+          background: "linear-gradient(100deg, rgba(109,88,240,0.9) 0%, rgba(78,56,199,0.92) 55%, rgba(59,42,173,0.94) 100%)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(255,255,255,0.16)",
+          boxShadow: "0 4px 24px rgba(78,56,199,0.28)",
         }}
       >
-        <div className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: "radial-gradient(circle at 20% 50%, rgba(255,255,255,0.06) 0%, transparent 60%), radial-gradient(circle at 80% 20%, rgba(139,92,246,0.15) 0%, transparent 50%)",
-          }}
-        />
-
         <div className="relative flex items-center gap-3 flex-shrink-0">
           <button
             onClick={handleBack}
@@ -248,35 +242,18 @@ const Header = ({ name, id }) => {
             <ArrowLeft size={16} />
           </button>
 
-          <div className="h-10 w-10 rounded-xl overflow-hidden p-1 flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)" }}>
-            <img src={mitlogo} alt="Logo" className="h-full w-full object-contain" />
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-white font-bold text-sm leading-tight tracking-wide drop-shadow-sm">Student Portal</p>
-            <p className="text-purple-200 text-[11px] font-medium leading-none mt-0.5">PBL Management System</p>
-          </div>
-        </div>
-
-        <div className="relative hidden sm:block mx-5 h-8 w-px" style={{ background: "rgba(255,255,255,0.18)" }} />
-
-        <div className="relative hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full"
-          style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)" }}>
-          <GraduationCap size={14} className="text-purple-200" />
-          <span className="text-white text-xs font-semibold">Student Panel</span>
+          <img src={mitlogo} alt="Logo" className="h-12 sm:h-14 w-auto object-contain" />
         </div>
 
         <div className="relative ml-auto flex items-center gap-3" ref={menuRef}>
           <div className="hidden sm:block text-right">
-            <p className="text-white font-semibold text-sm leading-tight drop-shadow-sm truncate max-w-[180px]">{displayName}</p>
+            <p className="text-white font-semibold text-sm leading-tight truncate max-w-[220px]">{displayName}</p>
             <p className="text-purple-200 text-[11px] font-mono mt-0.5">{displayId}</p>
           </div>
 
           <button
             onClick={() => setShowMenu((value) => !value)}
-            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl transition-all duration-200"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl transition-all duration-200 hover:bg-white/10"
           >
             <div className="relative">
               <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/20 border border-white/30 flex items-center justify-center text-white font-bold text-sm">
@@ -290,16 +267,16 @@ const Header = ({ name, id }) => {
                   <User size={18} className="text-white" />
                 )}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-[#4e38c7] shadow-[0_0_6px_rgba(74,222,128,0.9)]" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-purple-700" />
             </div>
-            <ChevronDown size={15} className={`text-white/70 transition-transform duration-200 ${showMenu ? "rotate-180" : ""}`} />
+            <ChevronDown size={15} className={`text-white/75 transition-transform duration-200 ${showMenu ? "rotate-180" : ""}`} />
           </button>
 
           {showMenu && (
-              <div className="absolute right-0 top-[calc(100%+10px)] w-52 bg-white rounded-2xl shadow-2xl ring-1 ring-black/8 overflow-hidden z-50">
-                <div className="px-4 py-3 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-gray-100">
+              <div className="absolute right-0 top-[calc(100%+10px)] w-52 bg-white rounded-2xl shadow-xl ring-1 ring-purple-200 overflow-hidden z-50">
+                <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
                   <p className="text-xs font-bold text-purple-800 truncate">{displayName}</p>
-                  <p className="text-[11px] text-gray-400 font-mono mt-0.5">{displayId}</p>
+                  <p className="text-[11px] text-purple-500 font-mono mt-0.5">{displayId}</p>
                 </div>
                 <div className="py-1.5">
                 <button
@@ -325,7 +302,7 @@ const Header = ({ name, id }) => {
                   Change Password
                 </button>
 
-                <div className="my-1.5 mx-3 border-t border-gray-100" />
+                <div className="my-1.5 mx-3 border-t border-purple-100" />
 
                 <button
                   onClick={handleLogout}
@@ -346,7 +323,7 @@ const Header = ({ name, id }) => {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-between">
+            <div className="px-6 py-4 bg-gradient-to-r from-purple-600 to-purple-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                   <KeyRound size={16} className="text-white" />
@@ -427,7 +404,7 @@ const Header = ({ name, id }) => {
                 <button
                   onClick={handleResetPassword}
                   disabled={loading}
-                  className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-md shadow-purple-500/20"
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 transition-colors"
                 >
                   {loading ? "Updating…" : "Update"}
                 </button>
