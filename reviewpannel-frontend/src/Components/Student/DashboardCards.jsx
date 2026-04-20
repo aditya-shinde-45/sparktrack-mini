@@ -1,74 +1,63 @@
 import React from "react";
 import { BellRing, ChevronRight, FileUp, MessageCircleMore, Sparkles } from "lucide-react";
 
-const CARD_THEMES = {
-  indigo: {
-    bg: "bg-indigo-50 hover:bg-indigo-100",
-    border: "border-indigo-200 hover:border-indigo-400",
-    icon: "text-indigo-600",
-    title: "text-indigo-800",
-    badge: "bg-indigo-100 text-indigo-700",
-  },
-  purple: {
-    bg: "bg-purple-50 hover:bg-purple-100",
-    border: "border-purple-200 hover:border-purple-400",
-    icon: "text-purple-600",
-    title: "text-purple-800",
-    badge: "bg-purple-100 text-purple-700",
-  },
-  emerald: {
-    bg: "bg-emerald-50 hover:bg-emerald-100",
-    border: "border-emerald-200 hover:border-emerald-400",
-    icon: "text-emerald-600",
-    title: "text-emerald-800",
-    badge: "bg-emerald-100 text-emerald-700",
-  },
-  orange: {
-    bg: "bg-orange-50 hover:bg-orange-100",
-    border: "border-orange-200 hover:border-orange-400",
-    icon: "text-orange-600",
-    title: "text-orange-800",
-    badge: "bg-orange-100 text-orange-700",
-  },
-};
-
 export const DashboardCards = ({ onCardClick }) => {
   const cards = [
     {
-      color: "indigo",
       title: "Announcements",
       subtitle: "Important updates & notices",
+      action: "Announcements",
       icon: BellRing,
+      cardStyle: "bg-indigo-100/70 border-indigo-200 hover:bg-indigo-100",
+      titleStyle: "text-indigo-800",
+      subtitleStyle: "text-indigo-700/80",
+      iconStyle: "text-indigo-600",
     },
     {
-      color: "purple",
-      title: "Events & Posts",
-      subtitle: "College events & updates",
-      icon: Sparkles,
-    },
-    {
-      color: "emerald",
       title: "Upload Document",
-      subtitle: "Submit project files",
+      subtitle: "Submit your work",
+      action: "Upload Document",
       icon: FileUp,
+      cardStyle: "bg-emerald-100/70 border-emerald-200 hover:bg-emerald-100",
+      titleStyle: "text-emerald-800",
+      subtitleStyle: "text-emerald-700/80",
+      iconStyle: "text-emerald-600",
     },
     {
-      color: "orange",
+      title: "Deadlines",
+      subtitle: "View upcoming updates",
+      action: "Events & Posts",
+      icon: Sparkles,
+      cardStyle: "bg-amber-100/70 border-amber-200 hover:bg-amber-100",
+      titleStyle: "text-amber-800",
+      subtitleStyle: "text-amber-700/80",
+      iconStyle: "text-amber-600",
+    },
+    {
       title: "Team Chat",
-      subtitle: "Communicate with team",
+      subtitle: "Communicate with group",
+      action: "Team Chat",
       icon: MessageCircleMore,
+      cardStyle: "bg-rose-100/70 border-rose-200 hover:bg-rose-100",
+      titleStyle: "text-rose-800",
+      subtitleStyle: "text-rose-700/80",
+      iconStyle: "text-rose-600",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
       {cards.map((card) => (
         <Card
           key={card.title}
-          color={card.color}
           title={card.title}
           subtitle={card.subtitle}
+          action={card.action}
           icon={card.icon}
+          cardStyle={card.cardStyle}
+          titleStyle={card.titleStyle}
+          subtitleStyle={card.subtitleStyle}
+          iconStyle={card.iconStyle}
           onClick={onCardClick}
         />
       ))}
@@ -76,28 +65,23 @@ export const DashboardCards = ({ onCardClick }) => {
   );
 };
 
-const Card = ({ color, title, subtitle, icon, onClick }) => {
-  const styles = CARD_THEMES[color] || CARD_THEMES.indigo;
+const Card = ({ title, subtitle, action, icon, cardStyle, titleStyle, subtitleStyle, iconStyle, onClick }) => {
   const Icon = icon;
 
   return (
     <button
-      onClick={() => onClick(title)}
-      className={`group text-left flex items-start sm:items-center gap-3 sm:gap-4 p-3.5 sm:p-5 ${styles.bg} rounded-xl border ${styles.border} transition-all shadow-sm hover:shadow-md`}
+      onClick={() => onClick(action || title)}
+      className={`group text-left flex items-center gap-3 sm:gap-4 min-h-[86px] sm:min-h-[92px] px-4 sm:px-5 py-3 rounded-xl border transition-all shadow-sm ${cardStyle}`}
     >
-      <div className={`p-2.5 bg-white rounded-xl shadow-sm flex-shrink-0`}>
-        <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${styles.icon}`} />
-      </div>
-
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className={`font-bold text-sm sm:text-base leading-tight ${styles.title}`}>{title}</h3>
-          <span className={`hidden sm:inline-flex text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full ${styles.badge}`}>Quick</span>
-        </div>
-        <p className="text-xs sm:text-sm text-gray-600 leading-tight">{subtitle}</p>
+        <h3 className={`font-bold text-base leading-tight mb-1 ${titleStyle}`}>{title}</h3>
+        <p className={`text-sm leading-tight ${subtitleStyle}`}>{subtitle}</p>
       </div>
 
-      <ChevronRight className={`w-4 h-4 ${styles.icon} ml-auto flex-shrink-0`} />
+      <div className="flex items-center gap-2">
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconStyle}`} />
+        <ChevronRight className="w-4 h-4 text-black/25 flex-shrink-0 group-hover:text-black/45" />
+      </div>
     </button>
   );
 };

@@ -296,7 +296,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
   // ✅ 1. If group already exists (finalized), show it first - highest priority
   if (groupDetails) {
     return (
-      <div className="card col-span-1 p-4 sm:p-6 bg-gradient-to-b from-white to-purple-50/30 rounded-2xl shadow-sm border border-purple-100">
+      <div className="card col-span-1 p-4 sm:p-5 bg-gradient-to-b from-white to-purple-50/30 rounded-2xl shadow-sm border border-purple-100">
         <MessageAlert />
         {groupDetails.team_name ? (
           <div className="mb-4 pb-3 border-b border-purple-100">
@@ -329,30 +329,30 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
           </div>
         )}
         <h2 className="text-base sm:text-lg font-semibold mb-2 text-gray-900">Group: {groupDetails.group_id}</h2>
-        <p className="text-sm sm:text-base text-gray-700 mb-5">
+        <p className="text-sm sm:text-base text-gray-700 mb-4">
           <strong className="text-gray-800">Guide:</strong>
           <span className="text-purple-700 ml-2 font-medium">
             {groupDetails.mentor_name || groupDetails.mentor_code || "Not Assigned"}
           </span>
         </p>
         
-        <div className="mb-6">
-          <h3 className="text-base sm:text-lg font-semibold text-purple-800 mb-4">Group Members ({groupDetails.members?.length || 0})</h3>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-purple-800 mb-2.5">Group Members ({groupDetails.members?.length || 0})</h3>
           
           {groupDetails.members && groupDetails.members.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {groupDetails.members.map((member, idx) => (
                 <div 
                   key={idx}
-                  className={`w-full rounded-xl p-3 sm:p-4 border transition-all duration-200 hover:shadow-md cursor-pointer ${
+                  className={`w-full rounded-xl px-3 py-2.5 border transition-all duration-200 hover:shadow-sm cursor-pointer ${
                     member.enrollement_no === enrollmentNo 
-                      ? 'border-purple-300 bg-purple-50/90 shadow-sm' 
-                      : 'border-gray-200 bg-white hover:border-purple-200'
+                      ? 'border-purple-300 bg-purple-50/90' 
+                      : 'border-gray-200 bg-gray-50/80 hover:border-purple-200'
                   }`}
                   onClick={() => handleMemberClick(member)}
                 >
-                  <div className="grid grid-cols-[auto,1fr,auto] items-center gap-3 sm:gap-4">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300 flex-shrink-0">
+                  <div className="grid grid-cols-[auto,1fr,auto] items-center gap-2.5 sm:gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border border-gray-300 flex-shrink-0">
                       {/* Profile Picture */}
                       {member.profile_picture_url ? (
                         <img
@@ -366,40 +366,45 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
                         />
                       ) : null}
                       <div className={`w-full h-full flex items-center justify-center ${member.profile_picture_url ? 'hidden' : 'flex'}`}>
-                        <User className="w-6 h-6 sm:w-7 sm:h-7 text-gray-400" />
+                        <User className="w-5 h-5 text-gray-400" />
                       </div>
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h4 className={`text-sm sm:text-lg font-semibold leading-tight break-words ${
+                      <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                        <h4 className={`text-sm sm:text-base font-semibold leading-tight break-words ${
                           member.enrollement_no === enrollmentNo ? 'text-purple-700' : 'text-gray-900'
                         }`}>
                           {member.name_of_student}
                         </h4>
                         {member.is_leader && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-blue-100 text-blue-800">
                             Leader
                           </span>
                         )}
                         {member.enrollement_no === enrollmentNo && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-purple-100 text-purple-700">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-purple-100 text-purple-700">
                             You
                           </span>
                         )}
                       </div>
 
-                      <p className="text-xs sm:text-sm text-gray-600 font-mono break-all">
+                      <p className="text-[11px] sm:text-xs text-gray-600 font-mono break-all leading-tight">
                         <span className="font-medium">Enrollment:</span> {member.enrollement_no}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                      <p className="hidden sm:block text-[10px] text-gray-500 leading-tight text-right">
+                        Click to view
+                        <br />
+                        full profile
+                      </p>
                       <button
                         type="button"
-                        className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 bg-white/90 hover:bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center"
+                        className="w-8 h-8 flex-shrink-0 bg-white hover:bg-purple-50 rounded-full border border-gray-200 flex items-center justify-center"
                       >
-                        <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
+                        <Eye className="w-4 h-4 text-gray-500" />
                       </button>
                     </div>
                   </div>
@@ -704,7 +709,7 @@ const GroupDetails = ({ enrollmentNo: propEnrollmentNo }) => {
 
   // ✅ 3. Show pending invitations if no group exists
   return (
-      <div className="card col-span-1 p-4 sm:p-6 flex flex-col justify-between bg-white rounded-2xl shadow-sm border border-purple-100 relative">
+      <div className="card col-span-1 p-4 sm:p-5 flex flex-col justify-between bg-white rounded-2xl shadow-sm border border-purple-100 relative">
       <div>
         <MessageAlert />
         <h2 className="text-lg sm:text-xl font-semibold mb-4 text-purple-900">Group Details</h2>

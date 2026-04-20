@@ -39,6 +39,8 @@ import creategroupRoutes from "./src/routes/students/creategroupRoutes.js";
 import groupDraftRoutes from "./src/routes/students/groupDraftRoutes.js";
 import internshipRoutes from "./src/routes/students/internshipRoutes.js";
 import documentRoutes from "./src/routes/students/documentRoutes.js";
+import trackerSheetRoutes from "./src/routes/students/trackerSheetRoutes.js";
+import nocRoutes from "./src/routes/students/nocRoutes.js";
 import rolesRoutes from "./src/routes/admin/rolesRoutes.js";
 import roleAccessRoutes from "./src/routes/admin/roleAccessRoutes.js";
 import exportRoutes from "./src/routes/admin/exportRoutes.js";
@@ -107,6 +109,8 @@ app.use("/api/admin", evaluationFormRoutes); // Admin evaluation form routes
 // Newly migrated routes
 app.use("/api/student-auth", studentAuthRoutes);
 app.use("/api/student/documents", documentRoutes); // Student document upload/management
+app.use("/api/students", trackerSheetRoutes); // Student tracker sheet routes
+app.use("/api/students", nocRoutes); // Student NOC routes
 app.use("/api/groups", creategroupRoutes); // Group creation routes (legacy)
 app.use("/api/groups-draft", groupDraftRoutes); // Draft-based group creation routes
 if (!isProduction) {

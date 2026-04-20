@@ -38,9 +38,8 @@ import StudentLogin from '../Pages/students/login';
 import StudentDashboard from '../Pages/students/studentDashboard';
 import ProblemStatement from '../Pages/students/problemstatement';
 import StudentProfile from '../Pages/students/StudentProfile';
-import TeamWorkspace from '../Pages/students/teamworkspace';
-import ProjectPlanning from '../Pages/students/projectplanning';
-import ProjectReview from '../Pages/students/projectreview';
+import TrackerSheet from '../Pages/students/trackersheet';
+import NocPage from '../Pages/students/noc';
 import Documentation from '../Pages/students/documentation';
 import Tools from '../Pages/students/tools';
 import CreateGroup from '../Pages/students/creategroup';
@@ -52,6 +51,8 @@ import ZerothReview from '../Pages/Mentor/ZerothReview';
 import MentorEvaluation from '../Pages/Mentor/MentorEvaluation';
 import MentorGroups from '../Pages/Mentor/MentorGroups';
 import MentorSettings from '../Pages/Mentor/MentorSettings';
+import MentorNoc from '../Pages/Mentor/MentorNoc';
+import MentorTrackerSheet from '../Pages/Mentor/MentorTrackerSheet';
 
 // Industry Mentor Pages
 import IndustryMentorDashboard from '../Pages/Mentor/IndustryMentorDashboard';
@@ -89,19 +90,24 @@ const AppRoutes = () => {
           <InternshipDetails />
         </ProtectedRoute>
       } />
-      <Route path="/team-workspace" element={
+      <Route path="/tracker-sheet" element={
         <ProtectedRoute allowedRoles={['student']}>
-          <TeamWorkspace />
+          <TrackerSheet />
         </ProtectedRoute>
       } />
-      <Route path="/project-planning" element={
+      <Route path="/student/tracker-sheet" element={
         <ProtectedRoute allowedRoles={['student']}>
-          <ProjectPlanning />
+          <TrackerSheet />
         </ProtectedRoute>
       } />
-      <Route path="/project-review" element={
+      <Route path="/noc" element={
         <ProtectedRoute allowedRoles={['student']}>
-          <ProjectReview />
+          <NocPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/noc" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <NocPage />
         </ProtectedRoute>
       } />
       <Route path="/documentation" element={
@@ -137,6 +143,16 @@ const AppRoutes = () => {
           <MentorGroups />
         </ProtectedRoute>
       } />
+      <Route path="/mentor/noc" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorNoc />
+        </ProtectedRoute>
+      } />
+      <Route path="/mentor/tracker-sheet" element={
+        <ProtectedRoute allowedRoles={['mentor']}>
+          <MentorTrackerSheet />
+        </ProtectedRoute>
+      } />
       <Route path="/mentor/groups/:groupId" element={
         <ProtectedRoute allowedRoles={['mentor']}>
           <MentorGroups />
@@ -159,7 +175,7 @@ const AppRoutes = () => {
       } />
       <Route path="/mentor/schedule" element={
         <ProtectedRoute allowedRoles={['mentor']}>
-          <MentorDashboard />
+          <MentorTrackerSheet />
         </ProtectedRoute>
       } />
       <Route path="/mentor/settings" element={
