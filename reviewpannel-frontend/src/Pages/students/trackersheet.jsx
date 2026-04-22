@@ -194,6 +194,312 @@ const createInitialForm = () => ({
   meetings: Array.from({ length: 12 }, () => createMeetingItem()),
 });
 
+const NOC_DOCUMENT_IDS = {
+  TRACKER: "project_tracker_sheet",
+  SYNOPSIS: "project_synopsis",
+  FINAL_REPORT: "final_project_report",
+  COPYRIGHT: "copyright_details",
+  PATENT: "patent_details",
+  PUBLICATION: "research_publication_details",
+  PPT: "project_presentation_ppt",
+  ACHIEVEMENTS: "achievements",
+  INTERNSHIP: "internship_reports",
+};
+
+const NOC_MAX_LINKED_ITEMS = 2;
+
+const NOC_DEFAULT_DOCUMENTS = [
+  {
+    id: NOC_DOCUMENT_IDS.TRACKER,
+    name: "Project Tracker Sheet (fully updated)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.SYNOPSIS,
+    name: "Project Synopsis",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.FINAL_REPORT,
+    name: "Final Project report / Success story (for internship)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.COPYRIGHT,
+    name: "Copyright Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.PATENT,
+    name: "Patent Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.PUBLICATION,
+    name: "Research Publication Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.PPT,
+    name: "Project Presentation PPT",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.ACHIEVEMENTS,
+    name: "Achievements",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: NOC_DOCUMENT_IDS.INTERNSHIP,
+    name: "Internship joining report & Completion Report (If any)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+];
+
+const NOC_LINKED_DOCUMENT_IDS = new Set([
+  NOC_DOCUMENT_IDS.COPYRIGHT,
+  NOC_DOCUMENT_IDS.PATENT,
+  NOC_DOCUMENT_IDS.PUBLICATION,
+  NOC_DOCUMENT_IDS.ACHIEVEMENTS,
+]);
+
+const hasMeaningfulPublicationEntry = (item = {}) =>
+  Boolean(
+    asText(item?.paperTitle) ||
+      asText(item?.journalName) ||
+      asText(item?.doi) ||
+      asText(item?.url) ||
+      asText(item?.proofUrl) ||
+      asText(item?.proofKey) ||
+      asText(item?.proofFileName)
+  );
+
+const hasMeaningfulPatentEntry = (item = {}) =>
+  Boolean(
+    asText(item?.title) ||
+      asText(item?.applicationNo) ||
+      asText(item?.patentNumber) ||
+      asText(item?.proofUrl) ||
+      asText(item?.proofKey) ||
+      asText(item?.proofFileName)
+  );
+
+const hasMeaningfulCopyrightEntry = (item = {}) =>
+  Boolean(
+    asText(item?.titleOfWork) ||
+      asText(item?.registrationNo) ||
+      asText(item?.nameOfApplicants) ||
+      asText(item?.proofUrl) ||
+      asText(item?.proofKey) ||
+      asText(item?.proofFileName)
+  );
+
+const hasMeaningfulEventEntry = (item = {}) =>
+  Boolean(
+    asText(item?.nameOfEvent) ||
+      asText(item?.typeOfParticipation) ||
+      asText(item?.detailsOfPrizeWon) ||
+      asText(item?.proofUrl) ||
+      asText(item?.proofKey) ||
+      asText(item?.proofFileName)
+  );
+
+const hasAnySharedDetails = (payload = {}) =>
+  ensureMinimumItems(payload?.publicationDetails, 0, createPublicationDetailItem).some(
+    hasMeaningfulPublicationEntry
+  ) ||
+  ensureMinimumItems(payload?.patentDetails, 0, createPatentDetailItem).some(
+    hasMeaningfulPatentEntry
+  ) ||
+  ensureMinimumItems(payload?.copyrightDetails, 0, createCopyrightDetailItem).some(
+    hasMeaningfulCopyrightEntry
+  ) ||
+  ensureMinimumItems(payload?.eventParticipationDetails, 0, createEventParticipationItem).some(
+    hasMeaningfulEventEntry
+  );
+
+const parseTimestamp = (value) => {
+  if (!value) return 0;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildAchievementsSummaryFromEvents = (eventRows = []) => {
+  const values = ensureMinimumItems(eventRows, 0, createEventParticipationItem)
+    .map((item) => asText(item?.nameOfEvent || item?.detailsOfPrizeWon))
+    .filter(Boolean)
+    .slice(0, 6);
+
+  return values.join("; ");
+};
+
+const findFirstProof = (rows = []) => {
+  const item = ensureMinimumItems(rows, 0, () => ({})).find(
+    (row) =>
+      hasValue(row?.proofUrl) || hasValue(row?.proofKey) || hasValue(row?.proofFileName)
+  );
+
+  if (!item) return null;
+
+  return {
+    fileName: asText(item?.proofFileName),
+    url: asText(item?.proofUrl),
+    key: asText(item?.proofKey),
+  };
+};
+
+const normalizeNocPayloadForSync = (payload) => {
+  const safePayload = payload && typeof payload === "object" ? payload : {};
+  const incomingDocuments = Array.isArray(safePayload.documents) ? safePayload.documents : [];
+  const byId = new Map();
+
+  incomingDocuments.forEach((doc, index) => {
+    const fallbackId = NOC_DEFAULT_DOCUMENTS[index]?.id;
+    const id = asText(doc?.id || fallbackId);
+    if (!id) return;
+    byId.set(id, doc || {});
+  });
+
+  return {
+    certificateDate: asText(safePayload.certificateDate),
+    concludingRemark: asText(safePayload.concludingRemark),
+    guideSignatureName: asText(safePayload.guideSignatureName),
+    documents: NOC_DEFAULT_DOCUMENTS.map((defaultDoc) => {
+      const incoming = byId.get(defaultDoc.id) || {};
+      return {
+        ...defaultDoc,
+        ...incoming,
+        id: defaultDoc.id,
+        name: defaultDoc.name,
+      };
+    }),
+    publicationDetails: ensureMinimumItems(
+      safePayload?.publicationDetails,
+      1,
+      createPublicationDetailItem
+    )
+      .slice(0, NOC_MAX_LINKED_ITEMS)
+      .map((item) => ({
+      ...createPublicationDetailItem(),
+      ...(item || {}),
+    })),
+    patentDetails: ensureMinimumItems(safePayload?.patentDetails, 1, createPatentDetailItem)
+      .slice(0, NOC_MAX_LINKED_ITEMS)
+      .map((item) => ({
+        ...createPatentDetailItem(),
+        ...(item || {}),
+      })),
+    copyrightDetails: ensureMinimumItems(
+      safePayload?.copyrightDetails,
+      1,
+      createCopyrightDetailItem
+    )
+      .slice(0, NOC_MAX_LINKED_ITEMS)
+      .map((item) => ({
+      ...createCopyrightDetailItem(),
+      ...(item || {}),
+    })),
+    eventParticipationDetails: ensureMinimumItems(
+      safePayload?.eventParticipationDetails,
+      1,
+      createEventParticipationItem
+    )
+      .slice(0, NOC_MAX_LINKED_ITEMS)
+      .map((item) => ({
+      ...createEventParticipationItem(),
+      ...(item || {}),
+    })),
+    sharedDetailsUpdatedAt: safePayload?.sharedDetailsUpdatedAt || null,
+    mentorReview:
+      safePayload?.mentorReview && typeof safePayload.mentorReview === "object"
+        ? safePayload.mentorReview
+        : {
+            status: "draft",
+            feedback: "",
+            reviewedBy: "",
+            reviewedAt: null,
+          },
+  };
+};
+
+const applyLinkedDocumentStatusesToNocPayload = (payload) => {
+  const normalized = normalizeNocPayloadForSync(payload);
+
+  const hasPublication = normalized.publicationDetails.some(hasMeaningfulPublicationEntry);
+  const hasPatent = normalized.patentDetails.some(hasMeaningfulPatentEntry);
+  const hasCopyright = normalized.copyrightDetails.some(hasMeaningfulCopyrightEntry);
+  const hasAchievements = normalized.eventParticipationDetails.some(hasMeaningfulEventEntry);
+
+  const proofs = {
+    [NOC_DOCUMENT_IDS.PUBLICATION]: findFirstProof(normalized.publicationDetails),
+    [NOC_DOCUMENT_IDS.PATENT]: findFirstProof(normalized.patentDetails),
+    [NOC_DOCUMENT_IDS.COPYRIGHT]: findFirstProof(normalized.copyrightDetails),
+    [NOC_DOCUMENT_IDS.ACHIEVEMENTS]: findFirstProof(normalized.eventParticipationDetails),
+  };
+
+  const statusMap = {
+    [NOC_DOCUMENT_IDS.PUBLICATION]: hasPublication,
+    [NOC_DOCUMENT_IDS.PATENT]: hasPatent,
+    [NOC_DOCUMENT_IDS.COPYRIGHT]: hasCopyright,
+    [NOC_DOCUMENT_IDS.ACHIEVEMENTS]: hasAchievements,
+  };
+
+  return {
+    ...normalized,
+    documents: normalized.documents.map((doc) => {
+      if (!NOC_LINKED_DOCUMENT_IDS.has(doc.id)) return doc;
+
+      const hasLinkedValue = statusMap[doc.id];
+      const proof = proofs[doc.id];
+
+      if (!hasLinkedValue) {
+        return {
+          ...doc,
+          status: "",
+          proofFileName: "",
+          proofUrl: "",
+          proofKey: "",
+        };
+      }
+
+      return {
+        ...doc,
+        status: "Submitted",
+        proofFileName: proof?.fileName || "",
+        proofUrl: proof?.url || "",
+        proofKey: proof?.key || "",
+      };
+    }),
+  };
+};
+
 const normalizeUserStoriesSection = (userStoriesDraft) => {
   if (Array.isArray(userStoriesDraft)) {
     const migratedStories = userStoriesDraft.map(
@@ -334,10 +640,46 @@ const TrackerSheet = () => {
             trackerRes?.data?.submissionState || trackerRes?.submissionState || "draft";
           setSubmissionState(trackerSubmissionState);
 
+          let mergedTrackerPayload = normalizeTrackerDraft(trackerPayload || createInitialForm());
+
+          try {
+            const nocRes = await apiRequest("/api/students/noc/me", "GET", null, token);
+            const nocPayload = nocRes?.data?.noc?.payload || nocRes?.noc?.payload || null;
+
+            if (nocPayload && typeof nocPayload === "object") {
+              const nocHasShared = hasAnySharedDetails(nocPayload);
+              const trackerHasShared = hasAnySharedDetails(mergedTrackerPayload);
+              const nocSharedStamp = parseTimestamp(nocPayload?.sharedDetailsUpdatedAt);
+              const trackerSharedStamp = parseTimestamp(mergedTrackerPayload?.sharedDetailsUpdatedAt);
+
+              if (nocHasShared && (nocSharedStamp > trackerSharedStamp || !trackerHasShared)) {
+                mergedTrackerPayload = normalizeTrackerDraft({
+                  ...mergedTrackerPayload,
+                  publicationDetails: nocPayload?.publicationDetails,
+                  patentDetails: nocPayload?.patentDetails,
+                  copyrightDetails: nocPayload?.copyrightDetails,
+                  eventParticipationDetails: nocPayload?.eventParticipationDetails,
+                  sharedDetailsUpdatedAt:
+                    nocPayload?.sharedDetailsUpdatedAt ||
+                    mergedTrackerPayload?.sharedDetailsUpdatedAt ||
+                    null,
+                  projectInfo: {
+                    ...(mergedTrackerPayload?.projectInfo || {}),
+                    achievements:
+                      asText(mergedTrackerPayload?.projectInfo?.achievements) ||
+                      buildAchievementsSummaryFromEvents(nocPayload?.eventParticipationDetails),
+                  },
+                });
+              }
+            }
+          } catch (nocSyncError) {
+            console.warn("Unable to load NOC shared details for tracker sync:", nocSyncError);
+          }
+
+          setFormData(mergedTrackerPayload);
+          setLastPersistedSnapshot(createTrackerSnapshot(mergedTrackerPayload));
+
           if (trackerPayload && typeof trackerPayload === "object") {
-            const normalizedPayload = normalizeTrackerDraft(trackerPayload);
-            setFormData(normalizedPayload);
-            setLastPersistedSnapshot(createTrackerSnapshot(normalizedPayload));
             setStatusMessage({ type: "success", text: "Tracker sheet loaded from database." });
           }
 
@@ -458,7 +800,6 @@ const TrackerSheet = () => {
       "sourceOfProblemStatement",
       "githubLink",
       "sustainableDevelopmentGoal",
-      "achievements",
     ]);
 
     const techStackComplete = areFieldsFilled(formData?.techStack, [
@@ -694,6 +1035,32 @@ const TrackerSheet = () => {
     return nextPayload;
   };
 
+  const syncSharedDetailsToNoc = async (token, trackerPayload) => {
+    const nocRes = await apiRequest("/api/students/noc/me", "GET", null, token).catch(() => null);
+    const existingNocPayload = nocRes?.data?.noc?.payload || nocRes?.noc?.payload || null;
+
+    const normalizedNocPayload = normalizeNocPayloadForSync(existingNocPayload);
+
+    const mergedNocPayload = applyLinkedDocumentStatusesToNocPayload({
+      ...normalizedNocPayload,
+      publicationDetails: trackerPayload?.publicationDetails || [],
+      patentDetails: trackerPayload?.patentDetails || [],
+      copyrightDetails: trackerPayload?.copyrightDetails || [],
+      eventParticipationDetails: trackerPayload?.eventParticipationDetails || [],
+      sharedDetailsUpdatedAt: trackerPayload?.sharedDetailsUpdatedAt || new Date().toISOString(),
+    });
+
+    await apiRequest(
+      "/api/students/noc/me",
+      "PUT",
+      {
+        formData: mergedNocPayload,
+        submit: false,
+      },
+      token
+    );
+  };
+
   const persistTrackerSheet = async (submit = false) => {
     if (!student || saving) return false;
 
@@ -708,7 +1075,19 @@ const TrackerSheet = () => {
 
     try {
       const normalizedDraft = normalizeTrackerDraft(formData);
-      const draftWithUploadedProofs = await uploadPendingProofFiles(token, normalizedDraft);
+      const achievementSummary = buildAchievementsSummaryFromEvents(
+        normalizedDraft?.eventParticipationDetails
+      );
+      const draftWithSharedDetails = {
+        ...normalizedDraft,
+        sharedDetailsUpdatedAt: new Date().toISOString(),
+        projectInfo: {
+          ...normalizedDraft.projectInfo,
+          achievements: asText(normalizedDraft?.projectInfo?.achievements) || achievementSummary,
+        },
+      };
+
+      const draftWithUploadedProofs = await uploadPendingProofFiles(token, draftWithSharedDetails);
 
       const saveRes = await apiRequest(
         "/api/students/tracker-sheet/me",
@@ -735,13 +1114,23 @@ const TrackerSheet = () => {
           (submit ? "pending_mentor_approval" : "draft")
       );
 
+      let syncWarning = "";
+      try {
+        await syncSharedDetailsToNoc(token, normalizedPersistedPayload);
+      } catch (syncError) {
+        console.warn("Unable to sync tracker shared details to NOC:", syncError);
+        syncWarning = "Linked NOC details could not be synced right now.";
+      }
+
+      const successText =
+        saveRes?.message ||
+        (submit
+          ? "Tracker sheet submitted to mentor for approval."
+          : "Tracker sheet saved to database.");
+
       setStatusMessage({
-        type: "success",
-        text:
-          saveRes?.message ||
-          (submit
-            ? "Tracker sheet submitted to mentor for approval."
-            : "Tracker sheet saved to database."),
+        type: syncWarning ? "warning" : "success",
+        text: syncWarning ? `${successText} ${syncWarning}` : successText,
       });
 
       return true;
