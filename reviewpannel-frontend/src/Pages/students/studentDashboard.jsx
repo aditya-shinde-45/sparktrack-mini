@@ -82,7 +82,19 @@ const StudentDashboard = () => {
         null,
         token
       );
-      setEvaluationMarks(res?.data?.marks || res?.marks || []);
+      const marks = res?.data?.marks || res?.marks || [];
+      setEvaluationMarks(
+        Array.isArray(marks)
+          ? marks.filter((entry) => {
+              const evaluation = entry?.evaluation;
+              return Boolean(
+                evaluation &&
+                  !evaluation.absent &&
+                  (evaluation.total !== null && evaluation.total !== undefined)
+              );
+            })
+          : []
+      );
     };
 
     fetchStudent();
@@ -174,6 +186,7 @@ const StudentDashboard = () => {
           setDrawerOpen(true);
           return;
 
+        case "Posts":
         case "Events & Posts":
           // Open posts modal instead of drawer
           setTriggerPostsFetch(true);
