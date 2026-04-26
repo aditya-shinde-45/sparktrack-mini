@@ -531,10 +531,7 @@ const StudentLogin = () => {
               <a href="mailto:sparktrack.ideabliss@gmail.com" className="text-[#5D3FD3] hover:underline">
                 sparktrack.ideabliss@gmail.com
               </a>
-              {" | "}
-              <a href="tel:9356138585" className="text-[#5D3FD3] hover:underline">
-                9356138585
-              </a>
+             
             </p>
           </div>
         </div>
