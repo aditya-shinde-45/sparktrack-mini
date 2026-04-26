@@ -1,7 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import homebanner from '../../assets/homebanner.png';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    navigate('/studentlogin');
+  };
+
   return (
     <header className="hero-section relative bg-gradient-to-br from-purple-600 via-indigo-700 to-purple-800 text-white rounded-br-[80px] py-20 lg:py-32 px-6 overflow-hidden" style={{fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'}}>
       {/* Animated background elements */}
@@ -32,7 +39,7 @@ const HeroSection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mt-8">
-            <button className="bg-white text-purple-700 font-semibold px-8 py-3 rounded-full hover:bg-purple-50 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl">
+            <button onClick={handleGetStarted} className="bg-white text-purple-700 font-semibold px-8 py-3 rounded-full hover:bg-purple-50 transform hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl">
               Get Started
             </button>
             <button className="bg-transparent border-2 border-white text-white font-semibold px-8 py-3 rounded-full hover:bg-white/10 backdrop-blur-sm transition-all duration-300">
