@@ -325,6 +325,65 @@ class RoleAccessController {
         }));
         break;
 
+      case 'noc_forms': {
+        const { data: nocForms, error: nocError } = await supabase
+          .from('noc_forms')
+          .select('id, group_id, group_year, payload, submitted, submitted_at, created_by, updated_by, created_at, updated_at')
+          .order('updated_at', { ascending: false });
+
+        if (nocError) {
+          throw ApiError.internalError(`Failed to fetch NOC forms: ${nocError.message}`);
+        }
+
+        const groupIds = [...new Set((nocForms || [])
+          .map((row) => String(row.group_id || '').trim())
+          .filter(Boolean))];
+
+        const groupMetaMap = new Map();
+        if (groupIds.length > 0) {
+          const { data: pblGroups, error: pblMetaError } = await supabase
+            .from('pbl')
+            .select('group_id, team_name, mentor_code')
+            .in('group_id', groupIds);
+
+          if (pblMetaError) {
+            throw ApiError.internalError(`Failed to fetch NOC group metadata: ${pblMetaError.message}`);
+          }
+
+          (pblGroups || []).forEach((row) => {
+            const groupId = String(row.group_id || '').trim();
+            if (!groupId || groupMetaMap.has(groupId)) return;
+            groupMetaMap.set(groupId, {
+              team_name: row.team_name || null,
+              mentor_code: row.mentor_code || null,
+            });
+          });
+        }
+
+        records = (nocForms || []).map((record) => {
+          const payload = record?.payload && typeof record.payload === 'object' ? record.payload : {};
+          const mentorReview = payload?.mentorReview && typeof payload.mentorReview === 'object'
+            ? payload.mentorReview
+            : {};
+          const documents = Array.isArray(payload?.documents) ? payload.documents : [];
+          const uploadedDocumentsCount = documents.filter((doc) => String(doc?.proofUrl || '').trim()).length;
+          const groupMeta = groupMetaMap.get(String(record.group_id || '').trim()) || {};
+
+          return {
+            ...record,
+            team_name: groupMeta.team_name || null,
+            mentor_code: groupMeta.mentor_code || null,
+            submissionState: mentorReview.status || (record.submitted ? 'pending_mentor_approval' : 'draft'),
+            mentorFeedback: String(mentorReview.feedback || ''),
+            certificateDate: String(payload.certificateDate || ''),
+            guideSignatureName: String(payload.guideSignatureName || ''),
+            documentsCount: documents.length,
+            uploadedDocumentsCount,
+          };
+        });
+        break;
+      }
+
       case 'evaluation_form_submission': {
         if (forms === '1') {
           const evalForms = await evaluationFormModel.listForms();

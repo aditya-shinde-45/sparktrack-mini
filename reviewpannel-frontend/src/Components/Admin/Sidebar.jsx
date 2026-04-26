@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { 
   LayoutDashboard, 
   UserCheck, 
+  FileCheck,
   FileSpreadsheet, 
   PlusSquare, 
   Edit, 
@@ -16,6 +17,7 @@ const routes = [
   { name: "Industry Mentors", path: "/assign-external", icon: UserCheck },
   { name: "View Marks", path: "/view-marks", icon: FileSpreadsheet },
   { name: "Evaluation Forms", path: "/admin-evaluation-forms", icon: Edit },
+  { name: "NOC", path: "/admin/noc", icon: FileCheck },
   { name: "Tools", path: "/admintools", icon: Settings },
 ];
 
@@ -67,7 +69,7 @@ const Sidebar = () => {
       {!isDesktop && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] z-50">
           <div className="flex justify-around items-stretch max-w-screen-md mx-auto px-2 py-2 safe-area-inset-bottom">
-            {routes.slice(0, 5).map(({ name, path, icon: Icon }, index) => (
+            {routes.slice(0, 6).map(({ name, path, icon: Icon }, index) => (
               <NavLink
                 key={index}
                 to={path}

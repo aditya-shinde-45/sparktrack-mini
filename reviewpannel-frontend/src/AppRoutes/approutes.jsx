@@ -21,6 +21,7 @@ import ViewMarks from '../Pages/Admin/ViewMarks';
 import AddGroup from '../Pages/Admin/addGroup';
 import Mentor from '../Pages/Admin/mentors';
 import EvaluationFormBuilder from '../Pages/Admin/EvaluationFormBuilder';
+import AdminNocDetails from '../Pages/Admin/AdminNocDetails';
 
 // Admin Tools (parent and children)
 import AdminToolTabs from '../Components/Admin/admintools';
@@ -248,6 +249,11 @@ const AppRoutes = () => {
       <Route path="/admin-evaluation-forms" element={
         <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
           <EvaluationFormBuilder />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/noc" element={
+        <ProtectedRoute allowedRoles={['Admin']} adminScope="main">
+          <AdminNocDetails />
         </ProtectedRoute>
       } />
 
