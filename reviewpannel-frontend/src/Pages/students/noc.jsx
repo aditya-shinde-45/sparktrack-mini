@@ -44,7 +44,7 @@ const MAX_UPLOAD_SIZE_MB = 10;
 const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
 const DEFAULT_ALLOWED_FILE_EXTENSIONS = [".pdf", ".doc", ".docx"];
-const PPT_ALLOWED_FILE_EXTENSIONS = [".ppt", ".pptx"];
+const PPT_ALLOWED_FILE_EXTENSIONS = [".ppt", ".pptx", ".pdf"];
 
 const FIELD_LIMITS = {
   SHORT: 100,
@@ -941,6 +941,7 @@ const NocPage = () => {
   ]);
 
   const isNocSubmitLocked = submissionState === "approved" && nocAllFieldsFilled;
+  const canDirectDownloadNoc = submissionState === "approved";
 
   const handleProofFileChange = (documentId, event) => {
     if (LINKED_DOCUMENT_IDS.has(documentId)) {
@@ -1366,6 +1367,15 @@ const NocPage = () => {
   const handleDownloadNocPdf = async (mode = "preview") => {
     if (!student || saving || pdfGenerating) return;
 
+    if (mode === "download" && !canDirectDownloadNoc) {
+      setShowDownloadOptions(false);
+      setStatusMessage({
+        type: "warning",
+        text: "Direct download is locked until mentor approves your NOC. You can use View PDF for now.",
+      });
+      return;
+    }
+
     setShowDownloadOptions(false);
 
     const token = localStorage.getItem("student_token") || localStorage.getItem("token");
@@ -1479,12 +1489,15 @@ const NocPage = () => {
           blob: pdfBlob,
           fileName,
           previewWindow,
+          allowDownload: canDirectDownloadNoc,
         });
 
         if (openedMode === "preview") {
           setStatusMessage({
             type: "success",
-            text: "NOC PDF preview opened with download option.",
+            text: canDirectDownloadNoc
+              ? "NOC PDF preview opened with download option."
+              : "NOC PDF preview opened in view-only mode.",
           });
         }
       }
@@ -2263,7 +2276,7 @@ const NocPage = () => {
                         }`}
                       >
                         <Download className="w-4 h-4" />
-                        {pdfGenerating ? "Generating PDF..." : "Download NOC"}
+                        {pdfGenerating ? "Generating PDF..." : canDirectDownloadNoc ? "Download NOC" : "View NOC"}
                         {!pdfGenerating && <ChevronDown className="w-4 h-4" />}
                       </button>
 
@@ -2280,11 +2293,21 @@ const NocPage = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadNocPdf("download")}
-                            className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-slate-800 hover:bg-slate-50 inline-flex items-center gap-2"
+                            disabled={!canDirectDownloadNoc}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-2 ${
+                              canDirectDownloadNoc
+                                ? "text-slate-800 hover:bg-slate-50"
+                                : "text-slate-400 cursor-not-allowed"
+                            }`}
                           >
                             <Download className="w-4 h-4" />
                             Direct Download
                           </button>
+                          {!canDirectDownloadNoc && (
+                            <p className="mt-1 px-3 text-[11px] text-slate-500">
+                              Available only after mentor approval.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

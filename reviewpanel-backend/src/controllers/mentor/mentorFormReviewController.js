@@ -166,6 +166,10 @@ const ensureMentorCanAccessGroup = (groupId, groupMetaMap) => {
 
 const getActorMentorId = (req) => asText(req.user?.mentor_id || req.user?.mentor_code || req.user?.contact_number);
 
+const resolveErrorStatusCode = (error, fallback = 500) => {
+  return Number.isInteger(error?.statusCode) ? error.statusCode : fallback;
+};
+
 const buildProgressList = (groupMetaMap, rowsByGroupId) => {
   const groups = [];
 
@@ -212,7 +216,11 @@ export const getMentorNocProgressList = async (req, res) => {
       groups: buildProgressList(groupMetaMap, formMap),
     });
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Failed to fetch mentor NOC progress', 500);
+    return ApiResponse.error(
+      res,
+      error.message || 'Failed to fetch mentor NOC progress',
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
@@ -239,7 +247,11 @@ export const getMentorTrackerProgressList = async (req, res) => {
       groups: buildProgressList(groupMetaMap, formMap),
     });
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Failed to fetch mentor tracker progress', 500);
+    return ApiResponse.error(
+      res,
+      error.message || 'Failed to fetch mentor tracker progress',
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
@@ -271,7 +283,11 @@ export const getMentorNocByGroup = async (req, res) => {
       reviewFeedback: review.feedback,
     });
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Failed to fetch NOC form', 500);
+    return ApiResponse.error(
+      res,
+      error.message || 'Failed to fetch NOC form',
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
@@ -303,7 +319,11 @@ export const getMentorTrackerByGroup = async (req, res) => {
       reviewFeedback: review.feedback,
     });
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Failed to fetch tracker sheet', 500);
+    return ApiResponse.error(
+      res,
+      error.message || 'Failed to fetch tracker sheet',
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
@@ -373,7 +393,11 @@ const performFormReview = async ({ req, res, model, formLabel, rowKey }) => {
       }
     );
   } catch (error) {
-    return ApiResponse.error(res, error.message || `Failed to review ${formLabel} form`, 500);
+    return ApiResponse.error(
+      res,
+      error.message || `Failed to review ${formLabel} form`,
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
@@ -427,6 +451,10 @@ export const reviewMentorNocByGroup = async (req, res) => {
       const targetDoc = documents.find((doc) => asText(doc?.id) === fieldId);
       if (!targetDoc) {
         return ApiResponse.badRequest(res, 'Invalid fieldId for NOC document');
+      }
+
+      if (!hasDocumentSubmission(targetDoc)) {
+        return ApiResponse.badRequest(res, 'Cannot review a field that has no submitted proof');
       }
 
       const nextFieldReviews = {
@@ -522,7 +550,11 @@ export const reviewMentorNocByGroup = async (req, res) => {
       rowKey: 'noc',
     });
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Failed to review NOC form', 500);
+    return ApiResponse.error(
+      res,
+      error.message || 'Failed to review NOC form',
+      resolveErrorStatusCode(error)
+    );
   }
 };
 
