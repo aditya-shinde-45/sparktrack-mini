@@ -24,9 +24,9 @@ export const DashboardCards = ({ onCardClick }) => {
       iconStyle: "text-emerald-600",
     },
     {
-      title: "Deadlines",
+      title: "Posts",
       subtitle: "View upcoming updates",
-      action: "Events & Posts",
+      action: "Posts",
       icon: Sparkles,
       cardStyle: "bg-amber-100/70 border-amber-200 hover:bg-amber-100",
       titleStyle: "text-amber-800",

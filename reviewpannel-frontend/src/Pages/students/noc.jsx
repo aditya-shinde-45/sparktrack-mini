@@ -320,6 +320,26 @@ const parseTimestamp = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const mergeSharedRowsPreservingProof = (baseRows = [], incomingRows = []) => {
+  const safeBaseRows = ensureArray(baseRows);
+  const safeIncomingRows = ensureArray(incomingRows);
+  const rowCount = Math.max(safeBaseRows.length, safeIncomingRows.length, 1);
+
+  return Array.from({ length: rowCount }, (_, index) => {
+    const baseRow = safeBaseRows[index] && typeof safeBaseRows[index] === "object" ? safeBaseRows[index] : {};
+    const incomingRow =
+      safeIncomingRows[index] && typeof safeIncomingRows[index] === "object" ? safeIncomingRows[index] : {};
+
+    return {
+      ...baseRow,
+      ...incomingRow,
+      proofFileName: asText(incomingRow?.proofFileName) || asText(baseRow?.proofFileName),
+      proofUrl: asText(incomingRow?.proofUrl) || asText(baseRow?.proofUrl),
+      proofKey: asText(incomingRow?.proofKey) || asText(baseRow?.proofKey),
+    };
+  }).slice(0, MAX_LINKED_ITEMS);
+};
+
 const normalizeNocDraft = (draftData) => {
   const parsedDraft = draftData && typeof draftData === "object" ? draftData : {};
   const incomingDocuments = Array.isArray(parsedDraft.documents) ? parsedDraft.documents : [];
@@ -583,6 +603,9 @@ const SUBMISSION_STATE_META = {
 
 const getSubmissionStateMeta = (state) => SUBMISSION_STATE_META[state] || SUBMISSION_STATE_META.draft;
 
+const getNocDraftStorageKey = (enrollmentNo = "") =>
+  `student_noc_draft_${asText(enrollmentNo).toUpperCase() || "UNKNOWN"}`;
+
 const NocPage = () => {
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
@@ -610,6 +633,11 @@ const NocPage = () => {
     const fetchStudentAndNoc = async () => {
       try {
         const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
+
+        if (!profileRes?.success) {
+          throw new Error(profileRes?.message || "Unable to load student profile");
+        }
+
         const profileData = profileRes?.data?.profile || profileRes?.profile || null;
 
         if (!profileData) {
@@ -618,6 +646,18 @@ const NocPage = () => {
         }
 
         setStudent(profileData);
+
+        const localDraftKey = getNocDraftStorageKey(profileData?.enrollment_no);
+        let localDraft = null;
+        try {
+          const rawLocalDraft = localStorage.getItem(localDraftKey);
+          const parsedLocalDraft = rawLocalDraft ? JSON.parse(rawLocalDraft) : null;
+          if (parsedLocalDraft && typeof parsedLocalDraft === "object") {
+            localDraft = parsedLocalDraft;
+          }
+        } catch (storageError) {
+          console.warn("Unable to parse local NOC draft backup:", storageError);
+        }
 
         let resolvedGroupId = "";
 
@@ -639,9 +679,15 @@ const NocPage = () => {
         let nextFormData = createInitialNocForm();
         let nextSubmissionState = "draft";
         let loadedNoc = false;
+        let nocLoadErrorMessage = "";
 
         try {
           const nocRes = await apiRequest("/api/students/noc/me", "GET", null, token);
+
+          if (!nocRes?.success) {
+            throw new Error(nocRes?.message || "Unable to load NOC form");
+          }
+
           const nocRecord = nocRes?.data?.noc || nocRes?.noc || null;
           const nocPayload = nocRecord?.payload || null;
           nextSubmissionState =
@@ -660,10 +706,16 @@ const NocPage = () => {
           }
         } catch (nocError) {
           console.warn("Unable to load NOC form from backend:", nocError);
+          nocLoadErrorMessage = asText(nocError?.message || "Unable to load NOC form from server.");
         }
 
         try {
           const trackerRes = await apiRequest("/api/students/tracker-sheet/me", "GET", null, token);
+
+          if (!trackerRes?.success) {
+            throw new Error(trackerRes?.message || "Unable to load tracker shared details");
+          }
+
           const trackerPayload =
             trackerRes?.data?.tracker?.payload || trackerRes?.tracker?.payload || null;
 
@@ -676,10 +728,22 @@ const NocPage = () => {
             if (trackerHasShared && (trackerStamp > nocStamp || !nocHasShared)) {
               nextFormData = normalizeNocDraft({
                 ...nextFormData,
-                publicationDetails: trackerPayload?.publicationDetails,
-                patentDetails: trackerPayload?.patentDetails,
-                copyrightDetails: trackerPayload?.copyrightDetails,
-                eventParticipationDetails: trackerPayload?.eventParticipationDetails,
+                publicationDetails: mergeSharedRowsPreservingProof(
+                  nextFormData?.publicationDetails,
+                  trackerPayload?.publicationDetails
+                ),
+                patentDetails: mergeSharedRowsPreservingProof(
+                  nextFormData?.patentDetails,
+                  trackerPayload?.patentDetails
+                ),
+                copyrightDetails: mergeSharedRowsPreservingProof(
+                  nextFormData?.copyrightDetails,
+                  trackerPayload?.copyrightDetails
+                ),
+                eventParticipationDetails: mergeSharedRowsPreservingProof(
+                  nextFormData?.eventParticipationDetails,
+                  trackerPayload?.eventParticipationDetails
+                ),
                 sharedDetailsUpdatedAt:
                   trackerPayload?.sharedDetailsUpdatedAt || nextFormData?.sharedDetailsUpdatedAt || null,
               });
@@ -693,16 +757,55 @@ const NocPage = () => {
           setGroupYear(deriveGroupYear(resolvedGroupId));
         }
 
+        let infoMessage = loadedNoc ? "NOC form loaded from database." : "";
+        if (localDraft?.formData && typeof localDraft.formData === "object") {
+          const localDraftData = normalizeNocDraft(localDraft.formData);
+          const serverStamp = parseTimestamp(nextFormData?.sharedDetailsUpdatedAt);
+          const localStamp = parseTimestamp(localDraftData?.sharedDetailsUpdatedAt);
+
+          if (!loadedNoc || localStamp > serverStamp) {
+            nextFormData = localDraftData;
+            infoMessage =
+              "Recovered your latest unsynced NOC draft from this device. Please save once to sync with server.";
+          }
+        }
+
         setFormData(nextFormData);
         setLastPersistedSnapshot(createNocSnapshot(nextFormData));
         setSubmissionState(nextSubmissionState);
 
-        if (loadedNoc) {
-          setStatusMessage({ type: "success", text: "NOC form loaded from database." });
+        if (infoMessage) {
+          setStatusMessage({
+            type: infoMessage.includes("Recovered") ? "warning" : "success",
+            text: infoMessage,
+          });
+        } else if (nocLoadErrorMessage) {
+          setStatusMessage({
+            type: "warning",
+            text: `${nocLoadErrorMessage} Showing latest available data.`,
+          });
         }
       } catch (error) {
         console.error("Failed to load NOC form:", error);
-        navigate("/studentlogin");
+
+        const safeMessage = asText(error?.message).toLowerCase();
+        const isAuthIssue =
+          safeMessage.includes("unauthorized") ||
+          safeMessage.includes("authentication") ||
+          safeMessage.includes("token") ||
+          safeMessage.includes("forbidden");
+
+        if (isAuthIssue) {
+          navigate("/studentlogin");
+          return;
+        }
+
+        setStatusMessage({
+          type: "error",
+          text:
+            error?.message ||
+            "Unable to load NOC from server right now. Your local draft (if any) is preserved.",
+        });
       } finally {
         setLoading(false);
       }
@@ -710,6 +813,24 @@ const NocPage = () => {
 
     fetchStudentAndNoc();
   }, [navigate]);
+
+  useEffect(() => {
+    if (loading || !student?.enrollment_no) return;
+
+    try {
+      const draftKey = getNocDraftStorageKey(student.enrollment_no);
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          formData: normalizeNocDraft(formData),
+          submissionState,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    } catch (storageError) {
+      console.warn("Unable to cache NOC draft locally:", storageError);
+    }
+  }, [formData, submissionState, student?.enrollment_no, loading]);
 
   const getDocumentProofFileKey = (documentId) => `document::${documentId}`;
   const getSectionProofFileKey = (section, index) => `section::${section}::${index}`;
@@ -1012,7 +1133,7 @@ const NocPage = () => {
           form,
           token,
           true,
-          60000
+          120000
         );
 
         if (!uploadRes?.success) {
@@ -1059,7 +1180,7 @@ const NocPage = () => {
           form,
           token,
           true,
-          60000
+          120000
         );
 
         if (!uploadRes?.success) {
@@ -1089,6 +1210,11 @@ const NocPage = () => {
     const trackerRes = await apiRequest("/api/students/tracker-sheet/me", "GET", null, token).catch(
       () => null
     );
+
+    if (trackerRes && trackerRes.success === false) {
+      throw new Error(trackerRes?.message || "Unable to load tracker sheet for shared-details sync");
+    }
+
     const trackerPayload =
       trackerRes?.data?.tracker?.payload || trackerRes?.tracker?.payload || {};
 
@@ -1117,7 +1243,7 @@ const NocPage = () => {
       },
     };
 
-    await apiRequest(
+    const syncRes = await apiRequest(
       "/api/students/tracker-sheet/me",
       "PUT",
       {
@@ -1126,6 +1252,10 @@ const NocPage = () => {
       },
       token
     );
+
+    if (!syncRes?.success) {
+      throw new Error(syncRes?.message || "Unable to sync shared details to tracker");
+    }
   };
 
   const persistNocForm = async (submit = false) => {
@@ -1156,7 +1286,9 @@ const NocPage = () => {
           formData: payloadToPersist,
           submit,
         },
-        token
+        token,
+        false,
+        submit ? 120000 : 60000
       );
 
       if (!saveRes?.success) {
@@ -1173,6 +1305,26 @@ const NocPage = () => {
           saveRes?.submissionState ||
           (submit ? "pending_mentor_approval" : "draft")
       );
+
+      try {
+        if (student?.enrollment_no) {
+          const draftKey = getNocDraftStorageKey(student.enrollment_no);
+          localStorage.setItem(
+            draftKey,
+            JSON.stringify({
+              formData: normalizedPersistedPayload,
+              submissionState:
+                saveRes?.data?.submissionState ||
+                saveRes?.submissionState ||
+                (submit ? "pending_mentor_approval" : "draft"),
+              savedAt: new Date().toISOString(),
+              source: "server-confirmed",
+            })
+          );
+        }
+      } catch (storageError) {
+        console.warn("Unable to refresh local NOC draft backup:", storageError);
+      }
 
       let syncWarning = "";
       try {
@@ -1194,9 +1346,12 @@ const NocPage = () => {
       return true;
     } catch (error) {
       console.error("NOC persistence failed:", error);
+      const fallbackMessage =
+        "Unable to submit NOC right now. Your entered data is preserved on this device. Please retry after a moment.";
+
       setStatusMessage({
         type: "error",
-        text: error?.message || "Unable to save to database right now. Please try again.",
+        text: error?.message || fallbackMessage,
       });
       return false;
     } finally {

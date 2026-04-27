@@ -108,11 +108,14 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     const endpointPath = String(endpoint || '').toLowerCase();
     const isAdminEndpoint = endpointPath.startsWith('/api/admin') || endpointPath.startsWith('/api/role-access') || endpointPath.startsWith('/api/export');
     const isMentorEndpoint = endpointPath.startsWith('/api/mentors') || endpointPath.startsWith('/api/industrial-mentors');
+    const isStudentEndpoint = endpointPath.startsWith('/api/students') || endpointPath.startsWith('/api/student-auth');
 
     if (isAdminEndpoint) {
       token = localStorage.getItem('admin_token') || localStorage.getItem('token');
     } else if (isMentorEndpoint) {
       token = localStorage.getItem('mentor_token') || localStorage.getItem('token');
+    } else if (isStudentEndpoint) {
+      token = localStorage.getItem('student_token') || localStorage.getItem('token');
     } else {
       token = localStorage.getItem('token') || localStorage.getItem('student_token');
     }
@@ -309,7 +312,16 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
     }
     
     // Network errors (like when the backend is not running)
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+    const normalizedNetworkMessage = String(error?.message || '').toLowerCase();
+    const isNetworkFetchError =
+      error.name === 'TypeError' &&
+      (
+        normalizedNetworkMessage.includes('failed to fetch') ||
+        normalizedNetworkMessage.includes('load failed') ||
+        normalizedNetworkMessage.includes('networkerror')
+      );
+
+    if (isNetworkFetchError) {
       console.warn('Backend server may be offline or unreachable');
       
       // For development: return mock success response
@@ -356,9 +368,13 @@ export const apiRequest = async (endpoint, method = "GET", body = null, token = 
       }
     }
     
+    const userFriendlyMessage = isNetworkFetchError
+      ? 'Unable to reach the server. Please check your internet connection and try again. Your local changes are not lost.'
+      : error.message || 'Network error';
+
     return {
       success: false,
-      message: error.message || "Network error",
+      message: userFriendlyMessage,
     };
   }
 };

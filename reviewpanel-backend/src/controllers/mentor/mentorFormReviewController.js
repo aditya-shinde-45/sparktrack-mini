@@ -8,6 +8,7 @@ const nocFormModel = new NocFormModel();
 const trackerSheetModel = new TrackerSheetModel();
 
 const REVIEW_STATES = ['draft', 'pending_mentor_approval', 'approved', 'rejected'];
+const FIELD_REVIEW_STATES = ['pending', 'approved', 'rejected'];
 
 const asText = (value) => {
   if (value === null || value === undefined) return '';
@@ -22,6 +23,28 @@ const getReviewFromPayload = (record = null) => {
     ? payload.mentorReview
     : {};
 
+  const rawFieldReviews = rawReview?.fieldReviews && typeof rawReview.fieldReviews === 'object'
+    ? rawReview.fieldReviews
+    : {};
+
+  const fieldReviews = {};
+  Object.entries(rawFieldReviews).forEach(([fieldId, value]) => {
+    const normalizedFieldId = asText(fieldId);
+    if (!normalizedFieldId) return;
+
+    const safeValue = value && typeof value === 'object' ? value : {};
+    const normalizedStatus = FIELD_REVIEW_STATES.includes(safeValue.status)
+      ? safeValue.status
+      : 'pending';
+
+    fieldReviews[normalizedFieldId] = {
+      status: normalizedStatus,
+      feedback: asText(safeValue.feedback),
+      reviewedBy: asText(safeValue.reviewedBy),
+      reviewedAt: safeValue.reviewedAt || null,
+    };
+  });
+
   const resolvedStatus = REVIEW_STATES.includes(rawReview.status)
     ? rawReview.status
     : (record?.submitted ? 'pending_mentor_approval' : 'draft');
@@ -31,6 +54,7 @@ const getReviewFromPayload = (record = null) => {
     feedback: asText(rawReview.feedback),
     reviewedBy: asText(rawReview.reviewedBy),
     reviewedAt: rawReview.reviewedAt || null,
+    fieldReviews,
   };
 };
 
@@ -44,8 +68,34 @@ const buildPayloadWithReview = (payload, review) => {
       feedback: asText(review.feedback),
       reviewedBy: asText(review.reviewedBy),
       reviewedAt: review.reviewedAt || null,
+      fieldReviews: review.fieldReviews && typeof review.fieldReviews === 'object'
+        ? review.fieldReviews
+        : {},
     },
   };
+};
+
+const hasDocumentSubmission = (doc = {}) => {
+  const proofUrl = asText(doc?.proofUrl);
+  const docStatus = asText(doc?.status).toLowerCase();
+  return Boolean(proofUrl || docStatus === 'submitted');
+};
+
+const summarizeRejectedFields = (documents = [], fieldReviews = {}) => {
+  const rejected = (Array.isArray(documents) ? documents : [])
+    .map((doc) => {
+      const id = asText(doc?.id);
+      if (!id) return null;
+      const review = fieldReviews[id];
+      if (!review || review.status !== 'rejected') return null;
+      const name = asText(doc?.name) || id;
+      const feedback = asText(review.feedback);
+      return feedback ? `${name}: ${feedback}` : name;
+    })
+    .filter(Boolean);
+
+  if (!rejected.length) return '';
+  return `Rejected fields - ${rejected.join('; ')}`;
 };
 
 const resolveMentorCode = async (req) => {
@@ -328,13 +378,152 @@ const performFormReview = async ({ req, res, model, formLabel, rowKey }) => {
 };
 
 export const reviewMentorNocByGroup = async (req, res) => {
-  return performFormReview({
-    req,
-    res,
-    model: nocFormModel,
-    formLabel: 'NOC',
-    rowKey: 'noc',
-  });
+  try {
+    const groupId = normalizeGroupId(req.params?.groupId);
+    const mode = asText(req.body?.mode).toLowerCase();
+    const requestedStatus = asText(req.body?.status).toLowerCase();
+    const feedback = asText(req.body?.feedback);
+    const fieldId = asText(req.body?.fieldId);
+
+    if (!groupId) {
+      return ApiResponse.badRequest(res, 'Group ID is required');
+    }
+
+    const mentorCode = await resolveMentorCode(req);
+    const groupRows = await getMentorGroupRows(mentorCode);
+    const groupMetaMap = buildGroupMeta(groupRows);
+
+    if (!ensureMentorCanAccessGroup(groupId, groupMetaMap)) {
+      return ApiResponse.forbidden(res, 'You are not assigned to this group');
+    }
+
+    const existing = await nocFormModel.getByGroupId(groupId);
+    if (!existing) {
+      return ApiResponse.notFound(res, 'NOC form not found for this group');
+    }
+
+    const currentReview = getReviewFromPayload(existing);
+    const now = new Date().toISOString();
+    const reviewedBy = getActorMentorId(req);
+    const documents = Array.isArray(existing?.payload?.documents) ? existing.payload.documents : [];
+
+    if (mode === 'field') {
+      if (!['approved', 'rejected'].includes(requestedStatus)) {
+        return ApiResponse.badRequest(res, 'Field status must be either approved or rejected');
+      }
+
+      if (!fieldId) {
+        return ApiResponse.badRequest(res, 'fieldId is required for field review');
+      }
+
+      if (requestedStatus === 'rejected' && !feedback) {
+        return ApiResponse.badRequest(res, 'Feedback is required when rejecting a field');
+      }
+
+      if (!['pending_mentor_approval', 'rejected'].includes(currentReview.status)) {
+        return ApiResponse.badRequest(res, 'Field review is allowed only for pending or rejected submissions');
+      }
+
+      const targetDoc = documents.find((doc) => asText(doc?.id) === fieldId);
+      if (!targetDoc) {
+        return ApiResponse.badRequest(res, 'Invalid fieldId for NOC document');
+      }
+
+      const nextFieldReviews = {
+        ...(currentReview.fieldReviews || {}),
+        [fieldId]: {
+          status: requestedStatus,
+          feedback: requestedStatus === 'rejected' ? feedback : '',
+          reviewedBy,
+          reviewedAt: now,
+        },
+      };
+
+      const isRejected = requestedStatus === 'rejected';
+      const nextReviewState = {
+        status: isRejected ? 'rejected' : 'pending_mentor_approval',
+        feedback: isRejected
+          ? summarizeRejectedFields(documents, nextFieldReviews) || feedback
+          : '',
+        reviewedBy,
+        reviewedAt: now,
+        fieldReviews: nextFieldReviews,
+      };
+
+      const nextPayload = buildPayloadWithReview(existing.payload, nextReviewState);
+      const updated = await nocFormModel.updateByGroupId(groupId, {
+        payload: nextPayload,
+        submitted: false,
+        updated_by: reviewedBy || existing.updated_by || null,
+      });
+
+      return ApiResponse.success(res, 'NOC field review saved successfully', {
+        groupId,
+        noc: updated,
+        reviewStatus: nextReviewState.status,
+        reviewFeedback: nextReviewState.feedback,
+      });
+    }
+
+    if (mode === 'final_approve') {
+      if (!['pending_mentor_approval', 'rejected'].includes(currentReview.status)) {
+        return ApiResponse.badRequest(res, 'Final approval is allowed only for pending or rejected submissions');
+      }
+
+      const submittedDocuments = documents.filter((doc) => hasDocumentSubmission(doc));
+      if (!submittedDocuments.length) {
+        return ApiResponse.badRequest(res, 'At least one submitted document is required for final approval');
+      }
+
+      const notApproved = submittedDocuments
+        .filter((doc) => {
+          const id = asText(doc?.id);
+          const review = currentReview.fieldReviews?.[id];
+          return review?.status !== 'approved';
+        })
+        .map((doc) => asText(doc?.name) || asText(doc?.id))
+        .filter(Boolean);
+
+      if (notApproved.length) {
+        return ApiResponse.badRequest(
+          res,
+          `Approve all submitted fields first: ${notApproved.join(', ')}`
+        );
+      }
+
+      const nextReviewState = {
+        status: 'approved',
+        feedback: '',
+        reviewedBy,
+        reviewedAt: now,
+        fieldReviews: currentReview.fieldReviews || {},
+      };
+
+      const nextPayload = buildPayloadWithReview(existing.payload, nextReviewState);
+      const updated = await nocFormModel.updateByGroupId(groupId, {
+        payload: nextPayload,
+        submitted: true,
+        updated_by: reviewedBy || existing.updated_by || null,
+      });
+
+      return ApiResponse.success(res, 'NOC form approved successfully', {
+        groupId,
+        noc: updated,
+        reviewStatus: nextReviewState.status,
+        reviewFeedback: nextReviewState.feedback,
+      });
+    }
+
+    return performFormReview({
+      req,
+      res,
+      model: nocFormModel,
+      formLabel: 'NOC',
+      rowKey: 'noc',
+    });
+  } catch (error) {
+    return ApiResponse.error(res, error.message || 'Failed to review NOC form', 500);
+  }
 };
 
 export const reviewMentorTrackerByGroup = async (req, res) => {
