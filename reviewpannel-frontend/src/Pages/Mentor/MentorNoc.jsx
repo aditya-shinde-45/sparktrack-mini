@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../../api";
 import MentorSidebar from "../../Components/Mentor/MentorSidebar";
@@ -11,6 +11,7 @@ import {
   ChevronDown,
   AlertTriangle,
   Download,
+  ExternalLink,
 } from "lucide-react";
 
 const STATUS_STYLE = {
@@ -27,9 +28,274 @@ const STATUS_LABEL = {
   rejected: "Rejected",
 };
 
+const DOCUMENT_IDS = {
+  TRACKER: "project_tracker_sheet",
+  SYNOPSIS: "project_synopsis",
+  FINAL_REPORT: "final_project_report",
+  COPYRIGHT: "copyright_details",
+  PATENT: "patent_details",
+  PUBLICATION: "research_publication_details",
+  PPT: "project_presentation_ppt",
+  ACHIEVEMENTS: "achievements",
+  INTERNSHIP: "internship_reports",
+};
+
+const LEGACY_COMBINED_DOCUMENT_ID = "ip_patent_publication";
+const MAX_LINKED_ITEMS = 2;
+
+const DEFAULT_DOCUMENTS = [
+  {
+    id: DOCUMENT_IDS.TRACKER,
+    name: "Project Tracker Sheet (fully updated)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.SYNOPSIS,
+    name: "Project Synopsis",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.FINAL_REPORT,
+    name: "Final Project report / Success story (for internship)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.COPYRIGHT,
+    name: "Copyright Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.PATENT,
+    name: "Patent Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.PUBLICATION,
+    name: "Research Publication Details",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.PPT,
+    name: "Project Presentation PPT",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.ACHIEVEMENTS,
+    name: "Achievements",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+  {
+    id: DOCUMENT_IDS.INTERNSHIP,
+    name: "Internship joining report & Completion Report (If any)",
+    status: "",
+    proofFileName: "",
+    proofUrl: "",
+    proofKey: "",
+  },
+];
+
 const asText = (value) => {
   if (value === null || value === undefined) return "";
   return String(value).trim();
+};
+
+const asRecord = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value;
+};
+
+const asList = (value) => (Array.isArray(value) ? value : []);
+
+const displayValue = (value) => {
+  const text = asText(value);
+  return text || "-";
+};
+
+const formatDate = (value) => {
+  const raw = asText(value);
+  if (!raw) return "-";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString();
+};
+
+const ensureRows = (rows, minimum, createItem) => {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  if (safeRows.length >= minimum) return safeRows;
+
+  return [
+    ...safeRows,
+    ...Array.from({ length: minimum - safeRows.length }, (_, index) =>
+      createItem(safeRows.length + index)
+    ),
+  ];
+};
+
+const createPublicationDetailItem = () => ({
+  paperTitle: "",
+  journalName: "",
+  year: "",
+  authors: "",
+  url: "",
+  doi: "",
+  volume: "",
+  pageNo: "",
+  publisher: "",
+  proofFileName: "",
+  proofUrl: "",
+  proofKey: "",
+});
+
+const createPatentDetailItem = () => ({
+  title: "",
+  inventors: "",
+  applicationNo: "",
+  patentNumber: "",
+  filingCountry: "",
+  subjectCategory: "",
+  filingDate: "",
+  publicationDate: "",
+  publicationStatus: "",
+  proofFileName: "",
+  proofUrl: "",
+  proofKey: "",
+});
+
+const createCopyrightDetailItem = () => ({
+  titleOfWork: "",
+  nameOfApplicants: "",
+  registrationNo: "",
+  dairyNumber: "",
+  date: "",
+  status: "",
+  proofFileName: "",
+  proofUrl: "",
+  proofKey: "",
+});
+
+const createEventParticipationItem = () => ({
+  nameOfEvent: "",
+  typeOfEvent: "Institute",
+  date: "",
+  typeOfParticipation: "",
+  detailsOfPrizeWon: "",
+  proofFileName: "",
+  proofUrl: "",
+  proofKey: "",
+});
+
+const isAuthErrorMessage = (message = "") => {
+  const lowered = asText(message).toLowerCase();
+  return (
+    lowered.includes("unauthorized") ||
+    lowered.includes("forbidden") ||
+    lowered.includes("token") ||
+    lowered.includes("authentication")
+  );
+};
+
+const normalizeDocuments = (rawDocuments) => {
+  const incomingDocs = asList(rawDocuments);
+  const incomingById = new Map();
+
+  incomingDocs.forEach((doc, index) => {
+    if (!doc || typeof doc !== "object") return;
+    const fallbackId = DEFAULT_DOCUMENTS[index]?.id;
+    const id = asText(doc.id || fallbackId);
+    if (!id) return;
+    incomingById.set(id, doc);
+  });
+
+  const legacyCombinedDoc = incomingById.get(LEGACY_COMBINED_DOCUMENT_ID);
+  if (legacyCombinedDoc) {
+    [DOCUMENT_IDS.COPYRIGHT, DOCUMENT_IDS.PATENT, DOCUMENT_IDS.PUBLICATION].forEach((id) => {
+      if (!incomingById.has(id)) {
+        incomingById.set(id, legacyCombinedDoc);
+      }
+    });
+  }
+
+  return DEFAULT_DOCUMENTS.map((defaultDoc) => {
+    const incoming = incomingById.get(defaultDoc.id) || {};
+    const proofUrl = asText(incoming.proofUrl);
+
+    return {
+      ...defaultDoc,
+      ...incoming,
+      id: defaultDoc.id,
+      name: defaultDoc.name,
+      status: asText(incoming.status) || (proofUrl ? "Submitted" : ""),
+      proofFileName: asText(incoming.proofFileName),
+      proofUrl,
+      proofKey: asText(incoming.proofKey),
+    };
+  });
+};
+
+const normalizeNocPayload = (rawPayload) => {
+  const payload = asRecord(rawPayload);
+
+  return {
+    certificateDate: asText(payload.certificateDate),
+    concludingRemark: asText(payload.concludingRemark),
+    guideSignatureName: asText(payload.guideSignatureName),
+    documents: normalizeDocuments(payload.documents),
+    publicationDetails: ensureRows(payload.publicationDetails, 1, createPublicationDetailItem)
+      .slice(0, MAX_LINKED_ITEMS)
+      .map((row) => ({
+        ...createPublicationDetailItem(),
+        ...asRecord(row),
+      })),
+    patentDetails: ensureRows(payload.patentDetails, 1, createPatentDetailItem)
+      .slice(0, MAX_LINKED_ITEMS)
+      .map((row) => ({
+        ...createPatentDetailItem(),
+        ...asRecord(row),
+      })),
+    copyrightDetails: ensureRows(payload.copyrightDetails, 1, createCopyrightDetailItem)
+      .slice(0, MAX_LINKED_ITEMS)
+      .map((row) => ({
+        ...createCopyrightDetailItem(),
+        ...asRecord(row),
+      })),
+    eventParticipationDetails: ensureRows(payload.eventParticipationDetails, 1, createEventParticipationItem)
+      .slice(0, MAX_LINKED_ITEMS)
+      .map((row) => ({
+        ...createEventParticipationItem(),
+        ...asRecord(row),
+      })),
+    mentorReview: asRecord(payload.mentorReview),
+  };
+};
+
+const hasRowContent = (row = {}, keys = []) => {
+  const hasFieldValue = keys.some((key) => asText(row?.[key]));
+  const hasProof = Boolean(asText(row?.proofUrl) || asText(row?.proofFileName) || asText(row?.proofKey));
+  return hasFieldValue || hasProof;
 };
 
 const formatDateTime = (value) => {
@@ -65,29 +331,67 @@ const MentorNoc = () => {
   const [reviewingFieldId, setReviewingFieldId] = useState("");
   const [fieldFeedbackById, setFieldFeedbackById] = useState({});
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
+  const listRequestRef = useRef(0);
+  const detailRequestRef = useRef(0);
 
   const token = localStorage.getItem("mentor_token") || localStorage.getItem("token");
+
+  const resolveErrorMessage = (error, fallback) => asText(error?.message) || fallback;
+
+  const handleAuthRedirectIfNeeded = (message) => {
+    if (!isAuthErrorMessage(message)) return false;
+    navigate("/pblmanagementfacultydashboardlogin");
+    return true;
+  };
 
   const loadProgressList = async (keepSelection = true) => {
     if (!token) return;
 
+    const requestId = ++listRequestRef.current;
+
     try {
       setLoadingList(true);
+      setStatusMessage((prev) => (prev.type ? { type: "", text: "" } : prev));
+
       const res = await apiRequest("/api/mentors/forms/noc", "GET", null, token);
-      const nextGroups = res?.groups || res?.data?.groups || [];
-      setGroups(Array.isArray(nextGroups) ? nextGroups : []);
+
+      if (!res?.success) {
+        throw new Error(res?.message || "Unable to load NOC progress right now.");
+      }
+
+      const rawGroups = res?.groups || res?.data?.groups || [];
+      const nextGroups = Array.isArray(rawGroups) ? rawGroups : [];
+
+      if (requestId !== listRequestRef.current) {
+        return;
+      }
+
+      setGroups(nextGroups);
 
       if (!keepSelection || !selectedGroupId || !nextGroups.some((g) => g.groupId === selectedGroupId)) {
         setSelectedGroupId(nextGroups?.[0]?.groupId || "");
       }
     } catch (error) {
+      if (requestId !== listRequestRef.current) {
+        return;
+      }
+
+      const message = resolveErrorMessage(error, "Unable to load NOC progress right now.");
+      if (handleAuthRedirectIfNeeded(message)) {
+        return;
+      }
+
       setGroups([]);
+      setSelectedGroupId("");
+      setGroupDetail(null);
       setStatusMessage({
         type: "error",
-        text: error?.message || "Unable to load NOC progress right now.",
+        text: message,
       });
     } finally {
-      setLoadingList(false);
+      if (requestId === listRequestRef.current) {
+        setLoadingList(false);
+      }
     }
   };
 
@@ -97,26 +401,58 @@ const MentorNoc = () => {
       return;
     }
 
+    const requestId = ++detailRequestRef.current;
+
     try {
       setLoadingDetail(true);
+      setStatusMessage((prev) => (prev.type === "error" ? { type: "", text: "" } : prev));
+
       const res = await apiRequest(`/api/mentors/forms/noc/${groupId}`, "GET", null, token);
+
+      if (!res?.success) {
+        throw new Error(res?.message || "Unable to load selected NOC form.");
+      }
+
+      const rawNoc = res?.noc || res?.data?.noc || null;
+      const normalizedNoc = rawNoc
+        ? {
+            ...rawNoc,
+            payload: normalizeNocPayload(rawNoc?.payload),
+          }
+        : null;
+
+      if (requestId !== detailRequestRef.current) {
+        return;
+      }
+
       setGroupDetail({
         groupId,
         teamName: res?.teamName || res?.data?.teamName || "",
         members: res?.members || res?.data?.members || [],
-        noc: res?.noc || res?.data?.noc || null,
+        noc: normalizedNoc,
         reviewStatus: res?.reviewStatus || res?.data?.reviewStatus || "draft",
         reviewFeedback: res?.reviewFeedback || res?.data?.reviewFeedback || "",
       });
       setFieldFeedbackById({});
     } catch (error) {
+      if (requestId !== detailRequestRef.current) {
+        return;
+      }
+
+      const message = resolveErrorMessage(error, "Unable to load selected NOC form.");
+      if (handleAuthRedirectIfNeeded(message)) {
+        return;
+      }
+
       setGroupDetail(null);
       setStatusMessage({
         type: "error",
-        text: error?.message || "Unable to load selected NOC form.",
+        text: message,
       });
     } finally {
-      setLoadingDetail(false);
+      if (requestId === detailRequestRef.current) {
+        setLoadingDetail(false);
+      }
     }
   };
 
@@ -133,11 +469,11 @@ const MentorNoc = () => {
     });
 
     loadProgressList(false);
-  }, [navigate]);
+  }, [navigate, token]);
 
   useEffect(() => {
     loadGroupDetail(selectedGroupId);
-  }, [selectedGroupId]);
+  }, [selectedGroupId, token]);
 
   const stats = useMemo(() => {
     const list = Array.isArray(groups) ? groups : [];
@@ -149,20 +485,66 @@ const MentorNoc = () => {
     };
   }, [groups]);
 
+  const nocPayload = useMemo(() => {
+    return normalizeNocPayload(groupDetail?.noc?.payload);
+  }, [groupDetail?.noc?.payload]);
+
   const documents = useMemo(() => {
-    const payload = groupDetail?.noc?.payload;
-    const docs = Array.isArray(payload?.documents) ? payload.documents : [];
-    return docs;
-  }, [groupDetail]);
+    return asList(nocPayload?.documents);
+  }, [nocPayload]);
+
+  const publicationDetails = useMemo(() => {
+    return asList(nocPayload?.publicationDetails).filter((row) =>
+      hasRowContent(row, [
+        "paperTitle",
+        "journalName",
+        "year",
+        "authors",
+        "url",
+        "doi",
+        "volume",
+        "pageNo",
+        "publisher",
+      ])
+    );
+  }, [nocPayload]);
+
+  const patentDetails = useMemo(() => {
+    return asList(nocPayload?.patentDetails).filter((row) =>
+      hasRowContent(row, [
+        "title",
+        "inventors",
+        "applicationNo",
+        "patentNumber",
+        "filingCountry",
+        "subjectCategory",
+        "filingDate",
+        "publicationDate",
+        "publicationStatus",
+      ])
+    );
+  }, [nocPayload]);
+
+  const copyrightDetails = useMemo(() => {
+    return asList(nocPayload?.copyrightDetails).filter((row) =>
+      hasRowContent(row, ["titleOfWork", "nameOfApplicants", "registrationNo", "dairyNumber", "date", "status"])
+    );
+  }, [nocPayload]);
+
+  const eventParticipationDetails = useMemo(() => {
+    return asList(nocPayload?.eventParticipationDetails).filter((row) =>
+      hasRowContent(row, ["nameOfEvent", "typeOfEvent", "date", "typeOfParticipation", "detailsOfPrizeWon"])
+    );
+  }, [nocPayload]);
 
   const submittedDocumentsCount = useMemo(() => {
-    return documents.filter((doc) => asText(doc?.proofUrl)).length;
+    return documents.filter((doc) => hasDocumentSubmission(doc)).length;
   }, [documents]);
 
   const fieldReviewsById = useMemo(() => {
-    const fieldReviews = groupDetail?.noc?.payload?.mentorReview?.fieldReviews;
+    const fieldReviews = nocPayload?.mentorReview?.fieldReviews;
     return fieldReviews && typeof fieldReviews === "object" ? fieldReviews : {};
-  }, [groupDetail]);
+  }, [nocPayload]);
 
   const submittedDocuments = useMemo(
     () => documents.filter((doc) => hasDocumentSubmission(doc)),
@@ -178,8 +560,20 @@ const MentorNoc = () => {
     submittedDocuments.length > 0 &&
     submittedDocuments.every((doc) => fieldReviewsById[doc.id]?.status === "approved");
 
+  const hasAnyDetailedSection =
+    publicationDetails.length > 0 ||
+    patentDetails.length > 0 ||
+    copyrightDetails.length > 0 ||
+    eventParticipationDetails.length > 0;
+
   const handleFieldReview = async (doc, decision) => {
-    if (!selectedGroupId || !canReview) return;
+    if (!selectedGroupId || !canReview) {
+      setStatusMessage({
+        type: "warning",
+        text: "Field review is available only when NOC is pending or rejected.",
+      });
+      return;
+    }
 
     const documentId = asText(doc?.id);
     if (!documentId) {
@@ -215,13 +609,27 @@ const MentorNoc = () => {
 
       await loadProgressList(true);
       await loadGroupDetail(selectedGroupId);
+
+      setStatusMessage({
+        type: "success",
+        text:
+          decision === "approved"
+            ? `${doc?.name || "Document"} accepted successfully.`
+            : `${doc?.name || "Document"} rejected with feedback.`,
+      });
+
       if (decision === "approved") {
         setFieldFeedbackById((prev) => ({ ...prev, [documentId]: "" }));
       }
     } catch (error) {
+      const message = resolveErrorMessage(error, "Unable to submit field review decision.");
+      if (handleAuthRedirectIfNeeded(message)) {
+        return;
+      }
+
       setStatusMessage({
         type: "error",
-        text: error?.message || "Unable to submit field review decision.",
+        text: message,
       });
     } finally {
       setReviewingFieldId("");
@@ -248,10 +656,20 @@ const MentorNoc = () => {
 
       await loadProgressList(true);
       await loadGroupDetail(selectedGroupId);
+
+      setStatusMessage({
+        type: "success",
+        text: "NOC form approved successfully.",
+      });
     } catch (error) {
+      const message = resolveErrorMessage(error, "Unable to finalize NOC approval.");
+      if (handleAuthRedirectIfNeeded(message)) {
+        return;
+      }
+
       setStatusMessage({
         type: "error",
-        text: error?.message || "Unable to finalize NOC approval.",
+        text: message,
       });
     } finally {
       setReviewing(false);
@@ -319,10 +737,14 @@ const MentorNoc = () => {
               </div>
             </div>
 
-            {statusMessage.text && statusMessage.type === "error" && (
+            {statusMessage.text && (
               <div
                 className={`rounded-xl border px-4 py-3 text-sm font-medium ${
-                  "bg-red-50 border-red-200 text-red-800"
+                  statusMessage.type === "success"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : statusMessage.type === "warning"
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-red-50 border-red-200 text-red-800"
                 }`}
               >
                 {statusMessage.text}
@@ -432,8 +854,8 @@ const MentorNoc = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {(groupDetail.members || []).map((member) => (
-                              <tr key={member.enrollment_no || member.enrollement_no} className="border-t border-gray-100">
+                            {(groupDetail.members || []).map((member, index) => (
+                              <tr key={`${member.enrollment_no || member.enrollement_no || "member"}-${index}`} className="border-t border-gray-100">
                                 <td className="px-3 py-2 text-gray-700">{member.enrollment_no || member.enrollement_no || "-"}</td>
                                 <td className="px-3 py-2 text-gray-900 font-medium">{member.name_of_student || member.student_name || "-"}</td>
                               </tr>
@@ -441,6 +863,249 @@ const MentorNoc = () => {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800 mb-2">Submitted NOC Fields</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+                          <p className="text-[11px] text-gray-500 font-semibold">Certificate Date</p>
+                          <p className="text-sm font-semibold text-gray-800 mt-1">
+                            {formatDate(nocPayload?.certificateDate)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
+                          <p className="text-[11px] text-gray-500 font-semibold">Guide Signature Name</p>
+                          <p className="text-sm font-semibold text-gray-800 mt-1">
+                            {displayValue(nocPayload?.guideSignatureName)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 md:col-span-2">
+                          <p className="text-[11px] text-gray-500 font-semibold">Concluding Remark</p>
+                          <p className="text-sm text-gray-800 mt-1 whitespace-pre-wrap break-words">
+                            {displayValue(nocPayload?.concludingRemark)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800 mb-2">Detailed Section Entries</h3>
+
+                      {hasAnyDetailedSection ? (
+                        <div className="space-y-4">
+                          {publicationDetails.length > 0 && (
+                            <div className="rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+                                Research Publication Details
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[980px] text-sm">
+                                  <thead className="bg-white text-gray-700">
+                                    <tr>
+                                      <th className="text-left px-3 py-2">Title</th>
+                                      <th className="text-left px-3 py-2">Journal</th>
+                                      <th className="text-left px-3 py-2">Year</th>
+                                      <th className="text-left px-3 py-2">Authors</th>
+                                      <th className="text-left px-3 py-2">DOI</th>
+                                      <th className="text-left px-3 py-2">URL</th>
+                                      <th className="text-left px-3 py-2">Proof</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {publicationDetails.map((item, index) => (
+                                      <tr key={`publication-${index}`} className="border-t border-gray-100">
+                                        <td className="px-3 py-2 text-gray-800">{displayValue(item.paperTitle)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.journalName)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.year)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.authors)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.doi)}</td>
+                                        <td className="px-3 py-2 text-gray-700">
+                                          {asText(item.url) ? (
+                                            <a
+                                              href={item.url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 text-purple-700 hover:underline font-semibold"
+                                            >
+                                              Open <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-700">
+                                          {asText(item.proofUrl) ? (
+                                            <a
+                                              href={item.proofUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 text-purple-700 hover:underline font-semibold"
+                                            >
+                                              View <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+
+                          {patentDetails.length > 0 && (
+                            <div className="rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+                                Patent Details
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[1080px] text-sm">
+                                  <thead className="bg-white text-gray-700">
+                                    <tr>
+                                      <th className="text-left px-3 py-2">Title</th>
+                                      <th className="text-left px-3 py-2">Inventors</th>
+                                      <th className="text-left px-3 py-2">Application No.</th>
+                                      <th className="text-left px-3 py-2">Patent No.</th>
+                                      <th className="text-left px-3 py-2">Filing Country</th>
+                                      <th className="text-left px-3 py-2">Publication Status</th>
+                                      <th className="text-left px-3 py-2">Proof</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {patentDetails.map((item, index) => (
+                                      <tr key={`patent-${index}`} className="border-t border-gray-100">
+                                        <td className="px-3 py-2 text-gray-800">{displayValue(item.title)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.inventors)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.applicationNo)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.patentNumber)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.filingCountry)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.publicationStatus)}</td>
+                                        <td className="px-3 py-2 text-gray-700">
+                                          {asText(item.proofUrl) ? (
+                                            <a
+                                              href={item.proofUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 text-purple-700 hover:underline font-semibold"
+                                            >
+                                              View <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+
+                          {copyrightDetails.length > 0 && (
+                            <div className="rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+                                Copyright Details
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[980px] text-sm">
+                                  <thead className="bg-white text-gray-700">
+                                    <tr>
+                                      <th className="text-left px-3 py-2">Title Of Work</th>
+                                      <th className="text-left px-3 py-2">Applicants</th>
+                                      <th className="text-left px-3 py-2">Registration No.</th>
+                                      <th className="text-left px-3 py-2">Dairy No.</th>
+                                      <th className="text-left px-3 py-2">Date</th>
+                                      <th className="text-left px-3 py-2">Status</th>
+                                      <th className="text-left px-3 py-2">Proof</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {copyrightDetails.map((item, index) => (
+                                      <tr key={`copyright-${index}`} className="border-t border-gray-100">
+                                        <td className="px-3 py-2 text-gray-800">{displayValue(item.titleOfWork)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.nameOfApplicants)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.registrationNo)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.dairyNumber)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{formatDate(item.date)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.status)}</td>
+                                        <td className="px-3 py-2 text-gray-700">
+                                          {asText(item.proofUrl) ? (
+                                            <a
+                                              href={item.proofUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 text-purple-700 hover:underline font-semibold"
+                                            >
+                                              View <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+
+                          {eventParticipationDetails.length > 0 && (
+                            <div className="rounded-xl border border-gray-200 overflow-hidden">
+                              <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+                                Event Participation (Achievements)
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full min-w-[980px] text-sm">
+                                  <thead className="bg-white text-gray-700">
+                                    <tr>
+                                      <th className="text-left px-3 py-2">Event</th>
+                                      <th className="text-left px-3 py-2">Level</th>
+                                      <th className="text-left px-3 py-2">Date</th>
+                                      <th className="text-left px-3 py-2">Participation</th>
+                                      <th className="text-left px-3 py-2">Prize/Details</th>
+                                      <th className="text-left px-3 py-2">Proof</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {eventParticipationDetails.map((item, index) => (
+                                      <tr key={`event-${index}`} className="border-t border-gray-100">
+                                        <td className="px-3 py-2 text-gray-800">{displayValue(item.nameOfEvent)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.typeOfEvent)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{formatDate(item.date)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.typeOfParticipation)}</td>
+                                        <td className="px-3 py-2 text-gray-700">{displayValue(item.detailsOfPrizeWon)}</td>
+                                        <td className="px-3 py-2 text-gray-700">
+                                          {asText(item.proofUrl) ? (
+                                            <a
+                                              href={item.proofUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 text-purple-700 hover:underline font-semibold"
+                                            >
+                                              View <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                          ) : (
+                                            "-"
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-sm text-gray-600">
+                          No detailed section entries were submitted yet for publication, patent, copyright, or achievements.
+                        </div>
+                      )}
                     </div>
 
                     <div>

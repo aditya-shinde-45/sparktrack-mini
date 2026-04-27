@@ -650,6 +650,7 @@ export const openPdfPreviewWindow = ({
   blob,
   fileName = "tracker-sheet.pdf",
   previewWindow = null,
+  allowDownload = true,
 }) => {
   let targetWindow = previewWindow && !previewWindow.closed ? previewWindow : null;
 
@@ -664,6 +665,25 @@ export const openPdfPreviewWindow = ({
   }
 
   const pdfUrl = URL.createObjectURL(blob);
+  const toolbarFlag = allowDownload ? "1" : "0";
+  const footerMarkup = allowDownload
+    ? `<div class="footer">
+    <button id="download-btn" class="download-btn" type="button">Download PDF</button>
+  </div>`
+    : "";
+  const downloadScript = allowDownload
+    ? `const downloadButton = document.getElementById('download-btn');
+    if (downloadButton) {
+      downloadButton.addEventListener('click', function () {
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
+    }`
+    : "";
 
   targetWindow.document.write(`<!doctype html>
 <html>
@@ -681,23 +701,14 @@ export const openPdfPreviewWindow = ({
 </head>
 <body>
   <div class="viewer">
-    <iframe src="${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1"></iframe>
+    <iframe src="${pdfUrl}#toolbar=${toolbarFlag}&navpanes=0&scrollbar=1"></iframe>
   </div>
-  <div class="footer">
-    <button id="download-btn" class="download-btn" type="button">Download PDF</button>
-  </div>
+  ${footerMarkup}
   <script>
     const pdfUrl = ${JSON.stringify(pdfUrl)};
     const fileName = ${JSON.stringify(safeFileName)};
 
-    document.getElementById('download-btn').addEventListener('click', function () {
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+    ${downloadScript}
 
     window.addEventListener('beforeunload', function () {
       try {
