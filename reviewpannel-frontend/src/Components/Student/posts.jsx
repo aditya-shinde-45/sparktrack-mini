@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../api";
-import { X, ChevronLeft, ChevronRight, Heart, Clock3 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 
 const StudentPosts = ({ 
   isModalOpen = false, 
@@ -10,8 +10,6 @@ const StudentPosts = ({
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [likedPosts, setLikedPosts] = useState(new Set());
-  const [likingPosts, setLikingPosts] = useState(new Set());
   const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const [viewedPosts, setViewedPosts] = useState(new Set());
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -66,90 +64,6 @@ const StudentPosts = ({
       setMessage("Error fetching posts");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Handle like/unlike post
-  const handleLikePost = async (postId) => {
-    if (likingPosts.has(postId)) {
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("student_token");
-      
-      if (!token) {
-        setMessage("Please login to like posts");
-        return;
-      }
-
-      setLikingPosts(prev => new Set(prev).add(postId));
-
-      const isLiked = likedPosts.has(postId);
-      const action = isLiked ? "unlike" : "like";
-
-      // Optimistic update
-      const newLikedPosts = new Set(likedPosts);
-      if (isLiked) {
-        newLikedPosts.delete(postId);
-      } else {
-        newLikedPosts.add(postId);
-      }
-      setLikedPosts(newLikedPosts);
-
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
-          post._id === postId 
-            ? { 
-                ...post, 
-                likes: isLiked ? Math.max((post.likes || 1) - 1, 0) : (post.likes || 0) + 1 
-              }
-            : post
-        )
-      );
-
-      const data = await apiRequest(
-        `/api/admin/posts/${postId}/like`, 
-        "POST", 
-        { action }, 
-        token
-      );
-      
-      if (!data.success) {
-        // Revert on error
-        setLikedPosts(likedPosts);
-        setPosts(prevPosts => 
-          prevPosts.map(post => 
-            post._id === postId 
-              ? { 
-                  ...post, 
-                  likes: isLiked ? (post.likes || 0) + 1 : Math.max((post.likes || 1) - 1, 0)
-                }
-              : post
-          )
-        );
-        setMessage(data.message || "Failed to update like status");
-      }
-    } catch (error) {
-      // Revert on error
-      setLikedPosts(likedPosts);
-      setPosts(prevPosts => 
-        prevPosts.map(post => 
-          post._id === postId 
-            ? { 
-                ...post, 
-                likes: likedPosts.has(postId) ? (post.likes || 0) + 1 : Math.max((post.likes || 1) - 1, 0)
-              }
-            : post
-        )
-      );
-      setMessage("Like feature temporarily unavailable");
-    } finally {
-      setLikingPosts(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(postId);
-        return newSet;
-      });
     }
   };
 
@@ -366,29 +280,7 @@ const StudentPosts = ({
 
             {/* Card Footer */}
             <div className="bg-gray-50/80 backdrop-blur-sm p-4 sm:p-6 border-t border-gray-200/50">
-              <div className="flex items-center justify-between gap-3">
-                {/* Like Button - Left */}
-                <button
-                  onClick={() => handleLikePost(currentPost._id)}
-                  disabled={likingPosts.has(currentPost._id)}
-                  className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all duration-200 transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 shadow-md ${
-                    likedPosts.has(currentPost._id)
-                      ? "bg-red-500 text-white hover:bg-red-600" 
-                      : "bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 border border-gray-200"
-                  }`}
-                >
-                  {likingPosts.has(currentPost._id) ? (
-                    <div className="w-6 h-6 relative">
-                      <div className="absolute inset-0 rounded-full border-2 border-white/30"></div>
-                      <div className="absolute inset-0 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
-                    </div>
-                  ) : (
-                    <Heart className={`w-5 h-5 sm:w-6 sm:h-6 transition-all duration-200 ${likedPosts.has(currentPost._id) ? 'fill-current' : ''}`} />
-                  )}
-                  <span className="font-semibold text-base sm:text-lg">{currentPost.likes || 0}</span>
-                </button>
-                
-                {/* Date - Right */}
+              <div className="flex items-center justify-end gap-3">
                 <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-xl shadow-md border border-gray-200">
                   <Clock3 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                   <span className="text-gray-600 text-xs sm:text-sm font-medium">

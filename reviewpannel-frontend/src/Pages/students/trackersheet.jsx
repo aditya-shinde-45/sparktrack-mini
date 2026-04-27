@@ -21,6 +21,40 @@ import {
   downloadPdfBlob,
 } from "../../utils/trackerSheetPdf";
 
+const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const TRACKER_ALLOWED_FILE_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx"];
+
+const getFileExtension = (fileName = "") => {
+  const index = String(fileName).lastIndexOf(".");
+  if (index < 0) return "";
+  return String(fileName).slice(index).toLowerCase();
+};
+
+const isAllowedFileType = (file, allowedExtensions = TRACKER_ALLOWED_FILE_EXTENSIONS) => {
+  const extension = getFileExtension(file?.name || "");
+  return allowedExtensions.includes(extension);
+};
+
+const buildUploadRuleLabel = (allowedExtensions = TRACKER_ALLOWED_FILE_EXTENSIONS) =>
+  `${allowedExtensions.map((ext) => ext.replace(".", "").toUpperCase()).join(", ")} | Max ${MAX_UPLOAD_SIZE_MB}MB`;
+
+const validateSelectedFile = (file, allowedExtensions = TRACKER_ALLOWED_FILE_EXTENSIONS) => {
+  if (!file) return null;
+
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    return `File size must be ${MAX_UPLOAD_SIZE_MB}MB or less.`;
+  }
+
+  if (!isAllowedFileType(file, allowedExtensions)) {
+    return `Only ${allowedExtensions
+      .map((ext) => ext.replace(".", "").toUpperCase())
+      .join(", ")} files are allowed.`;
+  }
+
+  return null;
+};
+
 const createSprintItem = (index = 0) => ({
   sprintName: `Sprint ${index + 1}`,
   startDate: "",
@@ -351,6 +385,32 @@ const parseTimestamp = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const mergeSharedRowsPreservingProof = (baseRows = [], incomingRows = []) => {
+  const safeBaseRows = Array.isArray(baseRows) ? baseRows : [];
+  const safeIncomingRows = Array.isArray(incomingRows) ? incomingRows : [];
+  const rowCount = Math.max(safeBaseRows.length, safeIncomingRows.length, 1);
+
+  return Array.from({ length: rowCount }, (_, index) => {
+    const baseRow =
+      safeBaseRows[index] && typeof safeBaseRows[index] === "object" ? safeBaseRows[index] : {};
+    const incomingRow =
+      safeIncomingRows[index] && typeof safeIncomingRows[index] === "object"
+        ? safeIncomingRows[index]
+        : {};
+
+    return {
+      ...baseRow,
+      ...incomingRow,
+      proofFileName: asText(incomingRow?.proofFileName) || asText(baseRow?.proofFileName),
+      proofUrl: asText(incomingRow?.proofUrl) || asText(baseRow?.proofUrl),
+      proofKey: asText(incomingRow?.proofKey) || asText(baseRow?.proofKey),
+    };
+  });
+};
+
+const getTrackerDraftStorageKey = (enrollmentNo = "") =>
+  `student_tracker_draft_${asText(enrollmentNo).toUpperCase() || "UNKNOWN"}`;
+
 const buildAchievementsSummaryFromEvents = (eventRows = []) => {
   const values = ensureMinimumItems(eventRows, 0, createEventParticipationItem)
     .map((item) => asText(item?.nameOfEvent || item?.detailsOfPrizeWon))
@@ -608,6 +668,11 @@ const TrackerSheet = () => {
     const fetchStudent = async () => {
       try {
         const profileRes = await apiRequest("/api/student-auth/profile", "GET", null, token);
+
+        if (!profileRes?.success) {
+          throw new Error(profileRes?.message || "Unable to load student profile");
+        }
+
         const profileData = profileRes?.data?.profile || profileRes?.profile || null;
 
         if (!profileData) {
@@ -617,6 +682,18 @@ const TrackerSheet = () => {
 
         setStudent(profileData);
 
+        const localDraftKey = getTrackerDraftStorageKey(profileData?.enrollment_no);
+        let localDraft = null;
+        try {
+          const rawLocalDraft = localStorage.getItem(localDraftKey);
+          const parsedLocalDraft = rawLocalDraft ? JSON.parse(rawLocalDraft) : null;
+          if (parsedLocalDraft && typeof parsedLocalDraft === "object") {
+            localDraft = parsedLocalDraft;
+          }
+        } catch (storageError) {
+          console.warn("Unable to parse local tracker draft backup:", storageError);
+        }
+
         try {
           const groupRes = await apiRequest(
             `/api/students/student/group-details/${profileData.enrollment_no}`,
@@ -624,6 +701,11 @@ const TrackerSheet = () => {
             null,
             token
           );
+
+          if (!groupRes?.success) {
+            throw new Error(groupRes?.message || "Unable to load group details");
+          }
+
           const groupData = groupRes?.data?.group || groupRes?.group || null;
           const detectedGroupId = groupData?.group_id || "";
           setGroupId(detectedGroupId);
@@ -634,6 +716,11 @@ const TrackerSheet = () => {
 
         try {
           const trackerRes = await apiRequest("/api/students/tracker-sheet/me", "GET", null, token);
+
+          if (!trackerRes?.success) {
+            throw new Error(trackerRes?.message || "Unable to load tracker sheet");
+          }
+
           const trackerRecord = trackerRes?.data?.tracker || trackerRes?.tracker || null;
           const trackerPayload = trackerRecord?.payload || null;
           const trackerSubmissionState =
@@ -644,6 +731,11 @@ const TrackerSheet = () => {
 
           try {
             const nocRes = await apiRequest("/api/students/noc/me", "GET", null, token);
+
+            if (!nocRes?.success) {
+              throw new Error(nocRes?.message || "Unable to load NOC shared details");
+            }
+
             const nocPayload = nocRes?.data?.noc?.payload || nocRes?.noc?.payload || null;
 
             if (nocPayload && typeof nocPayload === "object") {
@@ -655,10 +747,22 @@ const TrackerSheet = () => {
               if (nocHasShared && (nocSharedStamp > trackerSharedStamp || !trackerHasShared)) {
                 mergedTrackerPayload = normalizeTrackerDraft({
                   ...mergedTrackerPayload,
-                  publicationDetails: nocPayload?.publicationDetails,
-                  patentDetails: nocPayload?.patentDetails,
-                  copyrightDetails: nocPayload?.copyrightDetails,
-                  eventParticipationDetails: nocPayload?.eventParticipationDetails,
+                  publicationDetails: mergeSharedRowsPreservingProof(
+                    mergedTrackerPayload?.publicationDetails,
+                    nocPayload?.publicationDetails
+                  ),
+                  patentDetails: mergeSharedRowsPreservingProof(
+                    mergedTrackerPayload?.patentDetails,
+                    nocPayload?.patentDetails
+                  ),
+                  copyrightDetails: mergeSharedRowsPreservingProof(
+                    mergedTrackerPayload?.copyrightDetails,
+                    nocPayload?.copyrightDetails
+                  ),
+                  eventParticipationDetails: mergeSharedRowsPreservingProof(
+                    mergedTrackerPayload?.eventParticipationDetails,
+                    nocPayload?.eventParticipationDetails
+                  ),
                   sharedDetailsUpdatedAt:
                     nocPayload?.sharedDetailsUpdatedAt ||
                     mergedTrackerPayload?.sharedDetailsUpdatedAt ||
@@ -674,6 +778,20 @@ const TrackerSheet = () => {
             }
           } catch (nocSyncError) {
             console.warn("Unable to load NOC shared details for tracker sync:", nocSyncError);
+          }
+
+          if (localDraft?.formData && typeof localDraft.formData === "object") {
+            const localDraftData = normalizeTrackerDraft(localDraft.formData);
+            const serverStamp = parseTimestamp(mergedTrackerPayload?.sharedDetailsUpdatedAt);
+            const localStamp = parseTimestamp(localDraftData?.sharedDetailsUpdatedAt);
+
+            if (localStamp > serverStamp) {
+              mergedTrackerPayload = localDraftData;
+              setStatusMessage({
+                type: "warning",
+                text: "Recovered your latest unsynced tracker draft from this device. Please save once to sync with server.",
+              });
+            }
           }
 
           setFormData(mergedTrackerPayload);
@@ -693,7 +811,25 @@ const TrackerSheet = () => {
         }
       } catch (error) {
         console.error("Failed to load tracker sheet:", error);
-        navigate("/studentlogin");
+
+        const safeMessage = asText(error?.message).toLowerCase();
+        const isAuthIssue =
+          safeMessage.includes("unauthorized") ||
+          safeMessage.includes("authentication") ||
+          safeMessage.includes("token") ||
+          safeMessage.includes("forbidden");
+
+        if (isAuthIssue) {
+          navigate("/studentlogin");
+          return;
+        }
+
+        setStatusMessage({
+          type: "error",
+          text:
+            error?.message ||
+            "Unable to load tracker from server right now. Your local draft (if any) is preserved.",
+        });
       } finally {
         setLoading(false);
       }
@@ -701,6 +837,24 @@ const TrackerSheet = () => {
 
     fetchStudent();
   }, [navigate]);
+
+  useEffect(() => {
+    if (loading || !student?.enrollment_no) return;
+
+    try {
+      const draftKey = getTrackerDraftStorageKey(student.enrollment_no);
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          formData: normalizeTrackerDraft(formData),
+          submissionState,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    } catch (storageError) {
+      console.warn("Unable to cache tracker draft locally:", storageError);
+    }
+  }, [formData, submissionState, student?.enrollment_no, loading]);
 
   const isSYGroup = groupYear === "SY";
   const isTYOrLYGroup = groupYear === "TY" || groupYear === "LY";
@@ -907,6 +1061,16 @@ const TrackerSheet = () => {
   const isTrackerSubmitLocked = submissionState === "approved" && trackerAllFieldsFilled;
 
   const handleProofFileChange = (section, index, file) => {
+    const validationMessage = validateSelectedFile(file, TRACKER_ALLOWED_FILE_EXTENSIONS);
+
+    if (validationMessage) {
+      setStatusMessage({
+        type: "error",
+        text: `${validationMessage} (${buildUploadRuleLabel(TRACKER_ALLOWED_FILE_EXTENSIONS)})`,
+      });
+      return;
+    }
+
     setProofFiles((prev) => {
       const key = getProofFileKey(section, index);
 
@@ -1010,7 +1174,7 @@ const TrackerSheet = () => {
         form,
         token,
         true,
-        60000
+        120000
       );
 
       if (!uploadRes?.success) {
@@ -1037,6 +1201,11 @@ const TrackerSheet = () => {
 
   const syncSharedDetailsToNoc = async (token, trackerPayload) => {
     const nocRes = await apiRequest("/api/students/noc/me", "GET", null, token).catch(() => null);
+
+    if (nocRes && nocRes.success === false) {
+      throw new Error(nocRes?.message || "Unable to load NOC for shared-details sync");
+    }
+
     const existingNocPayload = nocRes?.data?.noc?.payload || nocRes?.noc?.payload || null;
 
     const normalizedNocPayload = normalizeNocPayloadForSync(existingNocPayload);
@@ -1050,7 +1219,7 @@ const TrackerSheet = () => {
       sharedDetailsUpdatedAt: trackerPayload?.sharedDetailsUpdatedAt || new Date().toISOString(),
     });
 
-    await apiRequest(
+    const syncRes = await apiRequest(
       "/api/students/noc/me",
       "PUT",
       {
@@ -1059,6 +1228,10 @@ const TrackerSheet = () => {
       },
       token
     );
+
+    if (!syncRes?.success) {
+      throw new Error(syncRes?.message || "Unable to sync shared details to NOC");
+    }
   };
 
   const persistTrackerSheet = async (submit = false) => {
@@ -1096,7 +1269,9 @@ const TrackerSheet = () => {
           formData: draftWithUploadedProofs,
           submit,
         },
-        token
+        token,
+        false,
+        submit ? 120000 : 60000
       );
 
       if (!saveRes?.success) {
@@ -1113,6 +1288,26 @@ const TrackerSheet = () => {
           saveRes?.submissionState ||
           (submit ? "pending_mentor_approval" : "draft")
       );
+
+      try {
+        if (student?.enrollment_no) {
+          const draftKey = getTrackerDraftStorageKey(student.enrollment_no);
+          localStorage.setItem(
+            draftKey,
+            JSON.stringify({
+              formData: normalizedPersistedPayload,
+              submissionState:
+                saveRes?.data?.submissionState ||
+                saveRes?.submissionState ||
+                (submit ? "pending_mentor_approval" : "draft"),
+              savedAt: new Date().toISOString(),
+              source: "server-confirmed",
+            })
+          );
+        }
+      } catch (storageError) {
+        console.warn("Unable to refresh local tracker draft backup:", storageError);
+      }
 
       let syncWarning = "";
       try {
@@ -1141,7 +1336,7 @@ const TrackerSheet = () => {
         type: "error",
         text:
           error?.message ||
-          "Unable to save to database right now. Please try again.",
+          "Unable to save tracker right now. Your entered data is preserved on this device. Please retry after a moment.",
       });
       return false;
     } finally {
